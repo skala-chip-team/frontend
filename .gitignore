@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Claude Code harness (로컬 전용 — git 제외)
+CLAUDE.local.md
+.worktrees/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
