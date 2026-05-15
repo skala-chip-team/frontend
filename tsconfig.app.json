@@ -16,7 +16,6 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
       "@apis/*": ["./src/apis/*"],
@@ -26,7 +25,7 @@
       "@pages/*": ["./src/pages/*"],
       "@routes/*": ["./src/routes/*"],
       "@stores/*": ["./src/stores/*"],
-      "@types/*": ["./src/types/*"],
+      "@customtypes/*": ["./src/types/*"],
       "@utils/*": ["./src/utils/*"],
       "@styles/*": ["./src/styles/*"]
     },
