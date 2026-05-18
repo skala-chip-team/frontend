@@ -15,7 +15,8 @@ dist-ssr
 # Claude Code harness (로컬 전용 — git 제외)
 CLAUDE.local.md
 .worktrees/
-docs/superpowers/plans/
+.superpowers/
+docs/superpowers/
 convention.md
 common-convention.md
 
