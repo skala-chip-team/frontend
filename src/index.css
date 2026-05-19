@@ -1,5 +1,90 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: 'Pretendard Variable', 'Pretendard', ui-sans-serif, system-ui, sans-serif;
+
+  --font-weight-thin: 100;
+  --font-weight-extralight: 200;
+  --font-weight-light: 300;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+  --font-weight-black: 900;
+
+  --shadow-xl: initial;
+  --shadow-2xl: initial;
+
+  --color-primary-50: #EDEDF9;
+  --color-primary-200: #AAB0FD;
+  --color-primary-400: #8089FF;
+  --color-primary-500: #6772FB;
+  --color-primary-600: #4450F7;
+  --color-point: #F93A3C;
+
+  --text-xs: initial;
+  --text-sm: initial;
+  --text-base: initial;
+  --text-lg: initial;
+  --text-xl: initial;
+  --text-2xl: initial;
+  --text-3xl: initial;
+  --text-4xl: initial;
+  --text-5xl: initial;
+  --text-6xl: initial;
+  --text-7xl: initial;
+  --text-8xl: initial;
+  --text-9xl: initial;
+
+  --text-heading-1: 36px;
+  --text-heading-1--line-height: 44px;
+  --text-heading-1--font-weight: 700;
+  --text-heading-2: 28px;
+  --text-heading-2--line-height: 36px;
+  --text-heading-2--font-weight: 700;
+  --text-heading-3: 22px;
+  --text-heading-3--line-height: 30px;
+  --text-heading-3--font-weight: 700;
+
+  --text-subtitle-1: 18px;
+  --text-subtitle-1--line-height: 26px;
+  --text-subtitle-1--font-weight: 600;
+  --text-subtitle-2: 16px;
+  --text-subtitle-2--line-height: 24px;
+  --text-subtitle-2--font-weight: 600;
+  --text-subtitle-3: 14px;
+  --text-subtitle-3--line-height: 20px;
+  --text-subtitle-3--font-weight: 600;
+
+  --text-body-1: 16px;
+  --text-body-1--line-height: 24px;
+  --text-body-1--font-weight: 400;
+  --text-body-2: 14px;
+  --text-body-2--line-height: 22px;
+  --text-body-2--font-weight: 400;
+  --text-body-3: 13px;
+  --text-body-3--line-height: 20px;
+  --text-body-3--font-weight: 400;
+
+  --text-label-1: 14px;
+  --text-label-1--line-height: 20px;
+  --text-label-1--font-weight: 500;
+  --text-label-2: 13px;
+  --text-label-2--line-height: 18px;
+  --text-label-2--font-weight: 500;
+  --text-label-3: 12px;
+  --text-label-3--line-height: 16px;
+  --text-label-3--font-weight: 500;
+
+  --text-caption-1: 12px;
+  --text-caption-1--line-height: 16px;
+  --text-caption-1--font-weight: 400;
+  --text-caption-2: 11px;
+  --text-caption-2--line-height: 14px;
+  --text-caption-2--font-weight: 400;
+}
+
 @layer base {
   * {
     box-sizing: border-box;
@@ -8,7 +93,7 @@
   }
 
   body {
-    font-family: 'Pretendard', sans-serif;
+    font-family: theme(--font-sans);
     -webkit-font-smoothing: antialiased;
   }
 }

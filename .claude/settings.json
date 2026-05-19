@@ -23,7 +23,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash /Users/jisung/Documents/frontend/.claude/hooks/pre-tool-use.sh"
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/pre-tool-use.sh"
           }
         ]
       }
@@ -34,7 +34,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash /Users/jisung/Documents/frontend/.claude/hooks/post-tool-use.sh"
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/post-tool-use.sh"
           }
         ]
       }
@@ -44,7 +44,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash /Users/jisung/Documents/frontend/.claude/hooks/stop.sh"
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/stop.sh"
           }
         ]
       }
