@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Home,
   Activity,
@@ -26,6 +27,23 @@ export function Sidebar() {
   const [open, setOpen] = useState(true);
   const [selected, setSelected] = useState('대시보드');
 
+  const navigate = useNavigate();
+
+  const handleMenuClick = (title: string) => {
+    setSelected(title);
+
+    switch (title) {
+      case '대시보드':
+        navigate('/');
+        break;
+      case '재조정 제안 관리':
+        navigate('/reschedule');
+        break;
+      default:
+        break;
+    }
+  };
+
   return (
     <nav
       className={`sticky top-0 h-screen shrink-0 overflow-hidden border-r border-gray-200 bg-white p-2 shadow-sm transition-all duration-300 ease-in-out ${
@@ -42,7 +60,7 @@ export function Sidebar() {
             title={item.title}
             notifs={item.notifs}
             selected={selected}
-            setSelected={setSelected}
+            onClick={handleMenuClick}
             open={open}
           />
         ))}
@@ -53,13 +71,14 @@ export function Sidebar() {
           <div className="px-3 py-2 text-label-3 uppercase tracking-wide text-gray-500">
             계정
           </div>
+
           {ACCOUNT_MENU.map((item) => (
             <Option
               key={item.title}
               icon={item.icon}
               title={item.title}
               selected={selected}
-              setSelected={setSelected}
+              onClick={handleMenuClick}
               open={open}
             />
           ))}
@@ -71,16 +90,16 @@ export function Sidebar() {
   );
 }
 
-function Option({ icon: Icon, title, selected, setSelected, open, notifs }: OptionProps) {
+function Option({ icon: Icon, title, selected, onClick, open, notifs }: OptionProps) {
   const isSelected = selected === title;
 
   return (
     <button
       type="button"
-      onClick={() => setSelected(title)}
+      onClick={() => onClick(title)}
       className={`relative flex h-11 w-full items-center rounded-md transition-all duration-200 ${
         isSelected
-          ? 'border-l-2 border-primary-600 bg-primary-50 text-primary-600 shadow-sm'
+          ? 'border-l-2 border-[#EA002C] bg-[#FFEAD6] text-gray-900 shadow-sm'
           : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
       }`}
     >
@@ -91,7 +110,7 @@ function Option({ icon: Icon, title, selected, setSelected, open, notifs }: Opti
       {open && <span className="whitespace-nowrap text-label-1">{title}</span>}
 
       {notifs !== undefined && open && (
-        <span className="absolute right-3 flex h-5 w-5 items-center justify-center rounded-full bg-primary-500 text-label-3 text-white">
+        <span className="absolute right-3 flex h-5 w-5 items-center justify-center rounded-full bg-[#EAE200] text-label-3 text-gray-900">
           {notifs}
         </span>
       )}
@@ -104,6 +123,7 @@ function TitleSection({ open }: TitleSectionProps) {
     <div className="mb-6 border-b border-gray-200 pb-4">
       <div className="flex items-center gap-3 p-2">
         <Logo />
+
         {open && (
           <span className="whitespace-nowrap text-subtitle-2 text-gray-900">
             chipScheduler
@@ -147,6 +167,7 @@ function ToggleClose({ open, setOpen }: ToggleCloseProps) {
             }`}
           />
         </div>
+
         {open && <span className="whitespace-nowrap text-label-1 text-gray-600">Hide</span>}
       </div>
     </button>

@@ -10,7 +10,7 @@ export interface OptionProps {
   icon: LucideIcon;
   title: string;
   selected: string;
-  setSelected: (title: string) => void;
+  onClick: (title: string) => void;
   open: boolean;
   notifs?: number;
 }

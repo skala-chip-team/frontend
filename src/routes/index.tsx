@@ -1,5 +1,10 @@
 import { createBrowserRouter } from 'react-router-dom';
-import { SidebarLayout } from '@components/common';
+
+import { SidebarLayout } from '@/components/common/Sidebar';
+
+import DashboardPage from '@/pages/DashboardPage';
+import ReschedulePage from '@/pages/ReschedulePage';
+import RescheduleDetailPage from '@/pages/RescheduleDetailPage';
 
 export const router = createBrowserRouter([
   {
@@ -8,12 +13,19 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: (
-          <div className="p-6">
-            <h1 className="text-heading-1 text-gray-900">Home</h1>
-            <p className="mt-1 text-body-1 text-gray-600">Welcome.</p>
-          </div>
-        ),
+        element: <DashboardPage />,
+      },
+      {
+        path: 'dashboard',
+        element: <DashboardPage />,
+      },
+      {
+        path: 'reschedule',
+        element: <ReschedulePage />,
+      },
+      {
+        path: 'reschedule/:proposalId',
+        element: <RescheduleDetailPage />,
       },
     ],
   },
