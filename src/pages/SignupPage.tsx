@@ -1,4 +1,5 @@
 import { Lock, Mail, ShieldCheck, User } from 'lucide-react';
+import InputBox from '@/components/common/InputBox/InputBox';
 
 export default function SignupPage() {
   return (
@@ -83,69 +84,33 @@ export default function SignupPage() {
             </div>
 
             <form className="space-y-5">
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  이름
-                </label>
+              <InputBox
+                label="이름"
+                icon={User}
+                type="text"
+                placeholder="이름을 입력해주세요"
+              />
 
-                <div className="flex h-12 items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 transition duration-200 focus-within:border-[#EA002C] focus-within:bg-white focus-within:shadow-[0_0_0_3px_rgba(234,0,44,0.08)]">
-                  <User className="h-4 w-4 text-gray-400" />
+              <InputBox
+                label="이메일"
+                icon={Mail}
+                type="email"
+                placeholder="admin@chipscheduler.com"
+              />
 
-                  <input
-                    type="text"
-                    placeholder="이름을 입력해주세요"
-                    className="h-full flex-1 bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
-                  />
-                </div>
-              </div>
+              <InputBox
+                label="비밀번호"
+                icon={Lock}
+                type="password"
+                placeholder="비밀번호를 입력해주세요"
+              />
 
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  이메일
-                </label>
-
-                <div className="flex h-12 items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 transition duration-200 focus-within:border-[#EA002C] focus-within:bg-white focus-within:shadow-[0_0_0_3px_rgba(234,0,44,0.08)]">
-                  <Mail className="h-4 w-4 text-gray-400" />
-
-                  <input
-                    type="email"
-                    placeholder="admin@chipscheduler.com"
-                    className="h-full flex-1 bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  비밀번호
-                </label>
-
-                <div className="flex h-12 items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 transition duration-200 focus-within:border-[#EA002C] focus-within:bg-white focus-within:shadow-[0_0_0_3px_rgba(234,0,44,0.08)]">
-                  <Lock className="h-4 w-4 text-gray-400" />
-
-                  <input
-                    type="password"
-                    placeholder="비밀번호를 입력해주세요"
-                    className="h-full flex-1 bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  비밀번호 확인
-                </label>
-
-                <div className="flex h-12 items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 transition duration-200 focus-within:border-[#EA002C] focus-within:bg-white focus-within:shadow-[0_0_0_3px_rgba(234,0,44,0.08)]">
-                  <Lock className="h-4 w-4 text-gray-400" />
-
-                  <input
-                    type="password"
-                    placeholder="비밀번호를 다시 입력해주세요"
-                    className="h-full flex-1 bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
-                  />
-                </div>
-              </div>
+              <InputBox
+                label="비밀번호 확인"
+                icon={Lock}
+                type="password"
+                placeholder="비밀번호를 다시 입력해주세요"
+              />
 
               <button
                 type="submit"
