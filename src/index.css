@@ -16,12 +16,26 @@
   --shadow-xl: initial;
   --shadow-2xl: initial;
 
-  --color-primary-50: #EDEDF9;
-  --color-primary-200: #AAB0FD;
-  --color-primary-400: #8089FF;
-  --color-primary-500: #6772FB;
-  --color-primary-600: #4450F7;
-  --color-point: #F93A3C;
+  --color-primary-50: #FFF1F4;
+  --color-primary-100: #FFE0E7;
+  --color-primary-200: #FFC1CF;
+  --color-primary-300: #FF8CA3;
+  --color-primary-400: #F85877;
+  --color-primary-500: #EA002C;
+  --color-primary-600: #D60028;
+  --color-primary-700: #B20022;
+  --color-primary-800: #86001B;
+  --color-primary-900: #590012;
+  --color-point: #EA002C;
+
+  --color-secondary-navy: #081028;
+  --color-secondary-navy-soft: #15203D;
+  --color-secondary-orange: #F97316;
+  --color-secondary-orange-soft: #FDBA74;
+
+  --color-surface-50: #F3F5F7;
+  --color-surface-100: #F7F8FA;
+  --color-surface-200: #E9EEF3;
 
   --text-xs: initial;
   --text-sm: initial;
@@ -94,6 +108,7 @@
 
   body {
     font-family: theme(--font-sans);
+    background-color: theme(--color-surface-50);
     -webkit-font-smoothing: antialiased;
   }
 }

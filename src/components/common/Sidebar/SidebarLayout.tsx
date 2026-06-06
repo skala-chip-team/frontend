@@ -4,7 +4,7 @@ import { Header } from '../Header';
 
 export function SidebarLayout() {
   return (
-    <div className="flex min-h-screen w-full bg-gray-50 text-gray-900">
+    <div className="flex min-h-screen w-full bg-surface-50 text-gray-900">
       <Sidebar />
       <div className="flex flex-1 flex-col">
         <Header />

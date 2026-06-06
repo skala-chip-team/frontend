@@ -18,7 +18,7 @@ export default function InputBox({
         {label}
       </label>
 
-      <div className="flex h-12 items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 transition duration-200 focus-within:border-[#EA002C] focus-within:bg-white focus-within:shadow-[0_0_0_3px_rgba(234,0,44,0.08)]">
+      <div className="flex h-12 items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 transition duration-200 focus-within:border-primary-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-primary-500/10">
         <Icon className="h-4 w-4 text-gray-400" />
 
         <input
