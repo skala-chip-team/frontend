@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 
 import { SidebarLayout } from '@components/common';
 
+import DashboardPage from '@/pages/DashboardPage';
 import LoginPage from '@/pages/LoginPage';
 import SignupPage from '@/pages/SignupPage';
 
@@ -28,17 +29,7 @@ export const router = createBrowserRouter([
 
       {
         path: 'dashboard',
-        element: (
-          <div className="p-6">
-            <h1 className="text-heading-1 text-gray-900">
-              Dashboard
-            </h1>
-
-            <p className="mt-1 text-body-1 text-gray-600">
-              Welcome to chipScheduler.
-            </p>
-          </div>
-        ),
+        element: <DashboardPage />,
       },
     ],
   },
