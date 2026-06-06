@@ -26,7 +26,13 @@ export default function Scene({
   className,
 }: SceneProps) {
   return (
-    <Canvas className={className} dpr={[1, 2]} shadows camera={{ position: cameraPosition, fov: 45 }}>
+    <Canvas
+      className={className}
+      dpr={[1, 2]}
+      shadows
+      gl={{ preserveDrawingBuffer: true }}
+      camera={{ position: cameraPosition, fov: 45 }}
+    >
       <ambientLight intensity={0.6} />
       <directionalLight position={[6, 10, 6]} intensity={1.1} castShadow />
       <Suspense fallback={null}>{children}</Suspense>
