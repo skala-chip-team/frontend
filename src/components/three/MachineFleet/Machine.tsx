@@ -1,10 +1,21 @@
 import { RoundedBox, Text } from '@react-three/drei';
 
+// 필드명은 docs/data.dbml 컬럼명을 따른다.
+export interface MachineUnit {
+  schedule_id: string; // schedule_master.schedule_id
+  unit_id: string; // unit_master.unit_id
+  priority: number; // schedule_master.priority (1 높음 ~ 5 낮음)
+  status: '진행중' | '대기' | '완료'; // schedule_master.status
+  start_time: number; // work_status.start_time (mock: 시 단위)
+  end_time: number; // work_status.end_time
+}
+
 export interface MachineDatum {
-  machineName: string;
-  machineCode: string;
-  utilization: number;
-  status: '점검중' | '가동중' | '대기중';
+  machine_id: string; // machine_master.machine_id
+  machine_type: string; // machine_master.machine_type (표시용 장비명)
+  machine_status: '점검중' | '가동중' | '대기중'; // machine_master.machine_status
+  avg_utilization_rate: number; // 가동률(%)
+  units?: MachineUnit[];
 }
 
 interface MachineProps {
@@ -259,7 +270,7 @@ export default function Machine({
           anchorX="center"
           anchorY="middle"
         >
-          {data.machineCode}
+          {data.machine_id}
         </Text>
       </group>
     </group>

@@ -30,7 +30,7 @@ export default function Scene({
       className={className}
       dpr={[1, 2]}
       shadows
-      gl={{ preserveDrawingBuffer: true }}
+      gl={{ preserveDrawingBuffer: true, alpha: true }}
       camera={{ position: cameraPosition, fov: 45 }}
     >
       <ambientLight intensity={0.6} />
