@@ -1,0 +1,251 @@
+Table daily_order {
+    order_id varchar [pk]
+    district_id varchar [not null, ref: > district_master.district_id]
+    plan_date date
+    due_date datetime
+    planned_output_qty int
+    order_priority int
+    is_burst boolean
+  }
+
+  Table unit_master {
+    unit_id varchar [pk]
+    order_id varchar [not null, ref: > daily_order.order_id]
+    district_id varchar [not null, ref: > district_master.district_id]
+    unit_status varchar
+    unit_size_qty int
+    actual_start_time datetime
+    actual_complete_time datetime
+  }
+
+  Table user_role {
+    role_id varchar [pk]
+    role_name varchar
+    description varchar
+  }
+
+  Table user {
+    user_id varchar [pk]
+    role_id varchar [not null, ref: > user_role.role_id]
+    username varchar
+    email varchar
+    password_hash varchar
+    is_active boolean
+    created_at datetime
+    last_login datetime
+  }
+
+  Table user_district_map {
+    map_id varchar [pk]
+    user_id varchar [not null, ref: > user.user_id]
+    district_id varchar [not null, ref: > district_master.district_id]
+  }
+
+  Table notification {
+    notification_id varchar [pk]
+    user_id varchar [not null, ref: > user.user_id]
+    type varchar
+    title varchar
+    content varchar
+    is_read boolean
+    created_at datetime
+    read_at datetime
+  }
+
+  Table chatbot_session {
+    session_id varchar [pk]
+    user_id varchar [not null, ref: > user.user_id]
+    started_at datetime
+    ended_at datetime
+  }
+
+  Table chatbot_message {
+    message_id varchar [pk]
+    session_id varchar [not null, ref: > chatbot_session.session_id]
+    message_type varchar
+    content varchar
+    created_at datetime
+  }
+
+  Table district_master {
+    district_id varchar [pk]
+    district_name varchar
+    commander_id varchar
+  }
+
+  Table machine_master {
+    machine_id varchar [pk]
+    machine_type varchar
+    district_id varchar [not null, ref: > district_master.district_id]
+    maker varchar
+    install_year int
+    machine_status varchar
+  }
+
+  Table machine_status_event {
+    event_id varchar [pk]
+    machine_id varchar [not null, ref: > machine_master.machine_id]
+    status varchar
+    start_time datetime
+    end_time datetime
+  }
+
+  Table process_step_order {
+    step_id varchar [pk]
+    process_step varchar
+    step_order int
+    step_avg_time int
+  }
+
+  Table machine_step_map {
+    map_id varchar [pk]
+    machine_id varchar [not null, ref: > machine_master.machine_id]
+    step_id varchar [not null, ref: > process_step_order.step_id]
+  }
+
+  Table process_queue {
+    queue_id varchar [pk]
+    step_id varchar [not null, ref: > process_step_order.step_id]
+    district_id varchar [not null, ref: > district_master.district_id]
+    unit_id varchar [not null, ref: > unit_master.unit_id]
+    queue_position int
+    enqueue_time datetime
+  }
+
+  Table process_queue_history {
+    history_id varchar [pk]
+    risk_id varchar [ref: > delay_risk.risk_id]
+    step_id varchar [not null, ref: > process_step_order.step_id]
+    district_id varchar [not null, ref: > district_master.district_id]
+    unit_id varchar [not null, ref: > unit_master.unit_id]
+    queue_position int
+    snapshot_time datetime
+    enqueue_time datetime
+    wait_min float
+    dispatch_score float
+  }
+
+  Table schedule_master {
+    schedule_id varchar [pk]
+    queue_id varchar [ref: > process_queue.queue_id]
+    unit_id varchar [not null, ref: > unit_master.unit_id]
+    machine_id varchar [not null, ref: > machine_master.machine_id]
+    step_id varchar [not null, ref: > process_step_order.step_id]
+    priority int
+    estimated_start datetime
+    status varchar
+    active boolean
+  }
+
+  Table work_status {
+    status_id varchar [pk]
+    schedule_id varchar [not null, ref: > schedule_master.schedule_id]
+    machine_id varchar [not null, ref: > machine_master.machine_id]
+    shift varchar
+    start_time datetime
+    end_time datetime
+    defect_count float
+    output_qty float
+  }
+
+  Table district_status {
+    district_id varchar [not null, ref: > district_master.district_id]
+    created_at datetime
+    total_machine_count int
+    available_machine_count int
+    down_machine_count int
+    avg_utilization_rate float
+    total_waiting_unit_count int
+    avg_wait_time_min float
+    active_schedule_count int
+    daily_output_qty int
+
+    indexes {
+      (district_id, created_at) [pk]
+    }
+  }
+
+  Table delay_risk {
+    risk_id varchar [pk]
+    queue_id varchar [ref: > process_queue.queue_id]
+    unit_id varchar [not null, ref: > unit_master.unit_id]
+    order_id varchar [not null, ref: > daily_order.order_id]
+    district_id varchar [not null, ref: > district_master.district_id]
+    step_id varchar [not null, ref: > process_step_order.step_id]
+    risk_score float
+    estimated_delay_hr float
+    delay_probability float
+    risk_level varchar
+    risk_factor varchar
+    detection_time datetime
+  }
+
+  Table reschedule_group {
+    group_id varchar [pk]
+    district_id varchar [not null, ref: > district_master.district_id]
+    step_id varchar [not null, ref: > process_step_order.step_id]
+    member_risk_ids jsonb [not null, note: '이 그룹에 포함된 delay_risk.risk_id 목록']
+    max_risk_score float [note: 'delay_probability 중 최대값']
+    group_status varchar [note: 'pending / approved(선택 확정) / expired']
+    reschedule_detail jsonb [null, note: '에이전트 재조정안. reschedule_options[].selected_yn=true 가 선택된 전략']
+    acted_at datetime [note: '그룹핑 저장 / 선택 확정 시각']
+
+    indexes {
+      (district_id, step_id)
+      group_status
+    }
+
+    note: '재조정 검토 단위. 같은 step queue 의 위험 예측들을 묶어 운영자가 검토'
+  }
+
+  Table reschedule_selection {
+    selection_id varchar [pk]
+    group_id varchar [not null, unique, ref: > reschedule_group.group_id]
+    strategy varchar [not null, note: 'due_date_first / bottleneck_minimization / utilization_balance']
+    selected_detail jsonb [not null, note: '선택된 전략 상세 통째 (queue_reorder, after_schedule 등)']
+    status varchar [note: 'applied / reverted']
+    selected_at datetime [not null]
+
+    note: '운영자가 선택·확정한 재조정. 그룹당 1건. 선택 시 process_queue 에 실제 반영됨'
+  }
+
+  Table material_master {
+    material_id varchar [pk]
+    material_name varchar
+    material_category varchar
+    step_id varchar [not null, ref: > process_step_order.step_id]
+    measure varchar
+    consumption_per_unit float
+    min_safety_stock float
+    supplier varchar
+    lead_time_days int
+  }
+
+  Table material_inventory {
+    inventory_id varchar [pk]
+    material_id varchar [not null, ref: > material_master.material_id]
+    district_id varchar [not null, ref: > district_master.district_id]
+    step_id varchar [not null, ref: > process_step_order.step_id]
+    current_stock float
+    reorder_point float
+    target_stock float
+    next_arrival_date date
+    next_arrival_qty float
+    stock_status varchar
+    last_updated datetime
+
+    indexes {
+      (material_id, district_id) [unique]
+    }
+  }
+
+  Table material_inventory_log {
+    log_id varchar [pk]
+    inventory_id varchar [not null, ref: > material_inventory.inventory_id]
+    material_id varchar [not null, ref: > material_master.material_id]
+    district_id varchar [not null, ref: > district_master.district_id]
+    step_id varchar [not null, ref: > process_step_order.step_id]
+    current_stock float
+    stock_status varchar
+    snapshot_time datetime
+  }
