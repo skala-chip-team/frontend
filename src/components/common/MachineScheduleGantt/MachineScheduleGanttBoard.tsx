@@ -60,8 +60,8 @@ export function MachineScheduleGanttBoard({
   const currentLineLeft = `calc(${labelColumnWidth} + ${columnGap} + ((100% - ${labelColumnWidth} - ${columnGap}) * ${currentLinePosition / 100}))`;
 
   return (
-    <section className="relative overflow-hidden rounded-[2rem] border border-gray-200/80 bg-white p-6 shadow-[0_10px_40px_rgba(15,23,42,0.06)] backdrop-blur lg:p-7">
-      <div className="pointer-events-none absolute inset-0">
+    <section className="relative rounded-[1.5rem] border border-gray-200/80 bg-white px-4 pb-4 pt-7 shadow-[0_10px_40px_rgba(15,23,42,0.06)] backdrop-blur">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[1.5rem]">
         <div className="absolute right-[-12%] top-[-18%] h-32 w-32 rounded-full bg-primary-500/5 blur-3xl" />
         <div className="absolute bottom-[-20%] left-[-10%] h-28 w-28 rounded-full bg-secondary-orange/6 blur-3xl" />
       </div>
@@ -104,10 +104,10 @@ export function MachineScheduleGanttBoard({
           </div>
         </div>
 
-        <div className="mt-2 grid gap-2">
+        <div className="mt-1 flex flex-col gap-0.5">
           {schedules.map((schedule) => (
             <MachineScheduleGanttRow
-              key={schedule.machineCode}
+              key={schedule.machine_id}
               schedule={schedule}
               startHour={startHour}
               endHour={endHour}
