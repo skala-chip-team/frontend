@@ -1,5 +1,2 @@
 export { DashboardInfoCard } from './DashboardInfoCard';
-export type {
-  DashboardInfoCardItem,
-  DashboardInfoCardProps,
-} from './DashboardInfoCard';
+export type { DashboardInfoCardProps, DashboardInfoCardTrend } from './DashboardInfoCard';

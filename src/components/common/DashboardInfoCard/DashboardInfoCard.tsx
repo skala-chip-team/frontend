@@ -2,22 +2,18 @@ import { ArrowDownRight, ArrowUpRight, Gauge, Minus, type LucideIcon } from 'luc
 
 type TrendDirection = 'up' | 'down' | 'neutral';
 
-type DashboardInfoCardItem = {
+type DashboardInfoCardTrend = {
+  value: string;
+  direction?: TrendDirection;
+  label?: string;
+};
+
+type DashboardInfoCardProps = {
   label: string;
   value: string;
   unit?: string;
   icon?: LucideIcon;
-  trend?: {
-    value: string;
-    direction?: TrendDirection;
-    label?: string;
-  };
-};
-
-type DashboardInfoCardProps = {
-  eyebrow?: string;
-  title: string;
-  items: DashboardInfoCardItem[];
+  trend?: DashboardInfoCardTrend;
   className?: string;
 };
 
@@ -43,75 +39,48 @@ const trendStyleMap: Record<
 };
 
 export function DashboardInfoCard({
-  eyebrow = 'DASHBOARD CARD',
-  title,
-  items,
+  label,
+  value,
+  unit,
+  icon,
+  trend,
   className = '',
 }: DashboardInfoCardProps) {
+  const ItemIcon = icon ?? Gauge;
+  const trendDirection = trend?.direction ?? 'up';
+  const trendStyle = trend ? trendStyleMap[trendDirection] : null;
+  const TrendIcon = trendStyle?.icon;
+
   return (
     <article
-      className={`relative overflow-hidden rounded-[2rem] border border-gray-200/80 bg-white p-6 shadow-[0_10px_40px_rgba(15,23,42,0.06)] backdrop-blur lg:p-7 ${className}`}
+      className={`flex items-center gap-3 rounded-2xl border border-gray-200/80 bg-white px-3.5 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)] ${className}`}
     >
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute right-[-12%] top-[-18%] h-32 w-32 rounded-full bg-primary-500/5 blur-3xl" />
-        <div className="absolute bottom-[-20%] left-[-10%] h-28 w-28 rounded-full bg-secondary-orange/6 blur-3xl" />
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface-100 text-primary-500">
+        <ItemIcon className="h-5 w-5" />
       </div>
 
-      <div className="relative">
-        <p className="text-label-2 font-semibold tracking-[0.2em] text-primary-500">{eyebrow}</p>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <p className="text-label-2 leading-snug text-gray-500">{label}</p>
 
-        <h2 className="mt-3 text-heading-3 text-gray-900">{title}</h2>
-
-        <div className="mt-6 grid gap-3">
-          {items.map((item) => {
-            const ItemIcon = item.icon ?? Gauge;
-            const trendDirection = item.trend?.direction ?? 'up';
-            const trendStyle = item.trend ? trendStyleMap[trendDirection] : null;
-            const TrendIcon = trendStyle?.icon;
-
-            return (
-              <div
-                key={item.label}
-                className="rounded-[1.5rem] border border-gray-100 bg-white p-4 shadow-[0_6px_18px_rgba(15,23,42,0.04)]"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex min-w-0 gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-primary-500 shadow-[0_6px_16px_rgba(15,23,42,0.06)]">
-                      <ItemIcon className="h-5 w-5" />
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="text-label-1 text-gray-500">{item.label}</p>
-
-                      <div className="mt-1 flex items-end gap-2">
-                        <span className="text-[1.75rem] font-bold tracking-[-0.04em] text-secondary-navy">
-                          {item.value}
-                        </span>
-
-                        {item.unit ? (
-                          <span className="pb-2 text-label-1 text-gray-500">{item.unit}</span>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-
-                  {item.trend && trendStyle && TrendIcon ? (
-                    <div
-                      className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-label-3 ${trendStyle.className}`}
-                    >
-                      <TrendIcon className="h-3.5 w-3.5" />
-                      <span>{item.trend.value}</span>
-                      {item.trend.label ? <span>{item.trend.label}</span> : null}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            );
-          })}
+        <div className="mt-0.5 flex items-end gap-1">
+          <span className="text-[1.375rem] font-bold leading-none tracking-[-0.03em] text-secondary-navy">
+            {value}
+          </span>
+          {unit ? <span className="pb-px text-label-2 text-gray-500">{unit}</span> : null}
         </div>
       </div>
+
+      {trend && trendStyle && TrendIcon ? (
+        <div
+          className={`inline-flex shrink-0 items-center gap-1 self-start rounded-full border px-2 py-0.5 text-label-3 ${trendStyle.className}`}
+        >
+          <TrendIcon className="h-3.5 w-3.5" />
+          <span>{trend.value}</span>
+          {trend.label ? <span>{trend.label}</span> : null}
+        </div>
+      ) : null}
     </article>
   );
 }
 
-export type { DashboardInfoCardItem, DashboardInfoCardProps };
+export type { DashboardInfoCardProps, DashboardInfoCardTrend };
