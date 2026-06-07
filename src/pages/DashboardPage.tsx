@@ -1,123 +1,102 @@
-import { MachineScheduleGanttBoard } from '@components/common';
-import { MachineFleet3D } from '@components/three';
+import { useRef, useState } from 'react';
 
-const machineSchedules = [
-  {
-    machineName: 'Diffusion Line A',
-    machineCode: 'M-201',
-    utilization: 72,
-    status: '가동중' as const,
-    units: [
-      {
-        id: 'unit-a1',
-        unitName: 'UNIT-041',
-        startHour: 8,
-        endHour: 10,
-        tone: 'primary' as const,
-      },
-      {
-        id: 'unit-a2',
-        unitName: 'UNIT-117',
-        startHour: 10,
-        endHour: 13,
-        tone: 'navy' as const,
-      },
-      {
-        id: 'unit-a3',
-        unitName: 'UNIT-233',
-        startHour: 14,
-        endHour: 17,
-        tone: 'orange' as const,
-      },
-    ],
-  },
-  {
-    machineName: 'Etching Line B',
-    machineCode: 'M-305',
-    utilization: 64,
-    status: '점검중' as const,
-    units: [
-      {
-        id: 'unit-b1',
-        unitName: 'UNIT-012',
-        startHour: 9,
-        endHour: 11,
-        tone: 'slate' as const,
-      },
-      {
-        id: 'unit-b2',
-        unitName: 'UNIT-126',
-        startHour: 11,
-        endHour: 15,
-        tone: 'primary' as const,
-      },
-      {
-        id: 'unit-b3',
-        unitName: 'UNIT-188',
-        startHour: 16,
-        endHour: 18,
-        tone: 'navy' as const,
-      },
-    ],
-  },
-  {
-    machineName: 'Packaging Cell C',
-    machineCode: 'M-412',
-    utilization: 81,
-    status: '대기중' as const,
-    units: [
-      {
-        id: 'unit-c1',
-        unitName: 'UNIT-054',
-        startHour: 8,
-        endHour: 12,
-        tone: 'orange' as const,
-      },
-      {
-        id: 'unit-c2',
-        unitName: 'UNIT-061',
-        startHour: 12,
-        endHour: 14,
-        tone: 'primary' as const,
-      },
-      {
-        id: 'unit-c3',
-        unitName: 'UNIT-075',
-        startHour: 15,
-        endHour: 18,
-        tone: 'slate' as const,
-      },
-    ],
-  },
-];
+import { ChevronRight } from 'lucide-react';
 
-const fleetMachines = machineSchedules.map(({ machineName, machineCode, utilization, status }) => ({
-  machineName,
-  machineCode,
-  utilization,
-  status,
-}));
+import { DashboardInfoCard, MachineScheduleGanttBoard, StepSelector } from '@components/common';
+import { MachineFleetBoard } from '@components/three';
+import { useDistrictStore } from '@/stores';
 
-const queueUnits = machineSchedules.flatMap((schedule) =>
-  schedule.units.map((unit) => unit.unitName)
-);
+import { districtDashboards, districtLabels, type DistrictDashboardData } from './dashboardMock';
+
+const STEP_LOCK_MS = 720;
+
+/** 한 구역의 대시보드 본문: 요약 카드 + step 셀렉터 + 3D 보드(+간트) */
+function DistrictDashboard({ data }: { data: DistrictDashboardData }) {
+  const steps = data.steps;
+  const stepOptions = steps.map((step) => ({ id: step.step_id, label: step.process_step }));
+
+  const [selectedStepId, setSelectedStepId] = useState(steps[0].step_id);
+  const [slideDirection, setSlideDirection] = useState<1 | -1>(1);
+  const lockedRef = useRef(false);
+
+  const activeStep = steps.find((step) => step.step_id === selectedStepId) ?? steps[0];
+
+  const fleetQueue = {
+    waiting_units: activeStep.machines.flatMap((machine) =>
+      machine.units.map((unit) => unit.unit_id)
+    ),
+    avg_wait_time_min: activeStep.avg_wait_time_min,
+  };
+
+  const handleSelectStep = (id: string) => {
+    if (id === selectedStepId || lockedRef.current) return;
+
+    const currentIndex = steps.findIndex((step) => step.step_id === selectedStepId);
+    const nextIndex = steps.findIndex((step) => step.step_id === id);
+    setSlideDirection(nextIndex > currentIndex ? 1 : -1);
+    setSelectedStepId(id);
+
+    // 전환이 끝날 때까지 연타 방지
+    lockedRef.current = true;
+    window.setTimeout(() => {
+      lockedRef.current = false;
+    }, STEP_LOCK_MS);
+  };
+
+  return (
+    <div className="flex w-full flex-col gap-3">
+      <div className="flex flex-wrap gap-3">
+        {data.summaryCards.map((card) => (
+          <DashboardInfoCard
+            key={card.label}
+            className="min-w-[180px] flex-1"
+            label={card.label}
+            value={card.value}
+            unit={card.unit}
+            icon={card.icon}
+          />
+        ))}
+      </div>
+
+      <StepSelector steps={stepOptions} selectedId={selectedStepId} onSelect={handleSelectStep} />
+
+      <div className="h-[560px] w-full lg:h-[700px]">
+        <MachineFleetBoard
+          machines={activeStep.machines}
+          queue={fleetQueue}
+          slideDirection={slideDirection}
+          bottomPanel={
+            <MachineScheduleGanttBoard startHour={8} endHour={18} schedules={activeStep.machines} />
+          }
+        />
+      </div>
+    </div>
+  );
+}
 
 export default function DashboardPage() {
+  const selectedDistrict = useDistrictStore((state) => state.selectedDistrict);
+  const isAll = selectedDistrict === 'all';
+
   return (
     <section className="min-h-full bg-surface-50 px-6 pb-6 pt-4 lg:px-8 lg:pb-8">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6">
-        <section className="relative overflow-hidden rounded-[2rem] border border-gray-200/80 bg-white shadow-[0_16px_60px_rgba(15,23,42,0.08)]">
-          <div className="pointer-events-none absolute inset-0">
-            <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-slate-100/85 via-white/45 to-transparent" />
-            <div className="absolute -right-16 top-8 h-40 w-40 rounded-full bg-primary-500/6 blur-3xl" />
-            <div className="absolute -left-12 bottom-8 h-36 w-36 rounded-full bg-secondary-orange/8 blur-3xl" />
-          </div>
-          <div className="relative h-[480px] w-full overflow-hidden bg-surface-100 lg:h-[620px]">
-            <MachineFleet3D machines={fleetMachines} queuedUnits={queueUnits} />
-          </div>
-        </section>
+      <div className="flex w-full max-w-7xl flex-col gap-4">
+        {/* 위치 브레드크럼 — 큰 글씨 */}
+        <div className="flex items-center gap-2 text-heading-2">
+          <span className={isAll ? 'text-secondary-navy' : 'text-gray-400'}>
+            {districtLabels.all}
+          </span>
+          {!isAll ? (
+            <>
+              <ChevronRight className="h-6 w-6 text-gray-300" aria-hidden />
+              <span className="text-secondary-navy">{districtLabels[selectedDistrict]}</span>
+            </>
+          ) : null}
+        </div>
 
-        <MachineScheduleGanttBoard startHour={8} endHour={18} schedules={machineSchedules} />
+        {isAll ? null : (
+          <DistrictDashboard key={selectedDistrict} data={districtDashboards[selectedDistrict]} />
+        )}
       </div>
     </section>
   );
