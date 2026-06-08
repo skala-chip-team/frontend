@@ -3,12 +3,12 @@ import InputBox from '@/components/common/InputBox/InputBox';
 
 export default function SignupPage() {
   return (
-    <main className="flex min-h-screen overflow-hidden bg-[#F3F5F7]">
-      <section className="relative hidden w-[58%] flex-col justify-between overflow-hidden bg-[#081028] px-[5%] py-[4%] text-white lg:flex">
+    <main className="flex min-h-screen overflow-hidden bg-surface-50">
+      <section className="relative hidden w-[58%] flex-col justify-between overflow-hidden bg-secondary-navy px-[5%] py-[4%] text-white lg:flex">
         <div className="absolute inset-0 opacity-100">
-          <div className="absolute left-[-10%] top-[-8%] h-[42vw] w-[42vw] rounded-full bg-[#EA002C]/35 blur-[140px]" />
-          <div className="absolute bottom-[-12%] right-[-8%] h-[34vw] w-[34vw] rounded-full bg-orange-500/25 blur-[140px]" />
-          <div className="absolute left-[34%] top-[62%] h-[22vw] w-[22vw] rounded-full bg-[#EA002C]/12 blur-[120px]" />
+          <div className="absolute left-[-10%] top-[-8%] h-[42vw] w-[42vw] rounded-full bg-primary-500/35 blur-[140px]" />
+          <div className="absolute bottom-[-12%] right-[-8%] h-[34vw] w-[34vw] rounded-full bg-secondary-orange/25 blur-[140px]" />
+          <div className="absolute left-[34%] top-[62%] h-[22vw] w-[22vw] rounded-full bg-primary-500/12 blur-[120px]" />
         </div>
 
         <div className="absolute inset-0 overflow-hidden">
@@ -40,7 +40,7 @@ export default function SignupPage() {
         </div>
 
         <div className="relative z-10 max-w-[42rem] translate-y-[-8%] animate-[fadeUp_0.7s_ease-out]">
-          <p className="mb-5 text-[0.75rem] font-semibold tracking-[0.28em] text-[#EA002C]">
+          <p className="mb-5 text-[0.75rem] font-semibold tracking-[0.28em] text-primary-500">
             ACCOUNT REGISTRATION
           </p>
 
@@ -62,15 +62,15 @@ export default function SignupPage() {
         </div>
       </section>
 
-      <section className="relative flex flex-1 items-center justify-center overflow-hidden bg-[#F7F8FA] px-[6%]">
+      <section className="relative flex flex-1 items-center justify-center overflow-hidden bg-surface-100 px-[6%]">
         <div className="absolute inset-0">
-          <div className="absolute right-[-10%] top-[10%] h-[24vw] w-[24vw] rounded-full bg-[#EA002C]/5 blur-[100px]" />
+          <div className="absolute right-[-10%] top-[10%] h-[24vw] w-[24vw] rounded-full bg-primary-500/5 blur-[100px]" />
         </div>
 
         <div className="relative z-10 w-full max-w-[27.5rem] translate-x-[-4%] animate-[fadeUp_0.6s_ease-out]">
           <div className="rounded-[2rem] border border-gray-200/80 bg-white p-10 shadow-[0_10px_40px_rgba(15,23,42,0.06)] backdrop-blur">
             <div className="mb-8">
-              <p className="mb-2 text-sm font-semibold text-[#EA002C]">
+              <p className="mb-2 text-sm font-semibold text-primary-500">
                 Create account
               </p>
 
@@ -114,7 +114,7 @@ export default function SignupPage() {
 
               <button
                 type="submit"
-                className="h-12 w-full rounded-2xl bg-[#EA002C] text-sm font-bold text-white transition duration-200 hover:bg-[#d60028] active:scale-[0.99]"
+                className="h-12 w-full rounded-2xl bg-primary-500 text-sm font-bold text-white transition duration-200 hover:bg-primary-600 active:scale-[0.99]"
               >
                 회원가입
               </button>
@@ -132,9 +132,9 @@ export default function SignupPage() {
               className="
                 ml-2
                 font-semibold
-                text-[#EA002C]
+                text-primary-500
                 transition
-                hover:text-[#d60028]
+                hover:text-primary-600
               "
             >
               로그인

@@ -3,14 +3,15 @@ import type { LucideIcon } from 'lucide-react';
 export interface MenuItem {
   icon: LucideIcon;
   title: string;
+  path?: string;
   notifs?: number;
 }
 
 export interface OptionProps {
   icon: LucideIcon;
   title: string;
-  selected: string;
-  setSelected: (title: string) => void;
+  isSelected: boolean;
+  onClick: () => void;
   open: boolean;
   notifs?: number;
 }

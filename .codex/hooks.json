@@ -1,0 +1,36 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash '/Users/jisung/Documents/skala-chip/frontend/.codex/hooks/pre-tool-use.sh'"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash '/Users/jisung/Documents/skala-chip/frontend/.codex/hooks/post-tool-use.sh'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash '/Users/jisung/Documents/skala-chip/frontend/.codex/hooks/stop.sh'"
+          }
+        ]
+      }
+    ]
+  }
+}
