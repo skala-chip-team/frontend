@@ -8,6 +8,8 @@ export type { DistrictOption } from './DistrictSelect';
 export { StepSelector } from './StepSelector';
 export type { StepOption } from './StepSelector';
 export { Pagination } from './Pagination';
+export { RescheduleCard } from './RescheduleCard';
+export type { RescheduleCardData } from './RescheduleCard';
 export { DashboardInfoCard } from './DashboardInfoCard';
 export type { DashboardInfoCardProps, DashboardInfoCardTrend } from './DashboardInfoCard';
 export { MachineScheduleGanttBoard, MachineScheduleGanttRow } from './MachineScheduleGantt';

@@ -4,6 +4,8 @@ import { SidebarLayout } from '@components/common';
 
 import DashboardPage from '@/pages/DashboardPage';
 import LoginPage from '@/pages/LoginPage';
+import ReschedulePage from '@/pages/ReschedulePage';
+import RescheduleDetailPage from '@/pages/RescheduleDetailPage';
 import SignupPage from '@/pages/SignupPage';
 
 export const router = createBrowserRouter([
@@ -30,6 +32,16 @@ export const router = createBrowserRouter([
       {
         path: 'dashboard',
         element: <DashboardPage />,
+      },
+
+      {
+        path: 'reschedule',
+        element: <ReschedulePage />,
+      },
+
+      {
+        path: 'reschedule/:groupId',
+        element: <RescheduleDetailPage />,
       },
     ],
   },

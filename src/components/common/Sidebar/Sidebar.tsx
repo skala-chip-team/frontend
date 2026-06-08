@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Home,
   Activity,
@@ -11,9 +12,9 @@ import {
 import type { MenuItem, OptionProps, TitleSectionProps, ToggleCloseProps } from './types';
 
 const MAIN_MENU: MenuItem[] = [
-  { icon: Home, title: '대시보드' },
+  { icon: Home, title: '대시보드', path: '/dashboard' },
   { icon: Activity, title: '장비 모니터링' },
-  { icon: Lightbulb, title: '재조정 제안 관리' },
+  { icon: Lightbulb, title: '재조정 제안 관리', path: '/reschedule' },
   { icon: Boxes, title: 'UNIT 관리' },
 ];
 
@@ -24,7 +25,21 @@ const ACCOUNT_MENU: MenuItem[] = [
 
 export function Sidebar() {
   const [open, setOpen] = useState(true);
-  const [selected, setSelected] = useState('대시보드');
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  // 라우트가 없는 메뉴(장비 모니터링 등)는 클릭 시 임시 선택 상태만 유지
+  const [selectedTitle, setSelectedTitle] = useState('대시보드');
+
+  const isItemSelected = (item: MenuItem) =>
+    item.path ? pathname.startsWith(item.path) : selectedTitle === item.title;
+
+  const handleSelect = (item: MenuItem) => {
+    if (item.path) {
+      navigate(item.path);
+    } else {
+      setSelectedTitle(item.title);
+    }
+  };
 
   return (
     <nav
@@ -41,8 +56,8 @@ export function Sidebar() {
             icon={item.icon}
             title={item.title}
             notifs={item.notifs}
-            selected={selected}
-            setSelected={setSelected}
+            isSelected={isItemSelected(item)}
+            onClick={() => handleSelect(item)}
             open={open}
           />
         ))}
@@ -58,8 +73,8 @@ export function Sidebar() {
               key={item.title}
               icon={item.icon}
               title={item.title}
-              selected={selected}
-              setSelected={setSelected}
+              isSelected={isItemSelected(item)}
+              onClick={() => handleSelect(item)}
               open={open}
             />
           ))}
@@ -71,13 +86,11 @@ export function Sidebar() {
   );
 }
 
-function Option({ icon: Icon, title, selected, setSelected, open, notifs }: OptionProps) {
-  const isSelected = selected === title;
-
+function Option({ icon: Icon, title, isSelected, onClick, open, notifs }: OptionProps) {
   return (
     <button
       type="button"
-      onClick={() => setSelected(title)}
+      onClick={onClick}
       className={`relative flex h-11 w-full items-center rounded-md transition-all duration-200 ${
         isSelected
           ? 'border-l-2 border-primary-600 bg-primary-50 text-primary-600 shadow-sm'
