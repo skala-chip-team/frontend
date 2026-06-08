@@ -5,8 +5,8 @@ import { ChevronRight } from 'lucide-react';
 import { DashboardInfoCard, MachineScheduleGanttBoard, StepSelector } from '@components/common';
 import { MachineFleetBoard } from '@components/three';
 import { useDistrictStore } from '@/stores';
-
-import { districtDashboards, districtLabels, type DistrictDashboardData } from './dashboardMock';
+import { districtDashboards, districtLabels } from '@/mocks';
+import type { DistrictDashboardData } from '@/types';
 
 const STEP_LOCK_MS = 720;
 
@@ -80,7 +80,7 @@ export default function DashboardPage() {
 
   return (
     <section className="min-h-full bg-surface-50 px-6 pb-6 pt-4 lg:px-8 lg:pb-8">
-      <div className="flex w-full max-w-7xl flex-col gap-4">
+      <div className="flex w-full flex-col gap-4">
         {/* 위치 브레드크럼 — 큰 글씨 */}
         <div className="flex items-center gap-2 text-heading-2">
           <span className={isAll ? 'text-secondary-navy' : 'text-gray-400'}>

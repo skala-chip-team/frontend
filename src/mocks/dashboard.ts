@@ -1,16 +1,15 @@
-import { CircleSlash2, Clock, Gauge, Layers, Power, type LucideIcon } from 'lucide-react';
+import { CircleSlash2, Clock, Gauge, Layers, Power } from 'lucide-react';
 
-// 필드명은 docs/data.dbml 컬럼명을 따른다. (tone 은 gantt 표시용)
-type Tone = 'primary' | 'navy' | 'orange' | 'slate';
-type MachineStatus = '점검중' | '가동중' | '대기중';
-type UnitStatus = '진행중' | '대기' | '완료';
-
-export interface SummaryCard {
-  label: string;
-  value: string;
-  unit: string;
-  icon: LucideIcon;
-}
+import type {
+  DistrictDashboardData,
+  DistrictMachine,
+  MachineStatus,
+  ProcessStep,
+  ScheduledUnit,
+  ScheduleTone,
+  SummaryCard,
+  UnitStatus,
+} from '@/types';
 
 const u = (
   schedule_id: string,
@@ -19,32 +18,31 @@ const u = (
   status: UnitStatus,
   start_time: number,
   end_time: number,
-  tone: Tone
-) => ({ schedule_id, unit_id, priority, status, start_time, end_time, tone });
+  tone: ScheduleTone
+): ScheduledUnit => ({ schedule_id, unit_id, priority, status, start_time, end_time, tone });
 
 const m = (
   machine_id: string,
   machine_type: string,
   machine_status: MachineStatus,
   avg_utilization_rate: number,
-  units: ReturnType<typeof u>[]
-) => ({ machine_id, machine_type, machine_status, avg_utilization_rate, units });
+  units: ScheduledUnit[]
+): DistrictMachine => ({ machine_id, machine_type, machine_status, avg_utilization_rate, units });
 
 const step = (
   step_id: string,
   process_step: string,
   avg_wait_time_min: number,
-  machines: ReturnType<typeof m>[]
-) => ({ step_id, process_step, avg_wait_time_min, machines });
+  machines: DistrictMachine[]
+): ProcessStep => ({ step_id, process_step, avg_wait_time_min, machines });
 
-export type ProcessStep = ReturnType<typeof step>;
-
-export interface DistrictDashboardData {
-  summaryCards: SummaryCard[];
-  steps: ProcessStep[];
-}
-
-const summary = (available: string, down: string, util: string, waiting: string, wait: string): SummaryCard[] => [
+const summary = (
+  available: string,
+  down: string,
+  util: string,
+  waiting: string,
+  wait: string
+): SummaryCard[] => [
   { label: '가동 가능 장비 수', value: available, unit: '대', icon: Power },
   { label: '가동 불가능 장비 수', value: down, unit: '대', icon: CircleSlash2 },
   { label: '평균 가동률', value: util, unit: '%', icon: Gauge },
