@@ -1,2 +1,8 @@
 export { useUIStore } from './useUIStore';
-export { useDistrictStore, type DistrictId } from './districtStore';
+export {
+  useDistrictStore,
+  DISTRICT_OPTIONS,
+  districtLabels,
+  type DistrictId,
+  type DistrictOptionMeta,
+} from './districtStore';

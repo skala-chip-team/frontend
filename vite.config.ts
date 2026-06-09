@@ -7,6 +7,15 @@ import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), svgr()],
+  server: {
+    proxy: {
+      // 개발 중 CORS 회피: /api 요청을 백엔드(8080)로 프록시
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+    },
+  },
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),

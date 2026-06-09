@@ -1,11 +1,11 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 
 import { ChevronRight } from 'lucide-react';
 
 import { DashboardInfoCard, MachineScheduleGanttBoard, StepSelector } from '@components/common';
 import { MachineFleetBoard } from '@components/three';
-import { useDistrictStore } from '@/stores';
-import { districtDashboards, districtLabels } from '@/mocks';
+import { districtLabels, useDistrictStore } from '@/stores';
+import { useDistrictDashboard } from '@/hooks';
 import type { DistrictDashboardData } from '@/types';
 
 const STEP_LOCK_MS = 720;
@@ -66,7 +66,7 @@ function DistrictDashboard({ data }: { data: DistrictDashboardData }) {
           queue={fleetQueue}
           slideDirection={slideDirection}
           bottomPanel={
-            <MachineScheduleGanttBoard startHour={8} endHour={18} schedules={activeStep.machines} />
+            <MachineScheduleGanttBoard startHour={0} endHour={24} schedules={activeStep.machines} />
           }
         />
       </div>
@@ -74,9 +74,30 @@ function DistrictDashboard({ data }: { data: DistrictDashboardData }) {
   );
 }
 
+/** 로딩/에러/빈 상태 안내 박스 */
+function DashboardMessage({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex h-[320px] w-full items-center justify-center rounded-xl border border-dashed border-gray-200 bg-white text-body-1 text-gray-400">
+      {children}
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const selectedDistrict = useDistrictStore((state) => state.selectedDistrict);
   const isAll = selectedDistrict === 'all';
+
+  const { data, isLoading, isError } = useDistrictDashboard(selectedDistrict);
+
+  const renderBody = () => {
+    if (isAll) return null;
+    if (isLoading) return <DashboardMessage>대시보드를 불러오는 중…</DashboardMessage>;
+    if (isError) return <DashboardMessage>대시보드를 불러오지 못했습니다.</DashboardMessage>;
+    if (!data || data.steps.length === 0) {
+      return <DashboardMessage>표시할 데이터가 없습니다.</DashboardMessage>;
+    }
+    return <DistrictDashboard key={selectedDistrict} data={data} />;
+  };
 
   return (
     <section className="min-h-full bg-surface-50 px-6 pb-6 pt-4 lg:px-8 lg:pb-8">
@@ -94,9 +115,7 @@ export default function DashboardPage() {
           ) : null}
         </div>
 
-        {isAll ? null : (
-          <DistrictDashboard key={selectedDistrict} data={districtDashboards[selectedDistrict]} />
-        )}
+        {renderBody()}
       </div>
     </section>
   );

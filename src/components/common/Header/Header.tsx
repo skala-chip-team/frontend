@@ -1,15 +1,8 @@
-import { useDistrictStore, type DistrictId } from '@/stores';
+import { DISTRICT_OPTIONS, useDistrictStore, type DistrictId } from '@/stores';
 
 import { DistrictSelect } from '../DistrictSelect';
 import { NotificationBell } from './NotificationBell';
 import { UserInfo } from './UserInfo';
-
-const districtOptions = [
-  { value: 'all', label: '전체' },
-  { value: 'A', label: '구역A' },
-  { value: 'B', label: '구역B' },
-  { value: 'C', label: '구역C' },
-];
 
 export function Header() {
   const selectedDistrict = useDistrictStore((state) => state.selectedDistrict);
@@ -19,7 +12,7 @@ export function Header() {
     <header className="relative z-30 flex h-16 items-center justify-between gap-3 px-6">
       <DistrictSelect
         value={selectedDistrict}
-        options={districtOptions}
+        options={DISTRICT_OPTIONS}
         onChange={(value) => setDistrict(value as DistrictId)}
       />
 
