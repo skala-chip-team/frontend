@@ -5,9 +5,12 @@ import type {
   RescheduleStrategy,
 } from '@/types';
 
+// risk_score / delay_probability 는 지연예측시간 기반으로 도출(mock)
 const au = (unit_id: string, estimated_delay_hr: number): AffectedUnit => ({
   unit_id,
   estimated_delay_hr,
+  risk_score: Math.min(99, Math.round(42 + estimated_delay_hr * 9)),
+  delay_probability: Math.min(0.98, Math.round((0.34 + estimated_delay_hr * 0.1) * 100) / 100),
 });
 
 const g = (
@@ -91,12 +94,60 @@ export const rescheduleStrategies: RescheduleStrategy[] = [
     },
     detail: {
       summary:
-        '납기 임박 unit 2건(UNIT-901/UNIT-915)을 우선 처리해 누적 지연 5.2h 감소와 납기 위반 2건 해소가 예상됩니다. UNIT-920이 새로 위험권에 진입하는 trade-off가 있어 검토가 필요합니다.',
+        '납기 임박 unit 2건(UNIT-901/UNIT-915)을 우선 처리해 누적 지연 5.2h 감소와 납기 위험 2건 해소가 예상됩니다. UNIT-920이 새로 위험권에 진입하는 trade-off가 있어 검토가 필요합니다.',
       metrics: [
-        { label: '전체 가동률', before: '62%', after: '74%', deltaLabel: '12%p 증가', direction: 'up', sentiment: 'good' },
-        { label: '평균 대기시간', before: '142분', after: '118분', deltaLabel: '24분 단축', direction: 'down', sentiment: 'good' },
-        { label: '누적 지연시간', before: '12.4h', after: '7.2h', deltaLabel: '5.2h 감소', direction: 'down', sentiment: 'good' },
-        { label: '납기 위반 건수', before: '4건', after: '2건', deltaLabel: '2건 감소', direction: 'down', sentiment: 'good' },
+        { label: '전체 가동률', before: '62%', value: '74%', deltaLabel: '12%p 증가', direction: 'up', sentiment: 'good' },
+        { label: '평균 대기시간', before: '142분', value: '118분', deltaLabel: '24분 단축', direction: 'down', sentiment: 'good' },
+        { label: '누적 지연시간', before: '12.4h', value: '7.2h', deltaLabel: '5.2h 감소', direction: 'down', sentiment: 'good' },
+        { label: '납기 위험 완화', value: '2건' },
+      ],
+      queue: {
+        before: ['UNIT-820', 'UNIT-831', 'UNIT-901', 'UNIT-915', 'UNIT-840', 'UNIT-920'],
+        after: ['UNIT-901', 'UNIT-915', 'UNIT-820', 'UNIT-831', 'UNIT-920', 'UNIT-840'],
+        affected: ['UNIT-901', 'UNIT-915', 'UNIT-920'],
+      },
+      schedule: [
+        {
+          machine: 'Diffusion A',
+          load_before: 58,
+          load_after: 72,
+          units: [
+            { unit_id: 'UNIT-901', start: 8, end: 12, affected: true, due: 15 },
+            { unit_id: 'UNIT-820', start: 12, end: 16, affected: false },
+          ],
+        },
+        {
+          machine: 'Etching B',
+          load_before: 64,
+          load_after: 70,
+          units: [
+            { unit_id: 'UNIT-831', start: 9, end: 13, affected: false },
+            { unit_id: 'UNIT-915', start: 13, end: 16, affected: true, due: 17 },
+          ],
+        },
+        {
+          machine: 'Packaging C',
+          load_before: 75,
+          load_after: 63,
+          units: [
+            { unit_id: 'UNIT-840', start: 8, end: 12, affected: false },
+            {
+              unit_id: 'UNIT-920',
+              start: 14,
+              end: 18,
+              affected: true,
+              due_today: false,
+              due_label: '2026.06.10 18:00',
+              due_lead_hr: 25,
+            },
+          ],
+        },
+      ],
+      dueRelief: [
+        { unit_id: 'UNIT-901', before: '21:00', after: '18:00', delta_hr: 3 },
+        { unit_id: 'UNIT-915', before: '19:30', after: '18:00', delta_hr: 1.5 },
+        { unit_id: 'UNIT-933', before: '20:00', after: '17:30', delta_hr: 2.5 },
+        { unit_id: 'UNIT-948', before: '18:30', after: '17:00', delta_hr: 1.5 },
       ],
     },
   },
@@ -115,10 +166,56 @@ export const rescheduleStrategies: RescheduleStrategy[] = [
       summary:
         '병목 step의 대기 큐를 재분배해 평균 대기 시간을 86분 단축합니다. 일부 저우선 unit의 착수가 지연되는 trade-off가 있습니다.',
       metrics: [
-        { label: '전체 가동률', before: '62%', after: '71%', deltaLabel: '9%p 증가', direction: 'up', sentiment: 'good' },
-        { label: '평균 대기시간', before: '142분', after: '56분', deltaLabel: '86분 단축', direction: 'down', sentiment: 'good' },
-        { label: '누적 지연시간', before: '12.4h', after: '9.0h', deltaLabel: '3.4h 감소', direction: 'down', sentiment: 'good' },
-        { label: '납기 위반 건수', before: '4건', after: '3건', deltaLabel: '1건 감소', direction: 'down', sentiment: 'good' },
+        { label: '전체 가동률', before: '62%', value: '71%', deltaLabel: '9%p 증가', direction: 'up', sentiment: 'good' },
+        { label: '평균 대기시간', before: '142분', value: '56분', deltaLabel: '86분 단축', direction: 'down', sentiment: 'good' },
+        { label: '누적 지연시간', before: '12.4h', value: '9.0h', deltaLabel: '3.4h 감소', direction: 'down', sentiment: 'good' },
+        { label: '납기 위험 완화', value: '1건' },
+      ],
+      queue: {
+        before: ['UNIT-901', 'UNIT-820', 'UNIT-831', 'UNIT-915', 'UNIT-840', 'UNIT-920'],
+        after: ['UNIT-820', 'UNIT-831', 'UNIT-901', 'UNIT-840', 'UNIT-920', 'UNIT-915'],
+        affected: ['UNIT-901', 'UNIT-915', 'UNIT-920'],
+      },
+      schedule: [
+        {
+          machine: 'Diffusion A',
+          load_before: 70,
+          load_after: 62,
+          units: [
+            { unit_id: 'UNIT-820', start: 8, end: 11, affected: false },
+            { unit_id: 'UNIT-901', start: 11, end: 15, affected: true, due: 16 },
+          ],
+        },
+        {
+          machine: 'Etching B',
+          load_before: 66,
+          load_after: 58,
+          units: [
+            { unit_id: 'UNIT-831', start: 9, end: 12, affected: false },
+            { unit_id: 'UNIT-915', start: 13, end: 17, affected: true, due: 18 },
+          ],
+        },
+        {
+          machine: 'Packaging C',
+          load_before: 60,
+          load_after: 64,
+          units: [
+            { unit_id: 'UNIT-840', start: 8, end: 13, affected: false },
+            {
+              unit_id: 'UNIT-920',
+              start: 14,
+              end: 18,
+              affected: true,
+              due_today: false,
+              due_label: '2026.06.10 12:00',
+              due_lead_hr: 19,
+            },
+          ],
+        },
+      ],
+      dueRelief: [
+        { unit_id: 'UNIT-901', before: '18:00', after: '16:00', delta_hr: 2 },
+        { unit_id: 'UNIT-915', before: '19:00', after: '17:00', delta_hr: 2 },
       ],
     },
   },
@@ -137,10 +234,57 @@ export const rescheduleStrategies: RescheduleStrategy[] = [
       summary:
         '장비 간 부하를 균형 배분해 전체 가동률을 21%p 끌어올립니다. 셋업 전환이 늘어 평균 대기 단축 폭이 다소 줄어드는 trade-off가 있습니다.',
       metrics: [
-        { label: '전체 가동률', before: '62%', after: '83%', deltaLabel: '21%p 증가', direction: 'up', sentiment: 'good' },
-        { label: '평균 대기시간', before: '142분', after: '88분', deltaLabel: '54분 단축', direction: 'down', sentiment: 'good' },
-        { label: '누적 지연시간', before: '12.4h', after: '8.5h', deltaLabel: '3.9h 감소', direction: 'down', sentiment: 'good' },
-        { label: '납기 위반 건수', before: '4건', after: '3건', deltaLabel: '1건 감소', direction: 'down', sentiment: 'good' },
+        { label: '전체 가동률', before: '62%', value: '83%', deltaLabel: '21%p 증가', direction: 'up', sentiment: 'good' },
+        { label: '평균 대기시간', before: '142분', value: '88분', deltaLabel: '54분 단축', direction: 'down', sentiment: 'good' },
+        { label: '누적 지연시간', before: '12.4h', value: '8.5h', deltaLabel: '3.9h 감소', direction: 'down', sentiment: 'good' },
+        { label: '납기 위험 완화', value: '1건' },
+      ],
+      queue: {
+        before: ['UNIT-820', 'UNIT-831', 'UNIT-840', 'UNIT-901', 'UNIT-915', 'UNIT-920'],
+        after: ['UNIT-901', 'UNIT-820', 'UNIT-840', 'UNIT-915', 'UNIT-831', 'UNIT-920'],
+        affected: ['UNIT-901', 'UNIT-915', 'UNIT-920'],
+      },
+      schedule: [
+        {
+          machine: 'Diffusion A',
+          load_before: 55,
+          load_after: 78,
+          units: [
+            { unit_id: 'UNIT-901', start: 8, end: 12, affected: true, due: 14 },
+            { unit_id: 'UNIT-820', start: 12, end: 17, affected: false },
+          ],
+        },
+        {
+          machine: 'Etching B',
+          load_before: 60,
+          load_after: 80,
+          units: [
+            { unit_id: 'UNIT-831', start: 8, end: 11, affected: false },
+            { unit_id: 'UNIT-915', start: 12, end: 16, affected: true, due: 18 },
+          ],
+        },
+        {
+          machine: 'Packaging C',
+          load_before: 72,
+          load_after: 86,
+          units: [
+            { unit_id: 'UNIT-840', start: 9, end: 13, affected: false },
+            {
+              unit_id: 'UNIT-920',
+              start: 13,
+              end: 18,
+              affected: true,
+              due_today: false,
+              due_label: '2026.06.11 09:00',
+              due_lead_hr: 39,
+            },
+          ],
+        },
+      ],
+      dueRelief: [
+        { unit_id: 'UNIT-901', before: '16:00', after: '14:30', delta_hr: 1.5 },
+        { unit_id: 'UNIT-915', before: '19:00', after: '17:00', delta_hr: 2 },
+        { unit_id: 'UNIT-948', before: '18:00', after: '16:30', delta_hr: 1.5 },
       ],
     },
   },

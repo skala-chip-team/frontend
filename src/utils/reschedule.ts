@@ -7,9 +7,9 @@ export function riskChipColor(level: RiskLevel): 'red' | 'orange' | 'emerald' {
   return 'emerald';
 }
 
-/** 그룹 상태 → Chip color (soft, 장비 상태 배지와 동일 톤) */
-export function statusChipColor(status: GroupStatus): 'emerald' | 'gray' {
-  return status === 'expired' ? 'gray' : 'emerald';
+/** 그룹 상태 → Chip color (subtle, Recommend 칩과 동일 톤) */
+export function statusChipColor(status: GroupStatus): 'primary' | 'gray' {
+  return status === 'expired' ? 'gray' : 'primary';
 }
 
 export function statusLabel(status: GroupStatus): string {
