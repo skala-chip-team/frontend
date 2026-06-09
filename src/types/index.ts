@@ -7,6 +7,10 @@ export type {
   StrategyKey,
   StrategyEffect,
   StrategyMetric,
+  QueueState,
+  ScheduleUnitBar,
+  ScheduleMachineRow,
+  DueReliefUnit,
   StrategyDetail,
   RescheduleStrategy,
 } from './reschedule';
