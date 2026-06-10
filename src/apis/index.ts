@@ -8,6 +8,7 @@ export {
   getDistrictWorkStatus,
 } from './monitoring';
 export { getSimStatus } from './sim';
+export { login, signup } from './auth';
 export {
   getRescheduleGroups,
   getPendingRescheduleGroups,
@@ -29,6 +30,8 @@ export type {
   DistrictStepQueue,
   DistrictSummary,
   GanttBar,
+  LoginRequest,
+  LoginResponse,
   MachineDetail,
   QueueReorderItem,
   RescheduleAffectedUnit,
@@ -37,6 +40,8 @@ export type {
   RescheduleOption,
   RescheduleSelectionResult,
   RiskAnalysis,
+  SignUpRequest,
+  SignUpResponse,
   SimStatus,
   StepGantt,
   StepQueue,

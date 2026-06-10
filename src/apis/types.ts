@@ -7,6 +7,30 @@ export interface ApiResponse<T> {
   data: T;
 }
 
+/** POST /api/auth/login 요청/응답 data */
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+export interface LoginResponse {
+  accessToken: string;
+  tokenType: string;
+  username: string;
+  role: string;
+}
+
+/** POST /api/auth/signup 요청/응답 data */
+export interface SignUpRequest {
+  username: string;
+  email: string;
+  password: string;
+}
+export interface SignUpResponse {
+  userId: string;
+  username: string;
+  email: string;
+}
+
 /** GET /sim/status (시뮬레이션 서버 8000). 래퍼 없이 평면 객체로 옴 */
 export interface SimStatus {
   status: string; // 'idle' | 'running' | 'finished' 등

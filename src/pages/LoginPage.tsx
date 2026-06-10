@@ -1,7 +1,35 @@
+import { useState, type FormEvent } from 'react';
+
 import { Lock, Mail, ShieldCheck } from 'lucide-react';
+import { useMutation } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+
 import InputBox from '@/components/common/InputBox/InputBox';
+import { login } from '@apis/index';
+import { useAuthStore } from '@/stores';
+import { getApiErrorMessage } from '@/utils';
 
 export default function LoginPage() {
+  const navigate = useNavigate();
+  const setAuth = useAuthStore((state) => state.setAuth);
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  const loginMutation = useMutation({
+    mutationFn: () => login({ email, password }),
+    onSuccess: (data) => {
+      setAuth(data.accessToken, { username: data.username, role: data.role });
+      navigate('/dashboard', { replace: true });
+    },
+  });
+
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!email || !password || loginMutation.isPending) return;
+    loginMutation.mutate();
+  };
+
   return (
     <main className="flex min-h-screen overflow-hidden bg-surface-50">
       <section className="relative hidden w-[58%] flex-col justify-between overflow-hidden bg-secondary-navy px-[5%] py-[4%] text-white lg:flex">
@@ -72,20 +100,35 @@ export default function LoginPage() {
               </p>
             </div>
 
-            <form className="space-y-5">
+            <form className="space-y-5" onSubmit={handleSubmit}>
               <InputBox
                 label="이메일"
                 icon={Mail}
                 type="email"
+                autoComplete="email"
                 placeholder="admin@chipscheduler.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
 
               <InputBox
                 label="비밀번호"
                 icon={Lock}
                 type="password"
+                autoComplete="current-password"
                 placeholder="비밀번호를 입력해주세요"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
               />
+
+              {loginMutation.isError ? (
+                <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-600">
+                  {getApiErrorMessage(
+                    loginMutation.error,
+                    '로그인에 실패했습니다. 이메일·비밀번호를 확인해주세요.'
+                  )}
+                </p>
+              ) : null}
 
               <div className="flex items-center justify-between text-sm">
                 <label className="flex cursor-pointer items-center gap-2 text-gray-600">
@@ -98,9 +141,7 @@ export default function LoginPage() {
 
                 <button
                   type="button"
-                  onClick={() => {
-                    window.location.href = '/signup';
-                  }}
+                  onClick={() => navigate('/signup')}
                   className="font-medium text-gray-500 transition hover:text-primary-500"
                 >
                   회원가입
@@ -109,9 +150,10 @@ export default function LoginPage() {
 
               <button
                 type="submit"
-                className="h-12 w-full rounded-2xl bg-primary-500 text-sm font-bold text-white transition duration-200 hover:bg-primary-600 active:scale-[0.99]"
+                disabled={loginMutation.isPending}
+                className="h-12 w-full rounded-2xl bg-primary-500 text-sm font-bold text-white transition duration-200 hover:bg-primary-600 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                로그인
+                {loginMutation.isPending ? '로그인 중…' : '로그인'}
               </button>
             </form>
           </div>
