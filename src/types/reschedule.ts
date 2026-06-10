@@ -1,5 +1,5 @@
 // 재조정안 관련 타입. 필드명은 docs/data.dbml 컬럼명을 따른다.
-export type RiskLevel = 'High' | 'Medium' | 'Low';
+export type RiskLevel = 'Critical' | 'High' | 'Medium' | 'Low';
 export type GroupStatus = 'pending' | 'approved' | 'expired';
 export type RescheduleDistrict = 'A' | 'B' | 'C';
 
@@ -54,8 +54,8 @@ export interface ScheduleUnitBar {
 
 export interface ScheduleMachineRow {
   machine: string; // 표시 장비명
-  load_before: number; // 부하율 이전(%)
-  load_after: number; // 부하율 이후(%)
+  load_before?: number; // 부하율 이전(%) — API 미제공 시 생략
+  load_after?: number; // 부하율 이후(%) — API 미제공 시 생략
   units: ScheduleUnitBar[];
 }
 
@@ -86,4 +86,47 @@ export interface RescheduleStrategy {
   recommended: boolean;
   effect: StrategyEffect; // 목록 카드용 대표 효과
   detail: StrategyDetail; // 상세 패널용
+}
+
+// ─────────────────────────────────────────────────────────────
+// API 연결용 뷰모델 (utils/rescheduleTransform 에서 생성).
+// "있는 것만 표시" 정책: API에 없는 before/부하율/dueRelief 는 포함하지 않음.
+// ─────────────────────────────────────────────────────────────
+
+export interface RescheduleHeaderVM {
+  group_id: string;
+  districtLabel: string; // ex. '구역 A'
+  process_step: string;
+  group_status: GroupStatus;
+  risk_level: RiskLevel;
+  risk_factor: string; // root_cause.category 등, 없으면 ''
+}
+
+export interface RescheduleAffectedUnitVM {
+  unit_id: string;
+  risk_score: number; // 0~100 (delay_risk.risk_score ×100)
+  delay_probability: number; // 0~1
+  estimated_delay_hr: number;
+}
+
+export interface StrategyVM {
+  key: string; // strategy (due_date_first 등)
+  name: string; // 한글 라벨
+  recommended: boolean;
+  selected: boolean; // 확정된 전략
+  usable: boolean; // analysisStatus==='success' && 수치 있음 → 승인 가능
+  fallbackReason: string | null;
+  summary: string;
+  headline: { label: string; value: string } | null; // 전략 카드 대표 수치(after)
+  metrics: StrategyMetric[]; // 핵심 효과(after-only value 카드)
+  queue: QueueState; // queueReorder로 재구성한 이전/이후
+  schedule: ScheduleMachineRow[]; // afterSchedule로 만든 장비별 행
+  scheduleWindow: { start: number; end: number }; // 간트 시간 범위(시)
+}
+
+export interface RescheduleDetailVM {
+  header: RescheduleHeaderVM;
+  reasons: string[]; // riskAnalysis 근거(없으면 [])
+  affectedUnits: RescheduleAffectedUnitVM[];
+  strategies: StrategyVM[];
 }

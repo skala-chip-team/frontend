@@ -2,7 +2,7 @@ import type { GroupStatus, RiskLevel } from '@/types';
 
 /** Risk Level → Chip color (solid) */
 export function riskChipColor(level: RiskLevel): 'red' | 'orange' | 'emerald' {
-  if (level === 'High') return 'red';
+  if (level === 'Critical' || level === 'High') return 'red';
   if (level === 'Medium') return 'orange';
   return 'emerald';
 }
@@ -18,4 +18,10 @@ export function statusLabel(status: GroupStatus): string {
 
 export function formatDelayHours(hours: number): string {
   return Number.isInteger(hours) ? `${hours}시간` : `${hours.toFixed(1)}시간`;
+}
+
+/** 공통 래퍼(ApiResponse) 에러에서 message를 꺼낸다. 없으면 fallback */
+export function getApiErrorMessage(error: unknown, fallback: string): string {
+  const msg = (error as { response?: { data?: { message?: unknown } } })?.response?.data?.message;
+  return typeof msg === 'string' && msg.length > 0 ? msg : fallback;
 }

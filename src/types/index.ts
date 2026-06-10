@@ -13,6 +13,10 @@ export type {
   DueReliefUnit,
   StrategyDetail,
   RescheduleStrategy,
+  RescheduleHeaderVM,
+  RescheduleAffectedUnitVM,
+  StrategyVM,
+  RescheduleDetailVM,
 } from './reschedule';
 export type {
   ScheduleTone,

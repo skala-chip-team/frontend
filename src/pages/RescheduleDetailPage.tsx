@@ -1,96 +1,37 @@
 import { useState } from 'react';
-import { ArrowDown, ArrowUp, ChevronLeft, Minus, TrendingDown, TrendingUp } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronLeft, Minus, RefreshCw } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import {
-  Chip,
-  CircularProgress,
-  ConfirmModal,
-  Modal,
-  ScheduleChangeGantt,
-} from '@components/common';
-import { rescheduleGroups, rescheduleStrategies, riskReasonsByFactor } from '@/mocks';
+import { Chip, ConfirmModal, Modal, ScheduleChangeGantt } from '@components/common';
 import { districtLabels, useDistrictStore } from '@/stores';
-import { formatDelayHours, riskChipColor, statusChipColor, statusLabel } from '@/utils';
-import type { DueReliefUnit, RescheduleStrategy, StrategyKey, StrategyMetric } from '@/types';
+import {
+  useGenerateReschedule,
+  useRescheduleDetail,
+  useSelectRescheduleStrategy,
+} from '@/hooks';
+import {
+  buildRescheduleDetail,
+  formatDelayHours,
+  getApiErrorMessage,
+  riskChipColor,
+  statusChipColor,
+  statusLabel,
+} from '@/utils';
+import type { RescheduleAffectedUnitVM, StrategyMetric, StrategyVM } from '@/types';
 
-/** 납기 위험 완화 UNIT 테이블 — UNIT / 이전 완료 / 이후 완료(+앞당김) */
-function DueReliefTable({ items }: { items: DueReliefUnit[] }) {
-  return (
-    <div className="overflow-hidden rounded-xl border border-gray-100">
-      <table className="w-full text-label-3">
-        <thead className="bg-surface-100 text-gray-500">
-          <tr>
-            <th className="px-3 py-2 text-left font-semibold">UNIT</th>
-            <th className="px-3 py-2 text-right font-semibold">이전 완료</th>
-            <th className="px-3 py-2 text-right font-semibold">이후 완료</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((unit) => (
-            <tr key={unit.unit_id} className="border-t border-gray-100">
-              <td className="px-3 py-2 font-semibold text-secondary-navy">{unit.unit_id}</td>
-              <td className="px-3 py-2 text-right text-gray-500">{unit.before}</td>
-              <td className="px-3 py-2 text-right">
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="font-semibold text-secondary-navy">{unit.after}</span>
-                  <span className="flex items-center gap-0.5 font-semibold text-emerald-600">
-                    <ArrowDown className="h-3 w-3" aria-hidden />
-                    {formatDelayHours(unit.delta_hr)}
-                  </span>
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-/** 핵심 효과 카드 — before→value + 변화량(있을 때) / 없으면 값만(ex. 납기 위험 완화) */
+/** 핵심 효과 카드 — API는 after 값만 주므로 값만 표시(비교 없음) */
 function MetricCard({ metric }: { metric: StrategyMetric }) {
-  if (metric.before === undefined) {
-    return (
-      <div className="rounded-xl border border-gray-200/80 bg-white p-3.5">
-        <p className="text-label-3 text-gray-400">{metric.label}</p>
-        <p className="mt-1.5 text-[1.375rem] font-bold leading-none text-secondary-navy">
-          {metric.value}
-        </p>
-      </div>
-    );
-  }
-
-  const deltaColor =
-    metric.sentiment === 'bad'
-      ? 'text-red-600'
-      : metric.sentiment === 'neutral'
-        ? 'text-gray-500'
-        : 'text-emerald-600';
-  const Icon =
-    metric.direction === 'up' ? TrendingUp : metric.direction === 'down' ? TrendingDown : Minus;
-  // '증가/감소/단축' 등 방향 단어는 아이콘으로 대체하고 수치만 표시
-  const deltaValue = (metric.deltaLabel ?? '').replace(/\s*(증가|감소|단축)$/, '');
-
   return (
     <div className="rounded-xl border border-gray-200/80 bg-white p-3.5">
       <p className="text-label-3 text-gray-400">{metric.label}</p>
-      <div className="mt-1.5 flex items-baseline gap-1.5">
-        <span className="text-label-3 text-gray-400">{metric.before}</span>
-        <span className="text-label-3 text-gray-300">→</span>
-        <span className="text-[1.375rem] font-bold leading-none text-secondary-navy">
-          {metric.value}
-        </span>
-        <span className={`flex items-center gap-0.5 text-label-3 font-semibold ${deltaColor}`}>
-          <Icon className="h-3.5 w-3.5" aria-hidden />
-          {deltaValue}
-        </span>
-      </div>
+      <p className="mt-1.5 text-[1.375rem] font-bold leading-none text-secondary-navy">
+        {metric.value}
+      </p>
     </div>
   );
 }
 
-/** 대기열 행 — 대시보드 대기열 카드 스타일(번호 원형 + 흰 칩), 이후 대기열은 순위 변동 표시 */
+/** 대기열 행 — 번호 원형 + 칩, 이후 대기열은 순위 변동 표시 */
 function QueueRow({
   unitId,
   position,
@@ -100,7 +41,7 @@ function QueueRow({
   unitId: string;
   position: number;
   affected: boolean;
-  delta?: number; // 이전 대비 상승(+)/하락(-)/유지(0). undefined면 변동 미표시(이전 대기열)
+  delta?: number;
 }) {
   const showDelta = delta !== undefined;
   const DeltaIcon = !showDelta || delta === 0 ? Minus : delta > 0 ? ArrowUp : ArrowDown;
@@ -122,9 +63,7 @@ function QueueRow({
         }`}
       >
         <span className="flex items-center gap-1.5">
-          <span
-            className={`text-[12px] text-secondary-navy ${affected ? 'font-bold' : 'font-semibold'}`}
-          >
+          <span className={`text-[12px] text-secondary-navy ${affected ? 'font-bold' : 'font-semibold'}`}>
             {unitId}
           </span>
           {affected ? (
@@ -144,7 +83,6 @@ function QueueRow({
   );
 }
 
-/** 대기열 목록 — 좌측 연결선 + 번호 행(대시보드 대기열 카드 참고) */
 function QueueList({
   order,
   affected,
@@ -152,7 +90,7 @@ function QueueList({
 }: {
   order: string[];
   affected: string[];
-  beforeOrder?: string[]; // 주어지면 이후 대기열로 보고 변동량 계산
+  beforeOrder?: string[];
 }) {
   return (
     <div className="relative pl-[10px]">
@@ -175,21 +113,18 @@ function QueueList({
   );
 }
 
-/** 전략 카드 — 재조정안 라벨(A/B/C) + 이름 + (추천 시 Recommend 칩), 주요 효과 */
+/** 전략 카드 — 라벨(A/B/C) + 이름 + 추천/확정 배지 + 대표 수치(after) */
 function StrategyCard({
   strategy,
   label,
   active,
   onSelect,
 }: {
-  strategy: RescheduleStrategy;
-  label: string; // 재조정안 라벨 (A/B/C)
+  strategy: StrategyVM;
+  label: string;
   active: boolean;
   onSelect: () => void;
 }) {
-  const { effect } = strategy;
-  const TrendIcon = effect.deltaDirection === 'up' ? TrendingUp : TrendingDown;
-
   return (
     <button
       type="button"
@@ -201,7 +136,7 @@ function StrategyCard({
           : 'border-gray-200 bg-white hover:border-gray-300'
       }`}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <span
           className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-label-3 font-bold ${
             active ? 'bg-primary-500 text-white' : 'bg-secondary-navy/10 text-secondary-navy'
@@ -215,21 +150,69 @@ function StrategyCard({
             Recommend
           </Chip>
         ) : null}
+        {strategy.selected ? (
+          <Chip variant="subtle" color="emerald" size="xs" className="font-bold">
+            확정됨
+          </Chip>
+        ) : null}
+        {!strategy.usable ? (
+          <Chip variant="subtle" color="gray" size="xs">
+            재생성 필요
+          </Chip>
+        ) : null}
       </div>
 
-      <div>
-        <p className="text-label-3 text-gray-400">{effect.metricLabel}</p>
-        <div className="mt-1 flex flex-wrap items-center gap-2.5">
-          <span className="text-subtitle-1 font-bold text-secondary-navy">
-            {effect.before} <span className="text-gray-300">→</span> {effect.after}
-          </span>
-          <span className="flex items-center gap-1 text-label-2 font-semibold text-emerald-600">
-            <TrendIcon className="h-4 w-4" aria-hidden />
-            {effect.deltaLabel}
-          </span>
+      {strategy.headline ? (
+        <div>
+          <p className="text-label-3 text-gray-400">{strategy.headline.label}</p>
+          <p className="mt-1 text-subtitle-1 font-bold text-secondary-navy">
+            {strategy.headline.value}
+          </p>
         </div>
-      </div>
+      ) : (
+        <p className="text-label-3 text-gray-400">수치 미생성</p>
+      )}
     </button>
+  );
+}
+
+/** 영향 UNIT 테이블(모달) */
+function AffectedUnitsTable({ units }: { units: RescheduleAffectedUnitVM[] }) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-gray-100">
+      <table className="w-full text-label-2">
+        <thead className="bg-surface-100 text-label-3 text-gray-500">
+          <tr>
+            <th className="px-3 py-2 text-left font-semibold">UNIT</th>
+            <th className="px-3 py-2 text-right font-semibold">위험점수</th>
+            <th className="px-3 py-2 text-right font-semibold">지연확률</th>
+            <th className="px-3 py-2 text-right font-semibold">지연 예측</th>
+          </tr>
+        </thead>
+        <tbody>
+          {units.map((unit) => (
+            <tr key={unit.unit_id} className="border-t border-gray-100">
+              <td className="px-3 py-2 font-semibold text-secondary-navy">{unit.unit_id}</td>
+              <td className="px-3 py-2 text-right text-gray-700">{unit.risk_score}</td>
+              <td className="px-3 py-2 text-right text-gray-700">
+                {Math.round(unit.delay_probability * 100)}%
+              </td>
+              <td className="px-3 py-2 text-right font-semibold text-primary-600">
+                +{formatDelayHours(unit.estimated_delay_hr)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function Message({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex h-40 items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white text-body-2 text-gray-400">
+      {children}
+    </div>
   );
 }
 
@@ -237,30 +220,30 @@ export default function RescheduleDetailPage() {
   const navigate = useNavigate();
   const { groupId } = useParams();
   const selectedDistrict = useDistrictStore((state) => state.selectedDistrict);
-  const group = rescheduleGroups.find((item) => item.group_id === groupId) ?? null;
 
-  const recommendedKey =
-    rescheduleStrategies.find((strategy) => strategy.recommended)?.key ??
-    rescheduleStrategies[0].key;
-  const [selectedStrategy, setSelectedStrategy] = useState<StrategyKey>(recommendedKey);
+  const { data, isLoading, isError } = useRescheduleDetail(groupId);
+  const generate = useGenerateReschedule(groupId ?? '');
+  const select = useSelectRescheduleStrategy(groupId ?? '');
+
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [unitModalOpen, setUnitModalOpen] = useState(false);
-  const [dueReliefModalOpen, setDueReliefModalOpen] = useState(false);
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [approveModalOpen, setApproveModalOpen] = useState(false);
   const [changeTab, setChangeTab] = useState<'queue' | 'schedule'>('queue');
-  const activeIndex = Math.max(
-    0,
-    rescheduleStrategies.findIndex((strategy) => strategy.key === selectedStrategy)
-  );
-  const activeStrategy = rescheduleStrategies[activeIndex];
-  const strategyLabel = (index: number) => String.fromCharCode(65 + index); // 0→A, 1→B, 2→C
 
-  const reasons = group ? (riskReasonsByFactor[group.risk_factor] ?? []) : [];
+  const detail = data ? buildRescheduleDetail(data) : null;
+  const strategies = detail?.strategies ?? [];
+  const activeStrategy =
+    strategies.find((s) => s.key === selectedKey) ??
+    strategies.find((s) => s.recommended) ??
+    strategies[0];
+  const activeIndex = activeStrategy ? strategies.indexOf(activeStrategy) : 0;
+  const strategyLabel = (index: number) => String.fromCharCode(65 + index); // 0→A
 
   return (
     <section className="min-h-full bg-surface-50 px-6 pb-6 pt-4 lg:px-8 lg:pb-8">
       <div className="flex w-full flex-col gap-4">
-        {/* 뒤로 + 브레드크럼 (구역 필터 시 구역 포함) */}
+        {/* 뒤로 + 브레드크럼 */}
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -289,69 +272,67 @@ export default function RescheduleDetailPage() {
           </div>
         </div>
 
-        {group === null ? (
-          <div className="flex h-40 items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white text-body-2 text-gray-400">
-            해당 재조정안을 찾을 수 없습니다.
-          </div>
+        {isLoading ? (
+          <Message>재조정안을 불러오는 중…</Message>
+        ) : isError || !detail ? (
+          <Message>해당 재조정안을 불러오지 못했습니다.</Message>
         ) : (
           <>
-            {/* 상단: 위험 내용 / 원인 설명 / 영향 UNIT */}
+            {/* 상단: 위험 내용 / 원인 / 영향 UNIT */}
             <div className="flex flex-col gap-4 lg:flex-row">
-              {/* 위험 내용 */}
               <div className="flex flex-1 flex-col gap-2 rounded-2xl border border-gray-200/80 bg-white p-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    <Chip variant="outline" size="sm">{`구역${group.district_id}`}</Chip>
                     <Chip variant="outline" size="sm">
-                      {group.process_step}
+                      {detail.header.districtLabel}
+                    </Chip>
+                    <Chip variant="outline" size="sm">
+                      {detail.header.process_step}
                     </Chip>
                   </div>
-                  <Chip variant="subtle" color={statusChipColor(group.group_status)} size="md">
-                    {statusLabel(group.group_status)}
+                  <Chip variant="subtle" color={statusChipColor(detail.header.group_status)} size="md">
+                    {statusLabel(detail.header.group_status)}
                   </Chip>
                 </div>
 
                 <div className="flex items-center gap-2.5">
                   <Chip
                     variant="solid"
-                    color={riskChipColor(group.risk_level)}
+                    color={riskChipColor(detail.header.risk_level)}
                     size="md"
                     className="font-bold"
                   >
-                    {group.risk_level.toUpperCase()}
+                    {detail.header.risk_level.toUpperCase()}
                   </Chip>
                   <div className="text-subtitle-2 font-bold text-secondary-navy">
-                    {group.group_id} {group.risk_factor}
+                    {detail.header.group_id} {detail.header.risk_factor}
                   </div>
                 </div>
               </div>
 
-              {/* 원인 설명 (별도 카드, 제목 없음) */}
+              {/* 원인 설명 — riskAnalysis 근거 */}
               <div className="flex flex-1 flex-col justify-center rounded-2xl border border-gray-200/80 bg-white p-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
-                {reasons.length > 0 ? (
+                {detail.reasons.length > 0 ? (
                   <ul className="flex flex-col gap-1">
-                    {reasons.map((reason) => (
-                      <li
-                        key={reason}
-                        className="flex gap-1.5 text-label-3 leading-snug text-gray-600"
-                      >
+                    {detail.reasons.map((reason) => (
+                      <li key={reason} className="flex gap-1.5 text-label-3 leading-snug text-gray-600">
                         <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-gray-300" />
                         <span>{reason}</span>
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-label-3 text-gray-400">원인 정보가 없습니다.</p>
+                  <p className="text-label-3 text-gray-400">원인 분석 정보가 아직 없습니다.</p>
                 )}
               </div>
 
-              {/* 영향 UNIT — 개수 + 자세히 보기 */}
+              {/* 영향 UNIT */}
               <div className="flex flex-col gap-2 rounded-2xl border border-gray-200/80 bg-white p-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)] lg:w-[200px] lg:shrink-0">
                 <div className="flex items-baseline justify-between">
                   <h3 className="text-label-1 font-bold text-secondary-navy">영향 UNIT</h3>
                   <span>
                     <span className="text-[1.5rem] font-bold leading-none text-secondary-navy">
-                      {group.affected_units.length}
+                      {detail.affectedUnits.length}
                     </span>
                     <span className="ml-0.5 text-label-3 text-gray-400">개</span>
                   </span>
@@ -359,245 +340,242 @@ export default function RescheduleDetailPage() {
                 <button
                   type="button"
                   onClick={() => setUnitModalOpen(true)}
-                  className="mt-auto rounded-lg border border-gray-200 px-3 py-1.5 text-label-2 font-semibold text-secondary-navy transition hover:bg-surface-100"
+                  disabled={detail.affectedUnits.length === 0}
+                  className="mt-auto rounded-lg border border-gray-200 px-3 py-1.5 text-label-2 font-semibold text-secondary-navy transition hover:bg-surface-100 disabled:opacity-40"
                 >
                   자세히 보기
                 </button>
               </div>
             </div>
 
-            {/* 전략 상세: 좌측 전략 목록(좁게) / 우측 상세(추후, 넓게) */}
-            <div className="flex flex-col gap-4 lg:flex-row">
-              <div className="flex flex-col gap-2.5 lg:w-[300px] lg:shrink-0">
-                <h2 className="text-subtitle-2 font-bold text-secondary-navy">재조정 전략</h2>
-                {rescheduleStrategies.map((strategy, index) => (
-                  <StrategyCard
-                    key={strategy.key}
-                    strategy={strategy}
-                    label={strategyLabel(index)}
-                    active={strategy.key === selectedStrategy}
-                    onSelect={() => setSelectedStrategy(strategy.key)}
-                  />
-                ))}
+            {strategies.length === 0 || !activeStrategy ? (
+              <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center">
+                <p className="text-body-2 text-gray-500">아직 생성된 재조정안이 없습니다.</p>
+                <GenerateButton generate={generate} />
               </div>
-
-              <div className="flex flex-1 flex-col gap-4">
-                {/* 핵심 효과 */}
-                <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
-                  <h3 className="mb-2 text-label-1 font-bold text-gray-500">핵심 효과</h3>
-                  <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-                    {activeStrategy.detail.metrics.map((metric) => (
-                      <MetricCard key={metric.label} metric={metric} />
-                    ))}
-                  </div>
+            ) : (
+              <div className="flex flex-col gap-4 lg:flex-row">
+                {/* 좌측 전략 목록 */}
+                <div className="flex flex-col gap-2.5 lg:w-[300px] lg:shrink-0">
+                  <h2 className="text-subtitle-2 font-bold text-secondary-navy">재조정 전략</h2>
+                  {strategies.map((strategy, index) => (
+                    <StrategyCard
+                      key={strategy.key}
+                      strategy={strategy}
+                      label={strategyLabel(index)}
+                      active={strategy.key === activeStrategy.key}
+                      onSelect={() => setSelectedKey(strategy.key)}
+                    />
+                  ))}
                 </div>
 
-                {/* 장비별 부하율 */}
-                <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
-                  <h3 className="mb-3 text-label-1 font-bold text-gray-500">장비별 부하율</h3>
-                  <div className="flex flex-wrap items-start justify-around gap-6">
-                    {activeStrategy.detail.schedule.map((row) => (
-                      <div key={row.machine} className="flex flex-col items-center gap-2">
-                        <CircularProgress value={row.load_after}>
-                          <span className="text-[1.5rem] font-bold leading-none text-secondary-navy">
-                            {row.load_after}%
-                          </span>
-                          <span className="mt-1 text-caption-2 font-medium text-gray-400">
-                            이전 {row.load_before}%
-                          </span>
-                        </CircularProgress>
-                        <span className="text-label-3 font-semibold text-secondary-navy">
-                          {row.machine}
-                        </span>
+                {/* 우측 상세 */}
+                <div className="flex flex-1 flex-col gap-4">
+                  {/* fallback 안내 */}
+                  {!activeStrategy.usable ? (
+                    <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                      <p className="text-label-2 text-amber-700">
+                        이 전략은 재조정안이 완전히 생성되지 않았습니다.
+                        {activeStrategy.fallbackReason ? ` (${activeStrategy.fallbackReason})` : ''} 재생성 후
+                        승인할 수 있습니다.
+                      </p>
+                      <GenerateButton generate={generate} />
+                    </div>
+                  ) : null}
+
+                  {/* 핵심 효과 */}
+                  {activeStrategy.metrics.length > 0 ? (
+                    <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+                      <h3 className="mb-2 text-label-1 font-bold text-gray-500">핵심 효과 (적용 후)</h3>
+                      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+                        {activeStrategy.metrics.map((metric) => (
+                          <MetricCard key={metric.label} metric={metric} />
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </div>
+                    </div>
+                  ) : null}
 
-                {/* 변경사항(요약) + 납기 위험 완화 UNIT — 같은 줄 */}
-                <div className="flex flex-col gap-4 lg:flex-row">
-                  <div className="flex flex-1 flex-col rounded-2xl border border-gray-200/80 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+                  {/* 변경사항 요약 */}
+                  <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
                     <h3 className="mb-2 text-label-1 font-bold text-gray-500">변경사항</h3>
-                    <p className="flex-1 rounded-xl bg-surface-100 px-4 py-3 text-body-2 leading-relaxed text-secondary-navy">
-                      {activeStrategy.detail.summary}
+                    <p className="rounded-xl bg-surface-100 px-4 py-3 text-body-2 leading-relaxed text-secondary-navy">
+                      {activeStrategy.summary || '요약 정보가 없습니다.'}
                     </p>
                   </div>
 
-                  <div className="flex flex-1 flex-col rounded-2xl border border-gray-200/80 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
-                    <div className="mb-2 flex items-center justify-between">
-                      <h3 className="text-label-1 font-bold text-gray-500">납기 위험 완화 UNIT</h3>
-                      <span className="text-label-3 text-gray-400">
-                        {activeStrategy.detail.dueRelief.length}건
-                      </span>
+                  {/* 변경 상세 탭 */}
+                  <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+                    <div className="flex gap-1 border-b border-gray-200">
+                      {[
+                        { key: 'queue' as const, label: '큐 우선순위 변경 내용' },
+                        { key: 'schedule' as const, label: '스케줄 변경 내용' },
+                      ].map((tab) => (
+                        <button
+                          key={tab.key}
+                          type="button"
+                          onClick={() => setChangeTab(tab.key)}
+                          className={`-mb-px border-b-2 px-3 py-2 text-label-2 font-semibold transition ${
+                            changeTab === tab.key
+                              ? 'border-primary-500 text-primary-600'
+                              : 'border-transparent text-gray-400 hover:text-gray-600'
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
                     </div>
-                    <DueReliefTable items={activeStrategy.detail.dueRelief.slice(0, 2)} />
-                    {activeStrategy.detail.dueRelief.length >= 3 ? (
-                      <button
-                        type="button"
-                        onClick={() => setDueReliefModalOpen(true)}
-                        className="mt-2 rounded-lg border border-gray-200 px-3 py-2 text-label-2 font-semibold text-secondary-navy transition hover:bg-surface-100"
-                      >
-                        자세히 보기 (외 {activeStrategy.detail.dueRelief.length - 2}건)
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
 
-                {/* 변경 상세 탭 (풀폭) */}
-                <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
-                  <div className="flex gap-1 border-b border-gray-200">
-                    {[
-                      { key: 'queue' as const, label: '큐 우선순위 변경 내용' },
-                      { key: 'schedule' as const, label: '스케줄 변경 내용' },
-                    ].map((tab) => (
-                      <button
-                        key={tab.key}
-                        type="button"
-                        onClick={() => setChangeTab(tab.key)}
-                        className={`-mb-px border-b-2 px-3 py-2 text-label-2 font-semibold transition ${
-                          changeTab === tab.key
-                            ? 'border-primary-500 text-primary-600'
-                            : 'border-transparent text-gray-400 hover:text-gray-600'
-                        }`}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="mt-3">
-                    {changeTab === 'queue' ? (
-                      <div className="flex flex-col gap-4 sm:flex-row">
-                        {/* 이전 대기열 */}
-                        <div className="flex-1">
-                          <p className="mb-2 text-label-3 font-semibold text-gray-400">
-                            이전 대기열
+                    <div className="mt-3">
+                      {changeTab === 'queue' ? (
+                        activeStrategy.queue.after.length > 0 ? (
+                          <div className="flex flex-col gap-4 sm:flex-row">
+                            <div className="flex-1">
+                              <p className="mb-2 text-label-3 font-semibold text-gray-400">이전 대기열</p>
+                              <QueueList
+                                order={activeStrategy.queue.before}
+                                affected={activeStrategy.queue.affected}
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <p className="mb-2 text-label-3 font-semibold text-primary-600">이후 대기열</p>
+                              <QueueList
+                                order={activeStrategy.queue.after}
+                                affected={activeStrategy.queue.affected}
+                                beforeOrder={activeStrategy.queue.before}
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="py-6 text-center text-label-2 text-gray-400">
+                            대기열 변경 내용이 없습니다.
                           </p>
-                          <QueueList
-                            order={activeStrategy.detail.queue.before}
-                            affected={activeStrategy.detail.queue.affected}
-                          />
-                        </div>
-
-                        {/* 이후 대기열 (순위 변동 표시) */}
-                        <div className="flex-1">
-                          <p className="mb-2 text-label-3 font-semibold text-primary-600">
-                            이후 대기열
-                          </p>
-                          <QueueList
-                            order={activeStrategy.detail.queue.after}
-                            affected={activeStrategy.detail.queue.affected}
-                            beforeOrder={activeStrategy.detail.queue.before}
-                          />
-                        </div>
-                      </div>
-                    ) : (
-                      <ScheduleChangeGantt
-                        rows={activeStrategy.detail.schedule}
-                        startHour={8}
-                        endHour={20}
-                      />
-                    )}
+                        )
+                      ) : activeStrategy.schedule.length > 0 ? (
+                        <ScheduleChangeGantt
+                          rows={activeStrategy.schedule}
+                          startHour={activeStrategy.scheduleWindow.start}
+                          endHour={activeStrategy.scheduleWindow.end}
+                        />
+                      ) : (
+                        <p className="py-6 text-center text-label-2 text-gray-400">
+                          스케줄 변경 내용이 없습니다.
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
 
-                {/* 액션 버튼 */}
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setReportModalOpen(true)}
-                    className="rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-label-1 font-semibold text-secondary-navy transition hover:bg-surface-100"
-                  >
-                    AI 리포트 확인하기
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setApproveModalOpen(true)}
-                    className="rounded-lg bg-primary-500 px-4 py-2.5 text-label-1 font-semibold text-white shadow-[0_8px_20px_rgba(234,0,44,0.18)] transition hover:bg-primary-600"
-                  >
-                    재조정안{strategyLabel(activeIndex)} 승인
-                  </button>
+                  {/* 선택 실패 안내 — 백엔드 message 노출 */}
+                  {select.isError ? (
+                    <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-label-2 text-red-600">
+                      {getApiErrorMessage(
+                        select.error,
+                        '승인에 실패했습니다. 만료되었거나 일시적인 오류일 수 있습니다.'
+                      )}
+                    </p>
+                  ) : null}
+
+                  {/* 액션 */}
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setReportModalOpen(true)}
+                      className="rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-label-1 font-semibold text-secondary-navy transition hover:bg-surface-100"
+                    >
+                      AI 리포트 확인하기
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setApproveModalOpen(true)}
+                      disabled={!activeStrategy.usable || select.isPending}
+                      className="rounded-lg bg-primary-500 px-4 py-2.5 text-label-1 font-semibold text-white shadow-[0_8px_20px_rgba(234,0,44,0.18)] transition hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {select.isPending
+                        ? '승인 처리 중…'
+                        : `재조정안${strategyLabel(activeIndex)} 승인`}
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* 영향 UNIT 상세 모달 */}
+            {/* 영향 UNIT 모달 */}
             <Modal
               open={unitModalOpen}
               onClose={() => setUnitModalOpen(false)}
-              title={`영향 UNIT (${group.affected_units.length}개)`}
+              title={`영향 UNIT (${detail.affectedUnits.length}개)`}
             >
-              <div className="overflow-hidden rounded-xl border border-gray-100">
-                <table className="w-full text-label-2">
-                  <thead className="bg-surface-100 text-label-3 text-gray-500">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-semibold">UNIT</th>
-                      <th className="px-3 py-2 text-right font-semibold">위험점수</th>
-                      <th className="px-3 py-2 text-right font-semibold">지연확률</th>
-                      <th className="px-3 py-2 text-right font-semibold">지연 예측</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {group.affected_units.map((unit) => (
-                      <tr key={unit.unit_id} className="border-t border-gray-100">
-                        <td className="px-3 py-2 font-semibold text-secondary-navy">
-                          {unit.unit_id}
-                        </td>
-                        <td className="px-3 py-2 text-right text-gray-700">{unit.risk_score}</td>
-                        <td className="px-3 py-2 text-right text-gray-700">
-                          {Math.round(unit.delay_probability * 100)}%
-                        </td>
-                        <td className="px-3 py-2 text-right font-semibold text-primary-600">
-                          +{formatDelayHours(unit.estimated_delay_hr)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <AffectedUnitsTable units={detail.affectedUnits} />
             </Modal>
 
-            {/* 납기 위험 완화 UNIT 전체 모달 */}
-            <Modal
-              open={dueReliefModalOpen}
-              onClose={() => setDueReliefModalOpen(false)}
-              title={`납기 위험 완화 UNIT (${activeStrategy.detail.dueRelief.length}건)`}
-            >
-              <DueReliefTable items={activeStrategy.detail.dueRelief} />
-            </Modal>
-
-            {/* AI 리포트 모달 */}
-            <Modal
-              open={reportModalOpen}
-              onClose={() => setReportModalOpen(false)}
-              title="AI 리포트"
-            >
+            {/* AI 리포트 모달 — 원인분석 + 요약 */}
+            <Modal open={reportModalOpen} onClose={() => setReportModalOpen(false)} title="AI 리포트">
               <div className="flex flex-col gap-3 text-body-2 leading-relaxed text-gray-600">
-                <p className="rounded-xl bg-surface-100 px-4 py-3 font-semibold text-secondary-navy">
-                  재조정안{strategyLabel(activeIndex)} ({activeStrategy.name}) 적용 시{' '}
-                  {group.group_id}의 재조정 효과 분석
-                </p>
-                <p>{activeStrategy.detail.summary}</p>
-                <p className="text-gray-400">상세 AI 분석 리포트는 추후 추가됩니다.</p>
+                {activeStrategy ? (
+                  <p className="rounded-xl bg-surface-100 px-4 py-3 font-semibold text-secondary-navy">
+                    재조정안{strategyLabel(activeIndex)} ({activeStrategy.name}) 적용 시{' '}
+                    {detail.header.group_id}의 재조정 효과 분석
+                  </p>
+                ) : null}
+                {activeStrategy?.summary ? <p>{activeStrategy.summary}</p> : null}
+                {detail.reasons.length > 0 ? (
+                  <ul className="flex flex-col gap-1.5">
+                    {detail.reasons.map((reason) => (
+                      <li key={reason} className="flex gap-1.5">
+                        <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-gray-300" />
+                        <span>{reason}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-400">원인 분석 정보가 없습니다.</p>
+                )}
               </div>
             </Modal>
 
-            {/* 재조정안 승인 확인 모달 */}
+            {/* 승인 확인 모달 */}
             <ConfirmModal
               open={approveModalOpen}
               title={`재조정안${strategyLabel(activeIndex)}를 승인하시겠습니까?`}
-              description={`승인 시 현재 시점에서 가능한 재조정안인지 검증한 후 곧바로 스케줄 변경이 적용됩니다.`}
+              description="승인 시 선택한 전략이 대기열·스케줄에 실제로 반영됩니다."
               cancelLabel="취소"
               confirmLabel="승인"
               onClose={() => setApproveModalOpen(false)}
               onConfirm={() => {
-                setApproveModalOpen(false);
-                navigate('/dashboard');
+                if (!activeStrategy) return;
+                select.mutate(activeStrategy.key, {
+                  onSuccess: () => {
+                    setApproveModalOpen(false);
+                    navigate('/dashboard');
+                  },
+                  onError: () => setApproveModalOpen(false),
+                });
               }}
             />
           </>
         )}
       </div>
     </section>
+  );
+}
+
+/** 재생성 버튼 (에이전트 재호출, 최대 2분) */
+function GenerateButton({ generate }: { generate: ReturnType<typeof useGenerateReschedule> }) {
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <button
+        type="button"
+        onClick={() => generate.mutate()}
+        disabled={generate.isPending}
+        className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-label-2 font-semibold text-secondary-navy transition hover:bg-surface-100 disabled:opacity-50"
+      >
+        <RefreshCw className={`h-3.5 w-3.5 ${generate.isPending ? 'animate-spin' : ''}`} aria-hidden />
+        {generate.isPending ? '재생성 중… (최대 2분)' : '재생성'}
+      </button>
+      {generate.isError ? (
+        <span className="max-w-[260px] text-right text-caption-1 text-red-600">
+          {getApiErrorMessage(generate.error, '재생성에 실패했습니다. 잠시 후 다시 시도해주세요.')}
+        </span>
+      ) : null}
+    </div>
   );
 }
