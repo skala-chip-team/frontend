@@ -12,6 +12,8 @@ export type { DistrictOption } from './DistrictSelect';
 export { StepSelector } from './StepSelector';
 export type { StepOption } from './StepSelector';
 export { ScheduleChangeGantt } from './ScheduleChangeGantt';
+export { WorkerTable } from './WorkerTable';
+export { WorkerDetailPanel, type WorkerUpdate } from './WorkerDetailPanel';
 export { Pagination } from './Pagination';
 export { RescheduleCard } from './RescheduleCard';
 export type { RescheduleCardData } from './RescheduleCard';
