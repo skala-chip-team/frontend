@@ -20,6 +20,7 @@ export interface DistrictMachine {
   machine_type: string; // machine_master.machine_type
   machine_status: MachineStatus; // machine_master.machine_status
   avg_utilization_rate: number; // 가동률(%)
+  active_unit_id?: string | null; // 현재 투입 UNIT (machines API의 activeSchedule.unitId)
   units: ScheduledUnit[];
 }
 
@@ -27,6 +28,7 @@ export interface ProcessStep {
   step_id: string; // process_step_order.step_id
   process_step: string; // process_step_order.process_step
   avg_wait_time_min: number; // district_status.avg_wait_time_min
+  waiting_units: string[]; // 실제 대기 unit_id 목록(by-step 큐, queue_position 순)
   machines: DistrictMachine[];
 }
 

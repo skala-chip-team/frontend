@@ -132,7 +132,7 @@ function Logo() {
     <div className="grid size-10 shrink-0 place-content-center rounded-lg bg-gradient-to-br from-primary-500 to-primary-600 shadow-sm">
       <svg
         width="20"
-        height="auto"
+        height="15.6"
         viewBox="0 0 50 39"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"

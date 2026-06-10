@@ -7,11 +7,20 @@ import { MachineDetailPanel } from './MachineDetailPanel';
 import { MachineQueueCard, type FleetQueue } from './MachineQueueCard';
 
 const MACHINE_OFFSET: Triplet = [-1.85, -0.44, 0];
-const MACHINE_POSITIONS: Triplet[] = [
-  [1.6, -0.42, -2.55],
-  [5.15, -0.42, 0],
-  [8.7, -0.42, 2.55],
-];
+// 장비를 일정 간격의 대각선 라인에 배치. 개수만큼 위치를 생성한다.
+const MACHINE_START: Triplet = [1.6, -0.42, -2.55];
+const MACHINE_STEP: Triplet = [3.55, 0, 2.55];
+
+function machinePositions(count: number): Triplet[] {
+  return Array.from(
+    { length: Math.max(0, count) },
+    (_, i): Triplet => [
+      MACHINE_START[0] + MACHINE_STEP[0] * i,
+      MACHINE_START[1] + MACHINE_STEP[1] * i,
+      MACHINE_START[2] + MACHINE_STEP[2] * i,
+    ]
+  );
+}
 
 const SLIDE_MS = 320;
 
@@ -35,15 +44,15 @@ function zoomDistanceForCount(machineCount: number) {
   return ZOOM_BASE_DISTANCE + ZOOM_PER_MACHINE * (representative - 1);
 }
 
-function machineWorldPosition(index: number): Triplet {
-  const [x, y, z] = MACHINE_POSITIONS[index];
-  return [x + MACHINE_OFFSET[0], y + MACHINE_OFFSET[1], z + MACHINE_OFFSET[2]];
+function machineWorldPosition(pos: Triplet): Triplet {
+  return [pos[0] + MACHINE_OFFSET[0], pos[1] + MACHINE_OFFSET[1], pos[2] + MACHINE_OFFSET[2]];
 }
 
-/** 장비 개수를 변수로 기본 카메라 뷰를 계산한다. (좌측 대기열 카드와 겹치지 않게 타깃을 약간 왼쪽으로) */
-function defaultFleetView(machineCount: number): { position: Triplet; target: Triplet } {
-  const count = Math.max(1, Math.min(machineCount, MACHINE_POSITIONS.length));
-  const positions = Array.from({ length: count }, (_, index) => machineWorldPosition(index));
+/** 장비 위치 목록으로 기본 카메라 뷰를 계산한다. (좌측 대기열 카드와 겹치지 않게 타깃을 약간 왼쪽으로) */
+function defaultFleetView(localPositions: Triplet[]): { position: Triplet; target: Triplet } {
+  const source = localPositions.length > 0 ? localPositions : machinePositions(1);
+  const count = source.length;
+  const positions = source.map(machineWorldPosition);
 
   const centroid = positions.reduce<Triplet>(
     (acc, [x, y, z]) => [acc[0] + x / count, acc[1] + y / count, acc[2] + z / count],
@@ -93,12 +102,19 @@ export default function MachineFleetBoard({
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
   const [slide, setSlide] = useState<{ phase: SlidePhase; dir: 1 | -1 }>({ phase: 'idle', dir: 1 });
   const [cameraSnap, setCameraSnap] = useState(false);
-  const prevMachinesRef = useRef(machines);
+  // step 전환 판별은 "장비 구성(머신 id 집합)"으로 한다. 같은 step의 데이터 갱신(폴링)으로
+  // machines 참조만 바뀌는 경우엔 슬라이드를 돌리지 않는다.
+  const prevKeyRef = useRef(machines.map((m) => m.machine_id).join('|'));
 
-  // machines prop 변경 감지 → 3D 캔버스만 슬라이드 전환
+  // machines 변경 감지 → step 전환이면 슬라이드, 같은 step 데이터 갱신이면 즉시 반영
   useEffect(() => {
-    if (machines === prevMachinesRef.current) return;
-    prevMachinesRef.current = machines;
+    const key = machines.map((m) => m.machine_id).join('|');
+    if (key === prevKeyRef.current) {
+      // 같은 step: 슬라이드 없이 현재선/상태/큐만 갱신
+      setDisplayedMachines(machines);
+      return;
+    }
+    prevKeyRef.current = key;
 
     const dir = slideDirection;
     setSlide({ phase: 'exit', dir }); // 현재 캔버스를 화면 밖으로 밀어냄
@@ -120,7 +136,9 @@ export default function MachineFleetBoard({
     return () => window.clearTimeout(swapTimer);
   }, [machines, slideDirection]);
 
-  const displayedList = useMemo(() => displayedMachines.slice(0, 3), [displayedMachines]);
+  // 장비 전부 표시(개수만큼 위치 생성)
+  const displayedList = displayedMachines;
+  const positions = useMemo(() => machinePositions(displayedList.length), [displayedList.length]);
 
   const selectedMachine = useMemo(
     () => displayedList.find((machine) => machine.machine_id === selectedCode) ?? null,
@@ -128,19 +146,22 @@ export default function MachineFleetBoard({
   );
   const isSelecting = selectedCode !== null;
 
-  const cardPositions = MACHINE_POSITIONS.map(([x, , z]) => [x, 4.2, z + 0.08] as Triplet);
-  const defaultView = useMemo(() => defaultFleetView(displayedList.length), [displayedList.length]);
+  const cardPositions = useMemo(
+    () => positions.map(([x, , z]) => [x, 4.2, z + 0.08] as Triplet),
+    [positions]
+  );
+  const defaultView = useMemo(() => defaultFleetView(positions), [positions]);
 
   // 선택된 장비로 줌인 / 미선택 시 기본 뷰
   const camera = useMemo(() => {
     const index = displayedList.findIndex((machine) => machine.machine_id === selectedCode);
 
-    if (index < 0) {
+    if (index < 0 || !positions[index]) {
       const key = `default:${displayedList.map((machine) => machine.machine_id).join('|')}`;
       return { key, position: defaultView.position, target: defaultView.target };
     }
 
-    const [px, py, pz] = MACHINE_POSITIONS[index];
+    const [px, py, pz] = positions[index];
     const mx = px + MACHINE_OFFSET[0];
     const my = py + MACHINE_OFFSET[1];
     const mz = pz + MACHINE_OFFSET[2];
@@ -150,7 +171,7 @@ export default function MachineFleetBoard({
       target: [mx + 2.2, my + 2.6, mz] as Triplet,
       position: [mx + 2.2, my + 4.4, mz + 9] as Triplet,
     };
-  }, [displayedList, selectedCode, defaultView]);
+  }, [displayedList, selectedCode, defaultView, positions]);
 
   const translateX =
     slide.phase === 'exit'
@@ -182,7 +203,7 @@ export default function MachineFleetBoard({
                   <FleetMachine
                     key={machine.machine_id}
                     data={machine}
-                    position={MACHINE_POSITIONS[index] ?? [index * 2.4, 0, 0]}
+                    position={positions[index] ?? [index * 2.4, 0, 0]}
                     cardPosition={cardPositions[index] ?? [0, 0, 0]}
                     cardHidden={isSelecting}
                     onSelect={setSelectedCode}

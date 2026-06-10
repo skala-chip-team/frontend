@@ -15,6 +15,7 @@ export interface MachineDatum {
   machine_type: string; // machine_master.machine_type (표시용 장비명)
   machine_status: '점검중' | '가동중' | '대기중'; // machine_master.machine_status
   avg_utilization_rate: number; // 가동률(%)
+  active_unit_id?: string | null; // 현재 투입 UNIT (machines API의 activeSchedule.unitId)
   units?: MachineUnit[];
 }
 

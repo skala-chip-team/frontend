@@ -23,6 +23,10 @@ type MachineScheduleGanttRowProps = {
   endHour: number;
 };
 
+// 막대 사이 간격(%)과 최소 폭(%). 전체 시간폭 대비 비율.
+const BAR_GAP = 0.4;
+const MIN_BAR_WIDTH = 1.5;
+
 const scheduleToneClassMap: Record<ScheduleItemTone, string> = {
   primary: 'border border-primary-200 bg-primary-500/16 text-primary-700',
   navy: 'border border-slate-200 bg-secondary-navy/12 text-secondary-navy',
@@ -39,13 +43,18 @@ export function MachineScheduleGanttRow({
 
   return (
     <div className="grid grid-cols-[10rem_minmax(0,1fr)] items-center gap-4 py-1">
-      <h3 className="text-body-2 font-semibold text-gray-900">{schedule.machine_type}</h3>
+      <h3 className="sticky left-0 z-30 flex items-center self-stretch overflow-hidden bg-white pr-3 text-body-2 font-semibold text-gray-900">
+        <span className="truncate">{schedule.machine_id}</span>
+      </h3>
 
       <div className="relative h-8">
         <div className="relative h-full">
           {schedule.units.map((unit) => {
             const left = ((unit.start_time - startHour) / totalHours) * 100;
-            const width = ((unit.end_time - unit.start_time) / totalHours) * 100;
+            const rawWidth = ((unit.end_time - unit.start_time) / totalHours) * 100;
+            // 실제 시간 폭을 그대로 쓰되, 막대 사이 작은 간격(BAR_GAP)을 빼서 겹침 방지.
+            // 너무 짧은 막대는 최소 폭으로 보이게 한다.
+            const width = Math.max(rawWidth - BAR_GAP, MIN_BAR_WIDTH);
             const toneClass = scheduleToneClassMap[unit.tone ?? 'primary'];
 
             return (
@@ -54,7 +63,7 @@ export function MachineScheduleGanttRow({
                 className={`absolute top-1/2 z-10 flex h-7 -translate-y-1/2 items-center gap-1.5 rounded-lg px-2.5 text-label-3 font-semibold backdrop-blur-[1px] ${toneClass}`}
                 style={{
                   left: `${left}%`,
-                  width: `${Math.max(width, 8)}%`,
+                  width: `${width}%`,
                 }}
               >
                 <span className="truncate">{unit.unit_id}</span>

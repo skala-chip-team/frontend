@@ -14,7 +14,8 @@ function MachineInfoCard({
   position: Triplet;
   hidden: boolean;
 }) {
-  const currentUnit = machine.units?.find((unit) => unit.status === '진행중') ?? null;
+  // 현재 투입 UNIT은 백엔드 activeSchedule 기준(머신 상태와 일관). 없으면 '없음'.
+  const activeUnitId = machine.active_unit_id ?? null;
 
   return (
     <Html position={position} occlude={false} sprite>
@@ -41,9 +42,9 @@ function MachineInfoCard({
 
         <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-gray-100 pt-2.5">
           <span className="text-[11px] font-medium text-gray-400">투입 UNIT</span>
-          {currentUnit ? (
+          {activeUnitId ? (
             <span className="rounded-md bg-primary-50 px-2 py-0.5 text-[12px] font-bold text-primary-600">
-              {currentUnit.unit_id}
+              {activeUnitId}
             </span>
           ) : (
             <span className="text-[12px] font-semibold text-gray-300">없음</span>

@@ -1,6 +1,7 @@
 export { Sidebar, SidebarLayout } from './Sidebar';
 export type { MenuItem } from './Sidebar';
 export { Header } from './Header';
+export { Toaster } from './Toast';
 export { Chip } from './Chip';
 export type { ChipVariant, ChipColor, ChipSize } from './Chip';
 export { Modal } from './Modal';

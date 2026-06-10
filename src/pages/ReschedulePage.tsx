@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 
 import { Pagination, RescheduleCard } from '@components/common';
-import { useDistrictStore } from '@/stores';
+import { districtLabels, useDistrictStore } from '@/stores';
 
 import { rescheduleGroups } from '@/mocks';
 
@@ -25,7 +25,10 @@ export default function ReschedulePage() {
   }
 
   const items = useMemo(
-    () => (isAll ? rescheduleGroups : rescheduleGroups.filter((g) => g.district_id === selectedDistrict)),
+    () =>
+      isAll
+        ? rescheduleGroups
+        : rescheduleGroups.filter((g) => (g.district_id as string) === selectedDistrict),
     [isAll, selectedDistrict]
   );
 
@@ -42,7 +45,7 @@ export default function ReschedulePage() {
           {!isAll ? (
             <>
               <ChevronRight className="h-6 w-6 text-gray-300" aria-hidden />
-              <span className="text-secondary-navy">{`구역${selectedDistrict}`}</span>
+              <span className="text-secondary-navy">{districtLabels[selectedDistrict]}</span>
             </>
           ) : null}
         </div>

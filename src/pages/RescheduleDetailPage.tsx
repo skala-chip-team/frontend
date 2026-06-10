@@ -10,7 +10,7 @@ import {
   ScheduleChangeGantt,
 } from '@components/common';
 import { rescheduleGroups, rescheduleStrategies, riskReasonsByFactor } from '@/mocks';
-import { useDistrictStore } from '@/stores';
+import { districtLabels, useDistrictStore } from '@/stores';
 import { formatDelayHours, riskChipColor, statusChipColor, statusLabel } from '@/utils';
 import type { DueReliefUnit, RescheduleStrategy, StrategyKey, StrategyMetric } from '@/types';
 
@@ -281,7 +281,7 @@ export default function RescheduleDetailPage() {
             {selectedDistrict !== 'all' ? (
               <>
                 <span className="text-gray-300">›</span>
-                <span className="text-gray-400">{`구역${selectedDistrict}`}</span>
+                <span className="text-gray-400">{districtLabels[selectedDistrict]}</span>
               </>
             ) : null}
             <span className="text-gray-300">›</span>
