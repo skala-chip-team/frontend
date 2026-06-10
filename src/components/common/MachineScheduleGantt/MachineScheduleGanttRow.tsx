@@ -43,8 +43,8 @@ export function MachineScheduleGanttRow({
 
   return (
     <div className="grid grid-cols-[10rem_minmax(0,1fr)] items-center gap-4 py-1">
-      <h3 className="sticky left-0 z-30 flex items-center self-stretch bg-white pr-3 text-body-2 font-semibold text-gray-900">
-        {schedule.machine_type}
+      <h3 className="sticky left-0 z-30 flex items-center self-stretch overflow-hidden bg-white pr-3 text-body-2 font-semibold text-gray-900">
+        <span className="truncate">{schedule.machine_id}</span>
       </h3>
 
       <div className="relative h-8">

@@ -2,6 +2,7 @@ import { DISTRICT_OPTIONS, useDistrictStore, type DistrictId } from '@/stores';
 
 import { DistrictSelect } from '../DistrictSelect';
 import { NotificationBell } from './NotificationBell';
+import { SimClock } from './SimClock';
 import { UserInfo } from './UserInfo';
 
 export function Header() {
@@ -17,6 +18,7 @@ export function Header() {
       />
 
       <div className="flex items-center gap-3">
+        <SimClock />
         <NotificationBell />
         <UserInfo />
       </div>

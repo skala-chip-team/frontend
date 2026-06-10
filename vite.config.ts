@@ -14,6 +14,11 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
+      // 시뮬레이션 서버(8000)
+      '/sim': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
     },
   },
   resolve: {

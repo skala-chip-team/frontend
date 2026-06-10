@@ -5,6 +5,7 @@ import type {
   DistrictMachines,
   DistrictStepQueue,
   DistrictSummary,
+  WorkStatusItem,
 } from './types';
 
 const DISTRICTS_BASE = '/api/monitoring/districts';
@@ -33,10 +34,18 @@ export async function getDistrictGantt(districtId: string): Promise<DistrictGant
   return data.data;
 }
 
-/** 구역 step별 큐 (step별 평균 대기시간) */
+/** 구역 step별 큐 (step별 평균 대기시간 + 대기 unit 목록) */
 export async function getDistrictStepQueues(districtId: string): Promise<DistrictStepQueue> {
   const { data } = await apiClient.get<ApiResponse<DistrictStepQueue>>(
     `${DISTRICTS_BASE}/${districtId}/queues/by-step`
+  );
+  return data.data;
+}
+
+/** 구역 실제 작업 현황 (scheduleId별 실제 시작/종료 시각 — 간트 막대 폭에 사용) */
+export async function getDistrictWorkStatus(districtId: string): Promise<WorkStatusItem[]> {
+  const { data } = await apiClient.get<ApiResponse<WorkStatusItem[]>>(
+    `${DISTRICTS_BASE}/${districtId}/work-status`
   );
   return data.data;
 }
