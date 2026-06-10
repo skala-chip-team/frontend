@@ -5,6 +5,7 @@ import {
   Activity,
   Lightbulb,
   Boxes,
+  Users,
   ChevronsRight,
   Settings,
   HelpCircle,
@@ -16,6 +17,7 @@ const MAIN_MENU: MenuItem[] = [
   { icon: Activity, title: '장비 모니터링' },
   { icon: Lightbulb, title: '재조정 제안 관리', path: '/reschedule' },
   { icon: Boxes, title: 'UNIT 관리' },
+  { icon: Users, title: '작업자 관리', path: '/workers' },
 ];
 
 const ACCOUNT_MENU: MenuItem[] = [

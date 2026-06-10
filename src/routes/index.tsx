@@ -7,6 +7,7 @@ import LoginPage from '@/pages/LoginPage';
 import ReschedulePage from '@/pages/ReschedulePage';
 import RescheduleDetailPage from '@/pages/RescheduleDetailPage';
 import SignupPage from '@/pages/SignupPage';
+import WorkerPage from '@/pages/WorkerPage';
 
 export const router = createBrowserRouter([
   // 인증 페이지
@@ -42,6 +43,11 @@ export const router = createBrowserRouter([
       {
         path: 'reschedule/:groupId',
         element: <RescheduleDetailPage />,
+      },
+
+      {
+        path: 'workers',
+        element: <WorkerPage />,
       },
     ],
   },
