@@ -9,6 +9,8 @@ export type {
   UnitRiskChange,
   MachineUtilChange,
   StrategyCompare,
+  CandidateEffect,
+  CandidateMeta,
   QueueState,
   ScheduleUnitBar,
   ScheduleMachineRow,

@@ -84,8 +84,19 @@ export const riskReasonsByFactor: Record<string, string[]> = {
 export const rescheduleStrategies: RescheduleStrategy[] = [
   {
     key: 'due_date_first',
-    name: '납기 보호형',
+    name: '유닛 납기 우선 전략',
     recommended: true,
+    candidate: {
+      badge: '후보A안',
+      title: '유닛 납기 우선 전략',
+      when: '납기가 임박한 유닛을 먼저 끝내 지연을 막아야 할 때',
+      effect: {
+        metric: '위험 유닛 납기 완료 시간',
+        before: '21:00',
+        after: '18:00',
+        delta: '3시간 확보',
+      },
+    },
     compare: {
       units: [
         { unit_id: 'UNIT-901', relieved: true, done_before: '21:00', done_after: '18:00', delta_hr: 3 },
@@ -162,8 +173,19 @@ export const rescheduleStrategies: RescheduleStrategy[] = [
   },
   {
     key: 'utilization_bal',
-    name: '장비 균형형',
+    name: '장비 부하율 균형 전략',
     recommended: false,
+    candidate: {
+      badge: '후보B안',
+      title: '장비 부하율 균형 전략',
+      when: '특정 장비 과부하를 막고 설비를 고르게 활용하고 싶을 때',
+      effect: {
+        metric: '장비 부하율 편차',
+        before: '20%p',
+        after: '2%p',
+        delta: '18%p 감소',
+      },
+    },
     compare: {
       units: [
         { unit_id: 'UNIT-901', relieved: true, done_before: '21:00', done_after: '19:00', delta_hr: 2 },
@@ -239,8 +261,19 @@ export const rescheduleStrategies: RescheduleStrategy[] = [
   },
   {
     key: 'line_recovery',
-    name: '하류 안정형',
+    name: '대기시간 최소화 전략',
     recommended: false,
+    candidate: {
+      badge: '후보C안',
+      title: '대기시간 최소화 전략',
+      when: '큐 적체를 풀어 전체 처리 흐름을 빠르게 하고 싶을 때',
+      effect: {
+        metric: '총 대기 시간',
+        before: '100분',
+        after: '55분',
+        delta: '45분 감소',
+      },
+    },
     compare: {
       units: [
         { unit_id: 'UNIT-901', relieved: true, done_before: '21:00', done_after: '18:30', delta_hr: 2.5 },

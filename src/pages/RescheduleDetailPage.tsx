@@ -10,6 +10,7 @@ import {
   ShieldAlert,
   Star,
   Timer,
+  TrendingUp,
   TriangleAlert,
   type LucideIcon,
 } from 'lucide-react';
@@ -29,7 +30,13 @@ import { RescheduleFaqChat } from '@/components/reschedule';
 import { rescheduleGroups, rescheduleStrategies, riskReasonsByFactor } from '@/mocks';
 import { districtLabels, useDistrictStore } from '@/stores';
 import { formatDelayHours, riskChipColor, statusChipColor, statusLabel } from '@/utils';
-import type { DueReliefUnit, StrategyBest, StrategyKey, UnitRiskChange } from '@/types';
+import type {
+  DueReliefUnit,
+  RescheduleStrategy,
+  StrategyBest,
+  StrategyKey,
+  UnitRiskChange,
+} from '@/types';
 
 // 전략별 강조색 — 레이더 폴리곤·진행 바·선택 칩에 공통 사용
 const STRATEGY_ACCENTS: Record<StrategyKey, { hex: string; bar: string }> = {
@@ -251,6 +258,83 @@ function StatCard({
   );
 }
 
+/** 후보안 카드 — 후보 라벨 + 전략명 + 선택 기준 + 핵심 효과. 클릭 시 상세를 펼친다 */
+function CandidateCard({
+  strategy,
+  active,
+  accentHex,
+  onSelect,
+}: {
+  strategy: RescheduleStrategy;
+  active: boolean;
+  accentHex: string;
+  onSelect: () => void;
+}) {
+  const { candidate } = strategy;
+  const { effect } = candidate;
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={active}
+      className={`relative flex flex-col rounded-2xl border-2 bg-white p-4 text-left transition ${
+        active
+          ? 'shadow-[0_12px_28px_rgba(15,23,42,0.10)]'
+          : 'border-gray-200 hover:border-gray-300 hover:shadow-[0_8px_20px_rgba(15,23,42,0.06)]'
+      }`}
+      style={active ? { borderColor: accentHex } : undefined}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span
+          className="flex items-center gap-1.5 text-label-2 font-bold"
+          style={{ color: accentHex }}
+        >
+          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: accentHex }} aria-hidden />
+          {candidate.badge}
+        </span>
+        {strategy.recommended ? (
+          <Chip variant="subtle" color="primary" size="xs" className="font-bold">
+            <Star className="h-3 w-3 fill-primary-500 text-primary-500" aria-hidden />
+            추천
+          </Chip>
+        ) : null}
+      </div>
+
+      <h3 className="mt-2 text-subtitle-1 font-bold text-secondary-navy">{candidate.title}</h3>
+      <p className="mt-1 text-label-3 leading-snug text-gray-500">{candidate.when}</p>
+
+      {/* 핵심 효과 */}
+      <div className="mt-3 border-t border-gray-100 pt-3">
+        <p className="text-label-3 text-gray-400">{effect.metric}</p>
+        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+          <span className="text-label-1 tabular-nums text-gray-400">{effect.before}</span>
+          <ArrowRight className="h-4 w-4 text-gray-300" aria-hidden />
+          <span className="text-subtitle-1 font-bold tabular-nums text-secondary-navy">
+            {effect.after}
+          </span>
+          {/* 변화량 배지 — 카드 고유 색상의 라이트 톤 */}
+          <span
+            className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-label-3 font-bold"
+            style={{ color: accentHex, backgroundColor: `${accentHex}1A` }}
+          >
+            <TrendingUp className="h-3 w-3" aria-hidden />
+            {effect.delta}
+          </span>
+        </div>
+      </div>
+
+      {/* 선택 시 아래 상세를 가리키는 캐럿 (가로 배치일 때만) */}
+      {active ? (
+        <span
+          className="absolute -bottom-[13px] left-1/2 hidden h-0 w-0 -translate-x-1/2 border-x-[10px] border-t-[12px] border-x-transparent md:block"
+          style={{ borderTopColor: accentHex }}
+          aria-hidden
+        />
+      ) : null}
+    </button>
+  );
+}
+
 export default function RescheduleDetailPage() {
   const navigate = useNavigate();
   const { groupId } = useParams();
@@ -344,9 +428,13 @@ export default function RescheduleDetailPage() {
           </div>
         ) : (
           <>
-            {/* 상단: 위험 내용 / 원인 설명 / 영향 UNIT */}
-            <div className="flex flex-col gap-4 lg:flex-row">
-              {/* 위험 내용 */}
+            {/* 현재 위험 상황 */}
+            <section className="flex flex-col gap-2.5">
+              <h2 className="text-[1.5rem] font-bold leading-tight text-secondary-navy">
+                현재 위험 상황
+              </h2>
+              <div className="flex flex-col gap-4 lg:flex-row">
+                {/* 위험 내용 */}
               <div className="flex flex-1 flex-col gap-2 rounded-2xl border border-gray-200/80 bg-white p-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
@@ -413,70 +501,68 @@ export default function RescheduleDetailPage() {
                   자세히 보기
                 </button>
               </div>
-            </div>
+              </div>
+            </section>
 
-            {/* 전략 비교 — 전략 칩 + 전/후 토글, 좌 레이더 / 우 선택 전략 전후 비교 */}
-            <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                {/* 전략 선택 칩 */}
-                <div className="flex flex-wrap items-center gap-2">
-                  {rescheduleStrategies.map((strategy) => {
-                    const active = strategy.key === selectedStrategy;
-                    const hex = STRATEGY_ACCENTS[strategy.key].hex;
-                    return (
-                      <button
-                        key={strategy.key}
-                        type="button"
-                        onClick={() => setSelectedStrategy(strategy.key)}
-                        aria-pressed={active}
-                        className={`flex items-center gap-2 rounded-full border px-3.5 py-2 text-label-2 font-bold transition ${
-                          active
-                            ? ''
-                            : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:text-secondary-navy'
-                        }`}
-                        style={
-                          active
-                            ? { borderColor: hex, color: hex, backgroundColor: `${hex}14` }
-                            : undefined
-                        }
-                      >
-                        <span
-                          className="h-2 w-2 rounded-full"
-                          style={{ backgroundColor: hex }}
-                          aria-hidden
-                        />
-                        {strategy.name}
-                        {strategy.recommended ? (
-                          <Chip variant="subtle" color="primary" size="xs" className="font-bold">
-                            추천
-                          </Chip>
-                        ) : null}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* 전/후 토글 */}
-                <div className="flex rounded-lg bg-surface-100 p-0.5">
-                  {(['before', 'after'] as const).map((value) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => setPhase(value)}
-                      aria-pressed={phase === value}
-                      className={`rounded-md px-3 py-1.5 text-label-3 font-semibold transition ${
-                        phase === value
-                          ? 'bg-secondary-navy text-white shadow'
-                          : 'text-gray-400 hover:text-gray-600'
-                      }`}
-                    >
-                      {value === 'before' ? '조정 전' : '조정 후'}
-                    </button>
-                  ))}
-                </div>
+            {/* 스케줄 재조정 후보안 */}
+            <section className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1">
+                <h2 className="text-[1.5rem] font-bold leading-tight text-secondary-navy">
+                  스케줄 재조정 후보안
+                </h2>
+                <p className="text-body-1 text-gray-500">
+                  위험 상황을 해결하기 위한 스케줄 재조정안을 AI가 제공합니다.
+                </p>
               </div>
 
-              <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-stretch lg:gap-7">
+              {/* 후보안 카드 — 클릭 시 아래 상세가 해당 전략으로 전환 */}
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                {rescheduleStrategies.map((strategy) => (
+                  <CandidateCard
+                    key={strategy.key}
+                    strategy={strategy}
+                    active={strategy.key === selectedStrategy}
+                    accentHex={STRATEGY_ACCENTS[strategy.key].hex}
+                    onSelect={() => setSelectedStrategy(strategy.key)}
+                  />
+                ))}
+              </div>
+
+              {/* 선택 후보안 상세 — 좌 레이더 / 우 효과 카드 */}
+              <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: accent.hex }}
+                      aria-hidden
+                    />
+                    <span className="text-subtitle-2 font-bold text-secondary-navy">
+                      {activeStrategy.candidate.badge} · {activeStrategy.candidate.title} 상세
+                    </span>
+                  </div>
+
+                  {/* 전/후 토글 */}
+                  <div className="flex rounded-lg bg-surface-100 p-0.5">
+                    {(['before', 'after'] as const).map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setPhase(value)}
+                        aria-pressed={phase === value}
+                        className={`rounded-md px-3 py-1.5 text-label-3 font-semibold transition ${
+                          phase === value
+                            ? 'bg-secondary-navy text-white shadow'
+                            : 'text-gray-400 hover:text-gray-600'
+                        }`}
+                      >
+                        {value === 'before' ? '조정 전' : '조정 후'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-stretch lg:gap-7">
                 {/* 레이더(메인) — 전략 전환 시 폴리곤 모핑, 폴리곤 클릭으로도 전환 */}
                 <div className="mx-auto w-full max-w-[420px] self-center lg:mx-0 lg:w-[400px] lg:shrink-0">
                   <StrategyRadar
@@ -601,7 +687,8 @@ export default function RescheduleDetailPage() {
                   </StatCard>
                 </div>
               </div>
-            </div>
+              </div>
+            </section>
 
             {/* 하단: 변경 상세 탭 + 납기 위험 완화 */}
             <div className="flex flex-col gap-4 lg:flex-row">

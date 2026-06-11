@@ -95,10 +95,27 @@ export interface StrategyDetail {
   dueRelief: DueReliefUnit[]; // 납기 위험 완화 UNIT
 }
 
+/** 후보안 카드의 핵심 효과 — 전→후 + 개선폭 (ex. 21:00 → 18:00, 3시간 확보) */
+export interface CandidateEffect {
+  metric: string; // ex. '위험 유닛 납기 완료 시간'
+  before: string;
+  after: string;
+  delta: string; // ex. '3시간 확보'
+}
+
+/** 후보안 카드 메타 — 제목/선택 기준/핵심 효과 */
+export interface CandidateMeta {
+  badge: string; // ex. '후보A안'
+  title: string; // ex. '유닛 납기 우선 전략'
+  when: string; // 이 전략을 선택할 상황 설명
+  effect: CandidateEffect;
+}
+
 export interface RescheduleStrategy {
   key: StrategyKey;
-  name: string; // ex. '납기 보호형'
+  name: string; // ex. '유닛 납기 우선 전략'
   recommended: boolean;
+  candidate: CandidateMeta; // 후보안 카드용
   compare: StrategyCompare; // 전략 비교 섹션용
   detail: StrategyDetail; // 하단 상세(큐/간트/납기완화)용
 }
