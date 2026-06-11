@@ -80,27 +80,35 @@ export const riskReasonsByFactor: Record<string, string[]> = {
 };
 
 // 재조정 전략(고정 3종). 효과 수치는 mock.
+// compare.radar 축 순서: 위험 구제 / 신규 차단 / 완료 속도 / 대기 개선 / 부하 균등 / 순서 안정
 export const rescheduleStrategies: RescheduleStrategy[] = [
   {
     key: 'due_date_first',
-    name: '납기 우선 전략',
+    name: '납기 보호형',
     recommended: true,
-    effect: {
-      metricLabel: '납기 시간',
-      before: '21:00',
-      after: '18:00',
-      deltaLabel: '3시간 단축',
-      deltaDirection: 'down',
+    compare: {
+      units: [
+        { unit_id: 'UNIT-901', relieved: true },
+        { unit_id: 'UNIT-915', relieved: true },
+        { unit_id: 'UNIT-920', relieved: true },
+      ],
+      makespan_before_min: 90,
+      makespan_after_min: 45,
+      wait_before_min: 60,
+      wait_after_min: 45,
+      utils: [
+        { machine: 'Diffusion A', util_before: 55, util_after: 92 },
+        { machine: 'Etching B', util_before: 48, util_after: 71 },
+        { machine: 'Packaging C', util_before: 35, util_after: 38 },
+      ],
+      util_summary: '평균 67% · 편차 큼',
+      moved_units: 1,
+      radar: [100, 100, 100, 100, 45, 100],
+      bests: ['rescue', 'makespan', 'wait'],
     },
     detail: {
       summary:
-        '납기 임박 unit 2건(UNIT-901/UNIT-915)을 우선 처리해 누적 지연 5.2h 감소와 납기 위험 2건 해소가 예상됩니다. UNIT-920이 새로 위험권에 진입하는 trade-off가 있어 검토가 필요합니다.',
-      metrics: [
-        { label: '전체 가동률', before: '62%', value: '74%', deltaLabel: '12%p 증가', direction: 'up', sentiment: 'good' },
-        { label: '평균 대기시간', before: '142분', value: '118분', deltaLabel: '24분 단축', direction: 'down', sentiment: 'good' },
-        { label: '누적 지연시간', before: '12.4h', value: '7.2h', deltaLabel: '5.2h 감소', direction: 'down', sentiment: 'good' },
-        { label: '납기 위험 완화', value: '2건' },
-      ],
+        '납기 임박 unit을 최우선 배치해 위험 3건을 모두 구제합니다. 전체 완료 45분으로 가장 빠르고 순서 변경은 1건에 그치지만, 장비 간 부하 편차가 커집니다.',
       queue: {
         before: ['UNIT-820', 'UNIT-831', 'UNIT-901', 'UNIT-915', 'UNIT-840', 'UNIT-920'],
         after: ['UNIT-901', 'UNIT-915', 'UNIT-820', 'UNIT-831', 'UNIT-920', 'UNIT-840'],
@@ -109,8 +117,8 @@ export const rescheduleStrategies: RescheduleStrategy[] = [
       schedule: [
         {
           machine: 'Diffusion A',
-          load_before: 58,
-          load_after: 72,
+          load_before: 55,
+          load_after: 92,
           units: [
             { unit_id: 'UNIT-901', start: 8, end: 12, affected: true, due: 15 },
             { unit_id: 'UNIT-820', start: 12, end: 16, affected: false },
@@ -118,8 +126,8 @@ export const rescheduleStrategies: RescheduleStrategy[] = [
         },
         {
           machine: 'Etching B',
-          load_before: 64,
-          load_after: 70,
+          load_before: 48,
+          load_after: 71,
           units: [
             { unit_id: 'UNIT-831', start: 9, end: 13, affected: false },
             { unit_id: 'UNIT-915', start: 13, end: 16, affected: true, due: 17 },
@@ -127,8 +135,8 @@ export const rescheduleStrategies: RescheduleStrategy[] = [
         },
         {
           machine: 'Packaging C',
-          load_before: 75,
-          load_after: 63,
+          load_before: 35,
+          load_after: 38,
           units: [
             { unit_id: 'UNIT-840', start: 8, end: 12, affected: false },
             {
@@ -152,25 +160,33 @@ export const rescheduleStrategies: RescheduleStrategy[] = [
     },
   },
   {
-    key: 'bottleneck_minimization',
-    name: '병목 최소화 전략',
+    key: 'utilization_bal',
+    name: '장비 균형형',
     recommended: false,
-    effect: {
-      metricLabel: '큐 평균 대기 시간',
-      before: '142분',
-      after: '56분',
-      deltaLabel: '86분 단축',
-      deltaDirection: 'down',
+    compare: {
+      units: [
+        { unit_id: 'UNIT-901', relieved: true },
+        { unit_id: 'UNIT-915', relieved: true },
+        { unit_id: 'UNIT-920', relieved: false },
+        { unit_id: 'UNIT-840', relieved: false, is_new: true },
+      ],
+      makespan_before_min: 90,
+      makespan_after_min: 80,
+      wait_before_min: 60,
+      wait_after_min: 60,
+      utils: [
+        { machine: 'Diffusion A', util_before: 55, util_after: 40 },
+        { machine: 'Etching B', util_before: 48, util_after: 38 },
+        { machine: 'Packaging C', util_before: 35, util_after: 36 },
+      ],
+      util_summary: '평균 38% · 균등 분배',
+      moved_units: 1,
+      radar: [55, 40, 25, 15, 100, 100],
+      bests: ['balance'],
     },
     detail: {
       summary:
-        '병목 step의 대기 큐를 재분배해 평균 대기 시간을 86분 단축합니다. 일부 저우선 unit의 착수가 지연되는 trade-off가 있습니다.',
-      metrics: [
-        { label: '전체 가동률', before: '62%', value: '71%', deltaLabel: '9%p 증가', direction: 'up', sentiment: 'good' },
-        { label: '평균 대기시간', before: '142분', value: '56분', deltaLabel: '86분 단축', direction: 'down', sentiment: 'good' },
-        { label: '누적 지연시간', before: '12.4h', value: '9.0h', deltaLabel: '3.4h 감소', direction: 'down', sentiment: 'good' },
-        { label: '납기 위험 완화', value: '1건' },
-      ],
+        '장비 간 부하를 균등 분배해 가동률 편차를 최소화합니다. UNIT-920 위험이 남고 UNIT-840이 새로 위험권에 진입하는 trade-off가 있습니다.',
       queue: {
         before: ['UNIT-901', 'UNIT-820', 'UNIT-831', 'UNIT-915', 'UNIT-840', 'UNIT-920'],
         after: ['UNIT-820', 'UNIT-831', 'UNIT-901', 'UNIT-840', 'UNIT-920', 'UNIT-915'],
@@ -179,8 +195,8 @@ export const rescheduleStrategies: RescheduleStrategy[] = [
       schedule: [
         {
           machine: 'Diffusion A',
-          load_before: 70,
-          load_after: 62,
+          load_before: 55,
+          load_after: 40,
           units: [
             { unit_id: 'UNIT-820', start: 8, end: 11, affected: false },
             { unit_id: 'UNIT-901', start: 11, end: 15, affected: true, due: 16 },
@@ -188,8 +204,8 @@ export const rescheduleStrategies: RescheduleStrategy[] = [
         },
         {
           machine: 'Etching B',
-          load_before: 66,
-          load_after: 58,
+          load_before: 48,
+          load_after: 38,
           units: [
             { unit_id: 'UNIT-831', start: 9, end: 12, affected: false },
             { unit_id: 'UNIT-915', start: 13, end: 17, affected: true, due: 18 },
@@ -197,8 +213,8 @@ export const rescheduleStrategies: RescheduleStrategy[] = [
         },
         {
           machine: 'Packaging C',
-          load_before: 60,
-          load_after: 64,
+          load_before: 35,
+          load_after: 36,
           units: [
             { unit_id: 'UNIT-840', start: 8, end: 13, affected: false },
             {
@@ -220,25 +236,32 @@ export const rescheduleStrategies: RescheduleStrategy[] = [
     },
   },
   {
-    key: 'utilization_balance',
-    name: '가동률 균형 전략',
+    key: 'line_recovery',
+    name: '하류 안정형',
     recommended: false,
-    effect: {
-      metricLabel: '가동률',
-      before: '62%',
-      after: '83%',
-      deltaLabel: '21%p 증가',
-      deltaDirection: 'up',
+    compare: {
+      units: [
+        { unit_id: 'UNIT-901', relieved: true },
+        { unit_id: 'UNIT-915', relieved: true },
+        { unit_id: 'UNIT-920', relieved: true },
+      ],
+      makespan_before_min: 90,
+      makespan_after_min: 65,
+      wait_before_min: 60,
+      wait_after_min: 55,
+      utils: [
+        { machine: 'Diffusion A', util_before: 55, util_after: 50 },
+        { machine: 'Etching B', util_before: 48, util_after: 46 },
+        { machine: 'Packaging C', util_before: 35, util_after: 42 },
+      ],
+      util_summary: '평균 46% · 비교적 균등',
+      moved_units: 3,
+      radar: [100, 100, 60, 70, 60, 25],
+      bests: ['rescue'],
     },
     detail: {
       summary:
-        '장비 간 부하를 균형 배분해 전체 가동률을 21%p 끌어올립니다. 셋업 전환이 늘어 평균 대기 단축 폭이 다소 줄어드는 trade-off가 있습니다.',
-      metrics: [
-        { label: '전체 가동률', before: '62%', value: '83%', deltaLabel: '21%p 증가', direction: 'up', sentiment: 'good' },
-        { label: '평균 대기시간', before: '142분', value: '88분', deltaLabel: '54분 단축', direction: 'down', sentiment: 'good' },
-        { label: '누적 지연시간', before: '12.4h', value: '8.5h', deltaLabel: '3.9h 감소', direction: 'down', sentiment: 'good' },
-        { label: '납기 위험 완화', value: '1건' },
-      ],
+        '하류 공정 안정을 우선해 순서를 재배치합니다. 위험 3건을 모두 구제하지만 순서 변경이 3건으로 가장 많습니다.',
       queue: {
         before: ['UNIT-820', 'UNIT-831', 'UNIT-840', 'UNIT-901', 'UNIT-915', 'UNIT-920'],
         after: ['UNIT-901', 'UNIT-820', 'UNIT-840', 'UNIT-915', 'UNIT-831', 'UNIT-920'],
@@ -248,7 +271,7 @@ export const rescheduleStrategies: RescheduleStrategy[] = [
         {
           machine: 'Diffusion A',
           load_before: 55,
-          load_after: 78,
+          load_after: 50,
           units: [
             { unit_id: 'UNIT-901', start: 8, end: 12, affected: true, due: 14 },
             { unit_id: 'UNIT-820', start: 12, end: 17, affected: false },
@@ -256,8 +279,8 @@ export const rescheduleStrategies: RescheduleStrategy[] = [
         },
         {
           machine: 'Etching B',
-          load_before: 60,
-          load_after: 80,
+          load_before: 48,
+          load_after: 46,
           units: [
             { unit_id: 'UNIT-831', start: 8, end: 11, affected: false },
             { unit_id: 'UNIT-915', start: 12, end: 16, affected: true, due: 18 },
@@ -265,8 +288,8 @@ export const rescheduleStrategies: RescheduleStrategy[] = [
         },
         {
           machine: 'Packaging C',
-          load_before: 72,
-          load_after: 86,
+          load_before: 35,
+          load_after: 42,
           units: [
             { unit_id: 'UNIT-840', start: 9, end: 13, affected: false },
             {

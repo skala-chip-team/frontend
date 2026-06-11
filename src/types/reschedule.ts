@@ -22,23 +22,35 @@ export interface RescheduleGroup {
 }
 
 // reschedule_selection.strategy 값
-export type StrategyKey = 'due_date_first' | 'bottleneck_minimization' | 'utilization_balance';
+export type StrategyKey = 'due_date_first' | 'utilization_bal' | 'line_recovery';
 
-export interface StrategyEffect {
-  metricLabel: string; // ex. '납기 시간'
-  before: string; // ex. '21:00'
-  after: string; // ex. '18:00'
-  deltaLabel: string; // ex. '3시간 단축'
-  deltaDirection: 'up' | 'down'; // 지표 변화 방향(표시용)
+/** 전략이 1등인 비교 파트 — 배지(아이콘+짧은 단어) 표시용 */
+export type StrategyBest = 'rescue' | 'makespan' | 'wait' | 'balance';
+
+export interface UnitRiskChange {
+  unit_id: string;
+  relieved: boolean; // 조정 후 위험 해소 여부
+  is_new?: boolean; // 조정 후 새로 위험권 진입(조정 전에는 위험이 아니던 unit)
 }
 
-export interface StrategyMetric {
-  label: string; // ex. '전체 가동률'
-  value: string; // 표시 값(이후/카운트) ex. '83%', '2건'
-  before?: string; // 있으면 before→value 표시
-  deltaLabel?: string; // ex. '21%p 증가'
-  direction?: 'up' | 'down' | 'flat'; // 화살표 방향
-  sentiment?: 'good' | 'bad' | 'neutral'; // 색상(개선=good)
+export interface MachineUtilChange {
+  machine: string; // 표시 장비명
+  util_before: number; // 가동률 이전(%)
+  util_after: number; // 가동률 이후(%)
+}
+
+/** 전략 비교 섹션 데이터 — 전/후 인터랙션 비교용 */
+export interface StrategyCompare {
+  units: UnitRiskChange[]; // 위험 unit 변화(구제/잔존/신규)
+  makespan_before_min: number; // 전체 완료 소요 이전(분)
+  makespan_after_min: number; // 전체 완료 소요 이후(분)
+  wait_before_min: number; // 평균 대기 이전(분)
+  wait_after_min: number; // 평균 대기 이후(분)
+  utils: MachineUtilChange[]; // 장비별 가동률 전/후
+  util_summary: string; // ex. '평균 67% · 편차 큼'
+  moved_units: number; // 순서 바뀐 unit 수
+  radar: number[]; // 레이더 6축 점수(0~100) — RADAR_AXES 순서
+  bests: StrategyBest[]; // 이 전략이 1등인 파트
 }
 
 export interface ScheduleUnitBar {
@@ -74,7 +86,6 @@ export interface QueueState {
 
 export interface StrategyDetail {
   summary: string; // 핵심 내용 한 줄
-  metrics: StrategyMetric[]; // 핵심 효과 카드
   queue: QueueState; // 큐 우선순위 변경(이전/이후)
   schedule: ScheduleMachineRow[]; // 스케줄 변경 간트
   dueRelief: DueReliefUnit[]; // 납기 위험 완화 UNIT
@@ -82,8 +93,8 @@ export interface StrategyDetail {
 
 export interface RescheduleStrategy {
   key: StrategyKey;
-  name: string; // ex. '납기 우선 전략'
+  name: string; // ex. '납기 보호형'
   recommended: boolean;
-  effect: StrategyEffect; // 목록 카드용 대표 효과
-  detail: StrategyDetail; // 상세 패널용
+  compare: StrategyCompare; // 전략 비교 섹션용
+  detail: StrategyDetail; // 하단 상세(큐/간트/납기완화)용
 }

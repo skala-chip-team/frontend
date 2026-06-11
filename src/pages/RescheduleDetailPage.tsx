@@ -1,18 +1,50 @@
-import { useState } from 'react';
-import { ArrowDown, ArrowUp, ChevronLeft, Minus, TrendingDown, TrendingUp } from 'lucide-react';
+import { type ReactNode, useEffect, useState } from 'react';
+import {
+  ArrowDown,
+  ArrowUp,
+  Check,
+  ChevronLeft,
+  Gauge,
+  Medal,
+  Minus,
+  RotateCcw,
+  ShieldAlert,
+  Timer,
+  TriangleAlert,
+  type LucideIcon,
+} from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import {
+  BeforeAfterBar,
   Chip,
-  CircularProgress,
+  type ComparePhase,
   ConfirmModal,
   Modal,
   ScheduleChangeGantt,
+  StrategyRadar,
 } from '@components/common';
 import { rescheduleGroups, rescheduleStrategies, riskReasonsByFactor } from '@/mocks';
+import { useAnimatedNumber } from '@/hooks';
 import { districtLabels, useDistrictStore } from '@/stores';
 import { formatDelayHours, riskChipColor, statusChipColor, statusLabel } from '@/utils';
-import type { DueReliefUnit, RescheduleStrategy, StrategyKey, StrategyMetric } from '@/types';
+import type { DueReliefUnit, StrategyBest, StrategyKey, UnitRiskChange } from '@/types';
+
+// 전략별 강조색 — 레이더 폴리곤·진행 바·선택 칩 점에 공통 사용
+const STRATEGY_ACCENTS: Record<StrategyKey, { hex: string; bar: string }> = {
+  due_date_first: { hex: '#EA002C', bar: 'bg-primary-500' },
+  utilization_bal: { hex: '#64748B', bar: 'bg-slate-500' },
+  line_recovery: { hex: '#081028', bar: 'bg-secondary-navy' },
+};
+
+const RADAR_AXES = ['위험 구제', '신규 차단', '완료 속도', '대기 개선', '부하 균등', '순서 안정'];
+
+const BEST_LABELS: Record<StrategyBest, string> = {
+  rescue: '최다 구제',
+  makespan: '최단 완료',
+  wait: '최대 단축',
+  balance: '가장 균등',
+};
 
 /** 납기 위험 완화 UNIT 테이블 — UNIT / 이전 완료 / 이후 완료(+앞당김) */
 function DueReliefTable({ items }: { items: DueReliefUnit[] }) {
@@ -44,48 +76,6 @@ function DueReliefTable({ items }: { items: DueReliefUnit[] }) {
           ))}
         </tbody>
       </table>
-    </div>
-  );
-}
-
-/** 핵심 효과 카드 — before→value + 변화량(있을 때) / 없으면 값만(ex. 납기 위험 완화) */
-function MetricCard({ metric }: { metric: StrategyMetric }) {
-  if (metric.before === undefined) {
-    return (
-      <div className="rounded-xl border border-gray-200/80 bg-white p-3.5">
-        <p className="text-label-3 text-gray-400">{metric.label}</p>
-        <p className="mt-1.5 text-[1.375rem] font-bold leading-none text-secondary-navy">
-          {metric.value}
-        </p>
-      </div>
-    );
-  }
-
-  const deltaColor =
-    metric.sentiment === 'bad'
-      ? 'text-red-600'
-      : metric.sentiment === 'neutral'
-        ? 'text-gray-500'
-        : 'text-emerald-600';
-  const Icon =
-    metric.direction === 'up' ? TrendingUp : metric.direction === 'down' ? TrendingDown : Minus;
-  // '증가/감소/단축' 등 방향 단어는 아이콘으로 대체하고 수치만 표시
-  const deltaValue = (metric.deltaLabel ?? '').replace(/\s*(증가|감소|단축)$/, '');
-
-  return (
-    <div className="rounded-xl border border-gray-200/80 bg-white p-3.5">
-      <p className="text-label-3 text-gray-400">{metric.label}</p>
-      <div className="mt-1.5 flex items-baseline gap-1.5">
-        <span className="text-label-3 text-gray-400">{metric.before}</span>
-        <span className="text-label-3 text-gray-300">→</span>
-        <span className="text-[1.375rem] font-bold leading-none text-secondary-navy">
-          {metric.value}
-        </span>
-        <span className={`flex items-center gap-0.5 text-label-3 font-semibold ${deltaColor}`}>
-          <Icon className="h-3.5 w-3.5" aria-hidden />
-          {deltaValue}
-        </span>
-      </div>
     </div>
   );
 }
@@ -175,61 +165,117 @@ function QueueList({
   );
 }
 
-/** 전략 카드 — 재조정안 라벨(A/B/C) + 이름 + (추천 시 Recommend 칩), 주요 효과 */
-function StrategyCard({
-  strategy,
-  label,
-  active,
-  onSelect,
+/** 카운트 애니메이션 숫자 */
+function StatNumber({
+  value,
+  suffix,
+  className = '',
 }: {
-  strategy: RescheduleStrategy;
-  label: string; // 재조정안 라벨 (A/B/C)
-  active: boolean;
-  onSelect: () => void;
+  value: number;
+  suffix?: string;
+  className?: string;
 }) {
-  const { effect } = strategy;
-  const TrendIcon = effect.deltaDirection === 'up' ? TrendingUp : TrendingDown;
-
+  const display = useAnimatedNumber(value);
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      aria-pressed={active}
-      className={`flex flex-col gap-2 rounded-xl border p-4 text-left transition ${
-        active
-          ? 'border-primary-500 bg-primary-50/40 ring-1 ring-primary-500/20'
-          : 'border-gray-200 bg-white hover:border-gray-300'
+    <span className={`font-bold tabular-nums text-secondary-navy ${className}`}>
+      {Math.round(display)}
+      {suffix}
+    </span>
+  );
+}
+
+/** 위험 unit 칩 — 전: 빨강 경고 / 후: 구제 시 초록 체크, 신규 위험은 후에만 등장 */
+function UnitRiskChip({ unit, phase }: { unit: UnitRiskChange; phase: ComparePhase }) {
+  if (phase === 'before' && unit.is_new) return null; // 조정 전에는 위험이 아니던 unit
+  const safe = phase === 'after' && unit.relieved;
+  return (
+    <Chip
+      variant="subtle"
+      color={safe ? 'emerald' : 'red'}
+      size="sm"
+      className={`font-bold transition-colors duration-500 ${
+        unit.is_new && phase === 'after' ? 'animate-pulse' : ''
       }`}
     >
-      <div className="flex items-center gap-2">
-        <span
-          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-label-3 font-bold ${
-            active ? 'bg-primary-500 text-white' : 'bg-secondary-navy/10 text-secondary-navy'
-          }`}
-        >
+      {safe ? (
+        <Check className="h-3.5 w-3.5" aria-hidden />
+      ) : (
+        <TriangleAlert className="h-3.5 w-3.5" aria-hidden />
+      )}
+      {unit.unit_id}
+      {unit.is_new && phase === 'after' ? <span className="text-[10px]">신규</span> : null}
+    </Chip>
+  );
+}
+
+/** 전/후 변화량 칩 — 낮을수록 좋은 지표(분)용 */
+function DeltaChip({
+  before,
+  after,
+  phase,
+  unit,
+}: {
+  before: number;
+  after: number;
+  phase: ComparePhase;
+  unit: string;
+}) {
+  if (phase === 'before') {
+    return (
+      <Chip variant="subtle" color="gray" size="xs">
+        기준
+      </Chip>
+    );
+  }
+  const diff = after - before;
+  if (diff === 0) {
+    return (
+      <Chip variant="subtle" color="gray" size="xs">
+        ±0{unit}
+      </Chip>
+    );
+  }
+  return (
+    <Chip variant="subtle" color={diff < 0 ? 'emerald' : 'red'} size="xs" className="font-bold">
+      {diff < 0 ? (
+        <ArrowDown className="h-3 w-3" aria-hidden />
+      ) : (
+        <ArrowUp className="h-3 w-3" aria-hidden />
+      )}
+      {Math.abs(diff)}
+      {unit}
+    </Chip>
+  );
+}
+
+/** 비교 파트 행 — 좌측 라벨(아이콘+짧은 단어, 1등 배지) / 우측 시각화 */
+function CompareRow({
+  icon: Icon,
+  label,
+  badges,
+  children,
+}: {
+  icon: LucideIcon;
+  label: string;
+  badges?: string[];
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-2.5 border-b border-gray-100 py-4 first:pt-1 last:border-b-0 last:pb-1 sm:flex-row sm:gap-5">
+      <div className="flex shrink-0 flex-wrap items-center gap-1.5 sm:w-[118px] sm:flex-col sm:items-start">
+        <span className="flex items-center gap-1.5 text-label-2 font-bold text-secondary-navy">
+          <Icon className="h-4 w-4 text-gray-400" aria-hidden />
           {label}
         </span>
-        <span className="text-subtitle-2 font-bold text-secondary-navy">{strategy.name}</span>
-        {strategy.recommended ? (
-          <Chip variant="subtle" color="primary" size="xs" className="font-bold">
-            Recommend
+        {badges?.map((badge) => (
+          <Chip key={badge} variant="subtle" color="amber" size="xs" className="font-bold">
+            <Medal className="h-3 w-3" aria-hidden />
+            {badge}
           </Chip>
-        ) : null}
+        ))}
       </div>
-
-      <div>
-        <p className="text-label-3 text-gray-400">{effect.metricLabel}</p>
-        <div className="mt-1 flex flex-wrap items-center gap-2.5">
-          <span className="text-subtitle-1 font-bold text-secondary-navy">
-            {effect.before} <span className="text-gray-300">→</span> {effect.after}
-          </span>
-          <span className="flex items-center gap-1 text-label-2 font-semibold text-emerald-600">
-            <TrendIcon className="h-4 w-4" aria-hidden />
-            {effect.deltaLabel}
-          </span>
-        </div>
-      </div>
-    </button>
+      <div className="min-w-0 w-full flex-1 self-center">{children}</div>
+    </div>
   );
 }
 
@@ -243,17 +289,51 @@ export default function RescheduleDetailPage() {
     rescheduleStrategies.find((strategy) => strategy.recommended)?.key ??
     rescheduleStrategies[0].key;
   const [selectedStrategy, setSelectedStrategy] = useState<StrategyKey>(recommendedKey);
+  const [phase, setPhase] = useState<ComparePhase>('before');
   const [unitModalOpen, setUnitModalOpen] = useState(false);
   const [dueReliefModalOpen, setDueReliefModalOpen] = useState(false);
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [approveModalOpen, setApproveModalOpen] = useState(false);
   const [changeTab, setChangeTab] = useState<'queue' | 'schedule'>('queue');
+
+  // 첫 진입 시 전→후 변화를 자동 재생
+  useEffect(() => {
+    const timer = window.setTimeout(() => setPhase('after'), 700);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const replay = () => {
+    setPhase('before');
+    window.setTimeout(() => setPhase('after'), 700);
+  };
+
+  // 전략 전환 시에도 전→후 변화를 자동 재생
+  const selectStrategy = (key: StrategyKey) => {
+    setSelectedStrategy(key);
+    replay();
+  };
+
   const activeIndex = Math.max(
     0,
     rescheduleStrategies.findIndex((strategy) => strategy.key === selectedStrategy)
   );
   const activeStrategy = rescheduleStrategies[activeIndex];
+  const { compare } = activeStrategy;
+  const accent = STRATEGY_ACCENTS[activeStrategy.key];
   const strategyLabel = (index: number) => String.fromCharCode(65 + index); // 0→A, 1→B, 2→C
+
+  const bestBadge = (key: StrategyBest) =>
+    compare.bests.includes(key) ? BEST_LABELS[key] : undefined;
+  const unitBadges = [bestBadge('rescue'), bestBadge('makespan')].filter(
+    (badge): badge is string => badge !== undefined
+  );
+
+  const radarSeries = rescheduleStrategies.map((strategy) => ({
+    key: strategy.key,
+    name: strategy.name,
+    color: STRATEGY_ACCENTS[strategy.key].hex,
+    values: strategy.compare.radar,
+  }));
 
   const reasons = group ? (riskReasonsByFactor[group.risk_factor] ?? []) : [];
 
@@ -366,159 +446,259 @@ export default function RescheduleDetailPage() {
               </div>
             </div>
 
-            {/* 전략 상세: 좌측 전략 목록(좁게) / 우측 상세(추후, 넓게) */}
-            <div className="flex flex-col gap-4 lg:flex-row">
-              <div className="flex flex-col gap-2.5 lg:w-[300px] lg:shrink-0">
-                <h2 className="text-subtitle-2 font-bold text-secondary-navy">재조정 전략</h2>
-                {rescheduleStrategies.map((strategy, index) => (
-                  <StrategyCard
-                    key={strategy.key}
-                    strategy={strategy}
-                    label={strategyLabel(index)}
-                    active={strategy.key === selectedStrategy}
-                    onSelect={() => setSelectedStrategy(strategy.key)}
-                  />
-                ))}
-              </div>
-
-              <div className="flex flex-1 flex-col gap-4">
-                {/* 핵심 효과 */}
-                <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
-                  <h3 className="mb-2 text-label-1 font-bold text-gray-500">핵심 효과</h3>
-                  <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-                    {activeStrategy.detail.metrics.map((metric) => (
-                      <MetricCard key={metric.label} metric={metric} />
-                    ))}
-                  </div>
-                </div>
-
-                {/* 장비별 부하율 */}
-                <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
-                  <h3 className="mb-3 text-label-1 font-bold text-gray-500">장비별 부하율</h3>
-                  <div className="flex flex-wrap items-start justify-around gap-6">
-                    {activeStrategy.detail.schedule.map((row) => (
-                      <div key={row.machine} className="flex flex-col items-center gap-2">
-                        <CircularProgress value={row.load_after}>
-                          <span className="text-[1.5rem] font-bold leading-none text-secondary-navy">
-                            {row.load_after}%
-                          </span>
-                          <span className="mt-1 text-caption-2 font-medium text-gray-400">
-                            이전 {row.load_before}%
-                          </span>
-                        </CircularProgress>
-                        <span className="text-label-3 font-semibold text-secondary-navy">
-                          {row.machine}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 변경사항(요약) + 납기 위험 완화 UNIT — 같은 줄 */}
-                <div className="flex flex-col gap-4 lg:flex-row">
-                  <div className="flex flex-1 flex-col rounded-2xl border border-gray-200/80 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
-                    <h3 className="mb-2 text-label-1 font-bold text-gray-500">변경사항</h3>
-                    <p className="flex-1 rounded-xl bg-surface-100 px-4 py-3 text-body-2 leading-relaxed text-secondary-navy">
-                      {activeStrategy.detail.summary}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-1 flex-col rounded-2xl border border-gray-200/80 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
-                    <div className="mb-2 flex items-center justify-between">
-                      <h3 className="text-label-1 font-bold text-gray-500">납기 위험 완화 UNIT</h3>
-                      <span className="text-label-3 text-gray-400">
-                        {activeStrategy.detail.dueRelief.length}건
-                      </span>
-                    </div>
-                    <DueReliefTable items={activeStrategy.detail.dueRelief.slice(0, 2)} />
-                    {activeStrategy.detail.dueRelief.length >= 3 ? (
+            {/* 전략 비교 — 전략 칩 + 전/후 토글, 좌 레이더 / 우 선택 전략 전후 비교 */}
+            <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                {/* 전략 선택 칩 */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {rescheduleStrategies.map((strategy) => {
+                    const active = strategy.key === selectedStrategy;
+                    return (
                       <button
+                        key={strategy.key}
                         type="button"
-                        onClick={() => setDueReliefModalOpen(true)}
-                        className="mt-2 rounded-lg border border-gray-200 px-3 py-2 text-label-2 font-semibold text-secondary-navy transition hover:bg-surface-100"
-                      >
-                        자세히 보기 (외 {activeStrategy.detail.dueRelief.length - 2}건)
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-
-                {/* 변경 상세 탭 (풀폭) */}
-                <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
-                  <div className="flex gap-1 border-b border-gray-200">
-                    {[
-                      { key: 'queue' as const, label: '큐 우선순위 변경 내용' },
-                      { key: 'schedule' as const, label: '스케줄 변경 내용' },
-                    ].map((tab) => (
-                      <button
-                        key={tab.key}
-                        type="button"
-                        onClick={() => setChangeTab(tab.key)}
-                        className={`-mb-px border-b-2 px-3 py-2 text-label-2 font-semibold transition ${
-                          changeTab === tab.key
-                            ? 'border-primary-500 text-primary-600'
-                            : 'border-transparent text-gray-400 hover:text-gray-600'
+                        onClick={() => selectStrategy(strategy.key)}
+                        aria-pressed={active}
+                        className={`flex items-center gap-2 rounded-full border px-3.5 py-2 text-label-2 font-bold transition ${
+                          active
+                            ? 'border-primary-500 bg-primary-50 text-primary-600 ring-1 ring-primary-500/20'
+                            : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:text-secondary-navy'
                         }`}
                       >
-                        {tab.label}
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{ backgroundColor: STRATEGY_ACCENTS[strategy.key].hex }}
+                          aria-hidden
+                        />
+                        {strategy.name}
+                        {strategy.recommended ? (
+                          <Chip variant="subtle" color="primary" size="xs" className="font-bold">
+                            추천
+                          </Chip>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* 다시 보기 + 전/후 토글 */}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={replay}
+                    aria-label="전후 변화 다시 보기"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition hover:bg-surface-100 hover:text-secondary-navy"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                  </button>
+                  <div className="flex rounded-lg bg-surface-100 p-0.5">
+                    {(['before', 'after'] as const).map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setPhase(value)}
+                        aria-pressed={phase === value}
+                        className={`rounded-md px-3 py-1.5 text-label-3 font-semibold transition ${
+                          phase === value
+                            ? 'bg-secondary-navy text-white shadow'
+                            : 'text-gray-400 hover:text-gray-600'
+                        }`}
+                      >
+                        {value === 'before' ? '조정 전' : '조정 후'}
                       </button>
                     ))}
                   </div>
-
-                  <div className="mt-3">
-                    {changeTab === 'queue' ? (
-                      <div className="flex flex-col gap-4 sm:flex-row">
-                        {/* 이전 대기열 */}
-                        <div className="flex-1">
-                          <p className="mb-2 text-label-3 font-semibold text-gray-400">
-                            이전 대기열
-                          </p>
-                          <QueueList
-                            order={activeStrategy.detail.queue.before}
-                            affected={activeStrategy.detail.queue.affected}
-                          />
-                        </div>
-
-                        {/* 이후 대기열 (순위 변동 표시) */}
-                        <div className="flex-1">
-                          <p className="mb-2 text-label-3 font-semibold text-primary-600">
-                            이후 대기열
-                          </p>
-                          <QueueList
-                            order={activeStrategy.detail.queue.after}
-                            affected={activeStrategy.detail.queue.affected}
-                            beforeOrder={activeStrategy.detail.queue.before}
-                          />
-                        </div>
-                      </div>
-                    ) : (
-                      <ScheduleChangeGantt
-                        rows={activeStrategy.detail.schedule}
-                        startHour={8}
-                        endHour={20}
-                      />
-                    )}
-                  </div>
-                </div>
-
-                {/* 액션 버튼 */}
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setReportModalOpen(true)}
-                    className="rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-label-1 font-semibold text-secondary-navy transition hover:bg-surface-100"
-                  >
-                    AI 리포트 확인하기
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setApproveModalOpen(true)}
-                    className="rounded-lg bg-primary-500 px-4 py-2.5 text-label-1 font-semibold text-white shadow-[0_8px_20px_rgba(234,0,44,0.18)] transition hover:bg-primary-600"
-                  >
-                    재조정안{strategyLabel(activeIndex)} 승인
-                  </button>
                 </div>
               </div>
+
+              <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-stretch lg:gap-6">
+                {/* 레이더 — 폴리곤 클릭으로도 전략 전환 */}
+                <div className="mx-auto w-full max-w-[300px] self-center lg:mx-0 lg:w-[280px] lg:shrink-0">
+                  <StrategyRadar
+                    axes={RADAR_AXES}
+                    series={radarSeries}
+                    selectedKey={selectedStrategy}
+                    onSelect={(key) => selectStrategy(key as StrategyKey)}
+                    className="w-full"
+                  />
+                </div>
+
+                {/* 선택 전략 전/후 비교 */}
+                <div className="w-full flex-1 lg:border-l lg:border-gray-100 lg:pl-6">
+                  <CompareRow icon={ShieldAlert} label="위험 유닛" badges={unitBadges}>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {compare.units.map((unit) => (
+                        <UnitRiskChip key={unit.unit_id} unit={unit} phase={phase} />
+                      ))}
+                    </div>
+                    <div className="mt-2.5 flex flex-wrap items-center gap-x-5 gap-y-1 text-label-3 text-gray-400">
+                      <span className="flex items-center gap-1.5">
+                        전체 완료
+                        <StatNumber
+                          value={
+                            phase === 'before'
+                              ? compare.makespan_before_min
+                              : compare.makespan_after_min
+                          }
+                          suffix="분"
+                          className="text-label-1"
+                        />
+                        <DeltaChip
+                          before={compare.makespan_before_min}
+                          after={compare.makespan_after_min}
+                          phase={phase}
+                          unit="분"
+                        />
+                      </span>
+                      <span>
+                        순서 변경{' '}
+                        <b className="font-bold text-secondary-navy">{compare.moved_units}건</b>
+                      </span>
+                    </div>
+                  </CompareRow>
+
+                  <CompareRow
+                    icon={Timer}
+                    label="평균 대기"
+                    badges={bestBadge('wait') ? [BEST_LABELS.wait] : undefined}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <BeforeAfterBar
+                        before={compare.wait_before_min}
+                        after={compare.wait_after_min}
+                        phase={phase}
+                        max={80}
+                        unit="분"
+                        barClassName={accent.bar}
+                        className="flex-1"
+                      />
+                      <DeltaChip
+                        before={compare.wait_before_min}
+                        after={compare.wait_after_min}
+                        phase={phase}
+                        unit="분"
+                      />
+                    </div>
+                  </CompareRow>
+
+                  <CompareRow
+                    icon={Gauge}
+                    label="장비 가동률"
+                    badges={bestBadge('balance') ? [BEST_LABELS.balance] : undefined}
+                  >
+                    <div className="flex flex-col gap-2">
+                      {compare.utils.map((util) => (
+                        <BeforeAfterBar
+                          key={util.machine}
+                          label={util.machine}
+                          before={util.util_before}
+                          after={util.util_after}
+                          phase={phase}
+                          max={100}
+                          unit="%"
+                          barClassName={accent.bar}
+                        />
+                      ))}
+                      <span className="text-label-3 text-gray-400">{compare.util_summary}</span>
+                    </div>
+                  </CompareRow>
+                </div>
+              </div>
+            </div>
+
+            {/* 하단: 변경 상세 탭 + 납기 위험 완화 */}
+            <div className="flex flex-col gap-4 lg:flex-row">
+              <div className="flex-1 rounded-2xl border border-gray-200/80 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+                <div className="flex gap-1 border-b border-gray-200">
+                  {[
+                    { key: 'queue' as const, label: '큐 우선순위 변경 내용' },
+                    { key: 'schedule' as const, label: '스케줄 변경 내용' },
+                  ].map((tab) => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setChangeTab(tab.key)}
+                      className={`-mb-px border-b-2 px-3 py-2 text-label-2 font-semibold transition ${
+                        changeTab === tab.key
+                          ? 'border-primary-500 text-primary-600'
+                          : 'border-transparent text-gray-400 hover:text-gray-600'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-3">
+                  {changeTab === 'queue' ? (
+                    <div className="flex flex-col gap-4 sm:flex-row">
+                      {/* 이전 대기열 */}
+                      <div className="flex-1">
+                        <p className="mb-2 text-label-3 font-semibold text-gray-400">이전 대기열</p>
+                        <QueueList
+                          order={activeStrategy.detail.queue.before}
+                          affected={activeStrategy.detail.queue.affected}
+                        />
+                      </div>
+
+                      {/* 이후 대기열 (순위 변동 표시) */}
+                      <div className="flex-1">
+                        <p className="mb-2 text-label-3 font-semibold text-primary-600">
+                          이후 대기열
+                        </p>
+                        <QueueList
+                          order={activeStrategy.detail.queue.after}
+                          affected={activeStrategy.detail.queue.affected}
+                          beforeOrder={activeStrategy.detail.queue.before}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <ScheduleChangeGantt
+                      rows={activeStrategy.detail.schedule}
+                      startHour={8}
+                      endHour={20}
+                    />
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-col rounded-2xl border border-gray-200/80 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)] lg:w-[340px] lg:shrink-0">
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className="text-label-1 font-bold text-gray-500">납기 위험 완화 UNIT</h3>
+                  <span className="text-label-3 text-gray-400">
+                    {activeStrategy.detail.dueRelief.length}건
+                  </span>
+                </div>
+                <DueReliefTable items={activeStrategy.detail.dueRelief.slice(0, 2)} />
+                {activeStrategy.detail.dueRelief.length >= 3 ? (
+                  <button
+                    type="button"
+                    onClick={() => setDueReliefModalOpen(true)}
+                    className="mt-2 rounded-lg border border-gray-200 px-3 py-2 text-label-2 font-semibold text-secondary-navy transition hover:bg-surface-100"
+                  >
+                    자세히 보기 (외 {activeStrategy.detail.dueRelief.length - 2}건)
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
+            {/* 액션 버튼 */}
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setReportModalOpen(true)}
+                className="rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-label-1 font-semibold text-secondary-navy transition hover:bg-surface-100"
+              >
+                AI 리포트 확인하기
+              </button>
+              <button
+                type="button"
+                onClick={() => setApproveModalOpen(true)}
+                className="rounded-lg bg-primary-500 px-4 py-2.5 text-label-1 font-semibold text-white shadow-[0_8px_20px_rgba(234,0,44,0.18)] transition hover:bg-primary-600"
+              >
+                재조정안{strategyLabel(activeIndex)} 승인
+              </button>
             </div>
 
             {/* 영향 UNIT 상세 모달 */}
