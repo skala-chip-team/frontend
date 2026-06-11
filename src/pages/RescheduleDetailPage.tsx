@@ -3,8 +3,8 @@ import {
   ArrowDown,
   ArrowRight,
   ArrowUp,
-  Check,
   ChevronLeft,
+  CircleCheck,
   Gauge,
   Minus,
   ShieldAlert,
@@ -159,75 +159,94 @@ function QueueList({
   );
 }
 
-/** 위험 unit 타일 — 버튼형 사각 디자인. 전: 빨강 경고 / 후: 구제 시 초록 체크, 신규 위험은 후에만 등장 */
-function UnitRiskTile({ unit, phase }: { unit: UnitRiskChange; phase: ComparePhase }) {
-  if (phase === 'before' && unit.is_new) return null; // 조정 전에는 위험이 아니던 unit
-  const safe = phase === 'after' && unit.relieved;
-  return (
-    <span
-      className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-label-2 font-semibold shadow-[0_2px_6px_rgba(15,23,42,0.05)] transition-colors duration-500 ${
-        safe
-          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-          : 'border-red-200 bg-red-50 text-red-700'
-      } ${unit.is_new && phase === 'after' ? 'animate-pulse' : ''}`}
-    >
-      {safe ? (
-        <Check className="h-3.5 w-3.5" aria-hidden />
-      ) : (
-        <TriangleAlert className="h-3.5 w-3.5" aria-hidden />
-      )}
-      {unit.unit_id}
-      {unit.is_new && phase === 'after' ? (
-        <span className="text-[10px] font-bold">신규</span>
-      ) : null}
-    </span>
-  );
-}
-
-/** unit별 완료 시각 변화량 — 양수=앞당김(초록), 음수=지연(빨강) */
-function UnitDelta({ deltaHr }: { deltaHr: number }) {
+/** unit별 완료 시각 변화량 칩 — 양수=앞당김(초록), 음수=지연(빨강) */
+function UnitDeltaChip({ deltaHr }: { deltaHr: number }) {
   if (deltaHr === 0) {
-    return <span className="w-[72px] text-right text-subtitle-2 font-bold text-gray-400">±0</span>;
+    return (
+      <Chip variant="subtle" color="gray" size="xs" className="font-bold tabular-nums">
+        ±0
+      </Chip>
+    );
   }
   const improved = deltaHr > 0;
   return (
-    <span
-      className={`flex w-[72px] items-center justify-end gap-0.5 text-subtitle-2 font-bold ${
-        improved ? 'text-emerald-600' : 'text-red-600'
-      }`}
+    <Chip
+      variant="subtle"
+      color={improved ? 'emerald' : 'red'}
+      size="xs"
+      className="font-bold tabular-nums"
     >
       {improved ? (
-        <ArrowDown className="h-4 w-4" aria-hidden />
+        <ArrowDown className="h-3 w-3" aria-hidden />
       ) : (
-        <ArrowUp className="h-4 w-4" aria-hidden />
+        <ArrowUp className="h-3 w-3" aria-hidden />
       )}
       {formatDelayHours(Math.abs(deltaHr))}
-    </span>
+    </Chip>
   );
 }
 
-/** 비교 파트 행 — 좌측 라벨(아이콘+짧은 단어, 1등이면 별 표시) / 우측 시각화 */
-function CompareRow({
+/** unit 행 — 상태 아이콘 + ID / 완료 시각 전→후 + 단축폭 */
+function UnitRiskRow({ unit, phase }: { unit: UnitRiskChange; phase: ComparePhase }) {
+  const safe = phase === 'after' && unit.relieved;
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-white px-3 py-2 shadow-[0_2px_6px_rgba(15,23,42,0.04)]">
+      <span className="flex items-center gap-1.5 text-label-2 font-bold text-secondary-navy">
+        {safe ? (
+          <CircleCheck className="h-4 w-4 text-emerald-500 transition-colors duration-500" aria-label="위험 해소" />
+        ) : (
+          <TriangleAlert className="h-4 w-4 text-red-500 transition-colors duration-500" aria-label="위험" />
+        )}
+        {unit.unit_id}
+        {unit.is_new ? (
+          <Chip variant="subtle" color="red" size="xs" className="font-bold">
+            신규 위험
+          </Chip>
+        ) : null}
+      </span>
+      <span className="flex items-center gap-2 tabular-nums">
+        {phase === 'after' ? (
+          <>
+            <span className="text-label-3 text-gray-400">{unit.done_before}</span>
+            <ArrowRight className="h-3.5 w-3.5 text-gray-300" aria-hidden />
+            <span className="text-label-1 font-bold text-secondary-navy">{unit.done_after}</span>
+            <span className="flex w-[74px] justify-end">
+              <UnitDeltaChip deltaHr={unit.delta_hr} />
+            </span>
+          </>
+        ) : (
+          <span className="text-label-1 font-bold text-secondary-navy">{unit.done_before}</span>
+        )}
+      </span>
+    </div>
+  );
+}
+
+/** 의사결정 질문 1개 = 카드 1개 — 제목·의미 힌트·1등 별, 본문은 결론(히어로 수치)부터 */
+function StatCard({
   icon: Icon,
-  label,
+  title,
+  hint,
   best = false,
   children,
 }: {
   icon: LucideIcon;
-  label: string;
+  title: string;
+  hint: string; // 이 지표가 답하는 의사결정 질문
   best?: boolean; // 전략 중 이 파트 1등
   children: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-2.5 border-b border-gray-100 py-4 first:pt-1 last:border-b-0 last:pb-1 sm:flex-row sm:gap-5">
-      <span className="flex shrink-0 items-center gap-1.5 self-start text-label-2 font-bold text-secondary-navy sm:w-[110px]">
+    <div className="rounded-xl bg-surface-100 p-4">
+      <div className="flex items-center gap-1.5">
         <Icon className="h-4 w-4 text-gray-400" aria-hidden />
-        {label}
+        <span className="text-label-1 font-bold text-secondary-navy">{title}</span>
         {best ? (
           <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-label="전략 중 최고" />
         ) : null}
-      </span>
-      <div className="min-w-0 w-full flex-1 self-center">{children}</div>
+        <span className="ml-auto text-label-3 text-gray-400">{hint}</span>
+      </div>
+      <div className="mt-3">{children}</div>
     </div>
   );
 }
@@ -265,11 +284,18 @@ export default function RescheduleDetailPage() {
 
   const isBest = (key: StrategyBest) => compare.bests.includes(key);
 
-  // 위험 unit 변화량 (기존 위험 → 잔존, 신규는 별도)
-  const riskBeforeCount = compare.units.filter((unit) => !unit.is_new).length;
-  const riskAfterCount = compare.units.filter((unit) => !unit.is_new && !unit.relieved).length;
+  // 위험 unit 변화량 (기존 위험 → 구제/잔존, 신규는 별도)
+  const rescuedCount = compare.units.filter((unit) => !unit.is_new && unit.relieved).length;
+  const remainCount = compare.units.filter((unit) => !unit.is_new && !unit.relieved).length;
   const newRiskCount = compare.units.filter((unit) => unit.is_new).length;
   const waitDiff = compare.wait_before_min - compare.wait_after_min; // 양수=단축
+  // 부하 편차 톤 — 균등할수록 좋음
+  const devTone =
+    compare.util_dev_pp <= 3
+      ? 'text-emerald-600'
+      : compare.util_dev_pp <= 8
+        ? 'text-amber-600'
+        : 'text-red-600';
 
   const radarSeries = rescheduleStrategies.map((strategy) => ({
     key: strategy.key,
@@ -462,62 +488,75 @@ export default function RescheduleDetailPage() {
                   />
                 </div>
 
-                {/* 선택 전략 전/후 비교 */}
-                <div className="w-full flex-1 lg:border-l lg:border-gray-100 lg:pl-6">
-                  <CompareRow icon={ShieldAlert} label="위험 유닛" best={isBest('rescue')}>
-                    {/* 변화량 요약 — 메인 강조 */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-[1.625rem] font-bold leading-none text-red-600">
-                        {riskBeforeCount}건
+                {/* 선택 전략 효과 — 의사결정 질문 1개 = 카드 1개, 결론부터 크게 */}
+                <div className="flex w-full flex-1 flex-col gap-3">
+                  {/* ① 위험이 해소되는가 */}
+                  <StatCard
+                    icon={ShieldAlert}
+                    title="위험 유닛 구제"
+                    hint="납기 위험이 해소되는가"
+                    best={isBest('rescue')}
+                  >
+                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+                      <span className="text-[1.5rem] font-bold leading-none text-emerald-600">
+                        {rescuedCount}건 구제
                       </span>
-                      <ArrowRight className="h-5 w-5 text-gray-300" aria-hidden />
-                      <span
-                        className={`text-[1.625rem] font-bold leading-none ${
-                          riskAfterCount === 0 ? 'text-emerald-600' : 'text-red-600'
-                        }`}
-                      >
-                        {riskAfterCount}건
-                      </span>
-                      {newRiskCount > 0 ? (
-                        <Chip variant="subtle" color="red" size="sm" className="ml-1 font-bold">
-                          신규 +{newRiskCount}
-                        </Chip>
+                      {remainCount > 0 ? (
+                        <span className="text-[1.5rem] font-bold leading-none text-red-600">
+                          {remainCount}건 잔존
+                        </span>
                       ) : null}
+                      {newRiskCount > 0 ? (
+                        <Chip variant="subtle" color="red" size="sm" className="font-bold">
+                          신규 위험 +{newRiskCount}
+                        </Chip>
+                      ) : (
+                        <Chip variant="subtle" color="emerald" size="sm" className="font-bold">
+                          신규 위험 없음
+                        </Chip>
+                      )}
                     </div>
 
-                    {/* unit별 완료 시각 전→후 */}
-                    <div className="mt-3.5 flex flex-col gap-2">
+                    <div className="mt-3 flex flex-col gap-1.5">
                       {compare.units
                         .filter((unit) => phase === 'after' || !unit.is_new)
                         .map((unit) => (
-                          <div
-                            key={unit.unit_id}
-                            className="flex flex-wrap items-center justify-between gap-2"
-                          >
-                            <UnitRiskTile unit={unit} phase={phase} />
-                            {phase === 'after' ? (
-                              <span className="flex items-center gap-2">
-                                <span className="text-label-2 tabular-nums text-gray-400">
-                                  {unit.done_before}
-                                </span>
-                                <ArrowRight className="h-3.5 w-3.5 text-gray-300" aria-hidden />
-                                <span className="text-subtitle-2 font-bold tabular-nums text-secondary-navy">
-                                  {unit.done_after}
-                                </span>
-                                <UnitDelta deltaHr={unit.delta_hr} />
-                              </span>
-                            ) : (
-                              <span className="text-subtitle-2 font-bold tabular-nums text-secondary-navy">
-                                {unit.done_before}
-                              </span>
-                            )}
-                          </div>
+                          <UnitRiskRow key={unit.unit_id} unit={unit} phase={phase} />
                         ))}
                     </div>
-                  </CompareRow>
+                  </StatCard>
 
-                  <CompareRow icon={Timer} label="평균 대기" best={isBest('wait')}>
+                  {/* ② 라인 흐름이 빨라지는가 */}
+                  <StatCard
+                    icon={Timer}
+                    title="평균 대기"
+                    hint="라인 흐름이 빨라지는가"
+                    best={isBest('wait')}
+                  >
                     <div className="flex items-center gap-5">
+                      <div className="flex shrink-0 flex-col">
+                        {waitDiff === 0 ? (
+                          <span className="text-[1.5rem] font-bold leading-none text-gray-400">
+                            변화 없음
+                          </span>
+                        ) : (
+                          <span
+                            className={`flex items-center gap-0.5 text-[1.5rem] font-bold leading-none ${
+                              waitDiff > 0 ? 'text-emerald-600' : 'text-red-600'
+                            }`}
+                          >
+                            {waitDiff > 0 ? (
+                              <ArrowDown className="h-6 w-6" aria-hidden />
+                            ) : (
+                              <ArrowUp className="h-6 w-6" aria-hidden />
+                            )}
+                            {Math.abs(waitDiff)}분
+                          </span>
+                        )}
+                        <span className="mt-1.5 text-label-3 tabular-nums text-gray-400">
+                          {compare.wait_before_min}분 → {compare.wait_after_min}분
+                        </span>
+                      </div>
                       <BeforeAfterBar
                         before={compare.wait_before_min}
                         after={compare.wait_after_min}
@@ -527,56 +566,39 @@ export default function RescheduleDetailPage() {
                         barClassName={accent.bar}
                         className="flex-1"
                       />
-                      {/* 변화량 — 메인 강조 */}
-                      <div className="flex shrink-0 flex-col items-end">
-                        {waitDiff === 0 ? (
-                          <span className="text-[1.375rem] font-bold leading-none text-gray-400">
-                            ±0분
-                          </span>
-                        ) : (
-                          <span
-                            className={`flex items-center gap-0.5 text-[1.375rem] font-bold leading-none ${
-                              waitDiff > 0 ? 'text-emerald-600' : 'text-red-600'
-                            }`}
-                          >
-                            {waitDiff > 0 ? (
-                              <ArrowDown className="h-5 w-5" aria-hidden />
-                            ) : (
-                              <ArrowUp className="h-5 w-5" aria-hidden />
-                            )}
-                            {Math.abs(waitDiff)}분
-                          </span>
-                        )}
-                        <span className="mt-1 text-label-3 tabular-nums text-gray-400">
-                          {compare.wait_before_min}분 → {compare.wait_after_min}분
-                        </span>
-                      </div>
                     </div>
-                  </CompareRow>
+                  </StatCard>
 
-                  <CompareRow icon={Gauge} label="장비 부하율" best={isBest('balance')}>
-                    <div className="flex items-end gap-7">
-                      {compare.utils.map((util) => (
-                        <BeforeAfterColumn
-                          key={util.machine}
-                          label={util.machine}
-                          before={util.util_before}
-                          after={util.util_after}
-                          phase={phase}
-                          barClassName={accent.bar}
-                        />
-                      ))}
-                      {/* 편차 — 메인 강조 */}
-                      <div className="flex flex-col gap-1 pb-5">
-                        <span className="text-subtitle-1 font-bold text-secondary-navy">
+                  {/* ③ 부하가 고르게 분배되는가 */}
+                  <StatCard
+                    icon={Gauge}
+                    title="장비 부하율"
+                    hint="부하가 고르게 분배되는가"
+                    best={isBest('balance')}
+                  >
+                    <div className="flex items-center gap-6">
+                      <div className="flex shrink-0 flex-col">
+                        <span className={`text-[1.5rem] font-bold leading-none ${devTone}`}>
                           {compare.util_dev_label}
                         </span>
-                        <span className="text-label-3 text-gray-400">
+                        <span className="mt-1.5 text-label-3 tabular-nums text-gray-400">
                           편차 ±{compare.util_dev_pp}%p
                         </span>
                       </div>
+                      <div className="ml-auto flex items-end gap-6">
+                        {compare.utils.map((util) => (
+                          <BeforeAfterColumn
+                            key={util.machine}
+                            label={util.machine}
+                            before={util.util_before}
+                            after={util.util_after}
+                            phase={phase}
+                            barClassName={accent.bar}
+                          />
+                        ))}
+                      </div>
                     </div>
-                  </CompareRow>
+                  </StatCard>
                 </div>
               </div>
             </div>

@@ -38,7 +38,7 @@ export function BeforeAfterBar({
           {label}
         </span>
       ) : null}
-      <div className="relative h-2.5 flex-1 overflow-hidden rounded-full bg-gray-100">
+      <div className="relative h-2.5 flex-1 overflow-hidden rounded-full border border-gray-200/70 bg-white">
         <span
           className={`absolute inset-y-0 left-0 rounded-full ${barClassName} ${
             instant ? 'transition-none' : 'transition-all duration-700 ease-out'
@@ -92,7 +92,7 @@ export function BeforeAfterColumn({
         {Math.round(display)}
         {unit}
       </span>
-      <div className="relative h-24 w-9 overflow-hidden rounded-lg bg-gray-100">
+      <div className="relative h-24 w-9 overflow-hidden rounded-lg border border-gray-200/70 bg-white">
         <span
           className={`absolute inset-x-0 bottom-0 ${barClassName} ${
             instant ? 'transition-none' : 'transition-all duration-700 ease-out'
@@ -105,7 +105,7 @@ export function BeforeAfterColumn({
           aria-hidden
         />
       </div>
-      <span className="max-w-20 truncate text-label-3 font-semibold text-gray-500">{label}</span>
+      <span className="max-w-28 truncate text-label-3 font-semibold text-gray-500">{label}</span>
     </div>
   );
 }
