@@ -107,7 +107,8 @@ export interface CandidateEffect {
 export interface CandidateMeta {
   badge: string; // ex. '후보A안'
   title: string; // ex. '유닛 납기 우선 전략'
-  when: string; // 이 전략을 선택할 상황 설명
+  whenLead: string; // 선택 기준 설명 중 강조할 앞부분 (ex. '납기가 임박한 유닛을 먼저 끝내는 것')
+  whenTail: string; // 나머지 (ex. '이 중요할 때 적용해야 할 전략입니다')
   effect: CandidateEffect;
 }
 

@@ -301,7 +301,10 @@ function CandidateCard({
       </div>
 
       <h3 className="mt-2 text-subtitle-1 font-bold text-secondary-navy">{candidate.title}</h3>
-      <p className="mt-1 text-label-3 leading-snug text-gray-500">{candidate.when}</p>
+      <p className="mt-1.5 text-body-2 leading-relaxed text-gray-500">
+        <span className="font-bold text-secondary-navy">{candidate.whenLead}</span>
+        {candidate.whenTail}
+      </p>
 
       {/* 핵심 효과 */}
       <div className="mt-3 border-t border-gray-100 pt-3">
@@ -373,13 +376,6 @@ export default function RescheduleDetailPage() {
   const remainCount = compare.units.filter((unit) => !unit.is_new && !unit.relieved).length;
   const newRiskCount = compare.units.filter((unit) => unit.is_new).length;
   const waitDiff = compare.wait_before_min - compare.wait_after_min; // 양수=단축
-  // 부하 편차 톤 — 균등할수록 좋음
-  const devTone =
-    compare.util_dev_pp <= 3
-      ? 'text-emerald-600'
-      : compare.util_dev_pp <= 8
-        ? 'text-amber-600'
-        : 'text-red-600';
 
   const radarSeries = rescheduleStrategies.map((strategy) => ({
     key: strategy.key,
@@ -429,7 +425,7 @@ export default function RescheduleDetailPage() {
         ) : (
           <>
             {/* 현재 위험 상황 */}
-            <section className="flex flex-col gap-2.5">
+            <section className="mt-2 flex flex-col gap-4">
               <h2 className="text-[1.5rem] font-bold leading-tight text-secondary-navy">
                 현재 위험 상황
               </h2>
@@ -505,8 +501,8 @@ export default function RescheduleDetailPage() {
             </section>
 
             {/* 스케줄 재조정 후보안 */}
-            <section className="flex flex-col gap-3">
-              <div className="flex flex-col gap-1">
+            <section className="mt-5 flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
                 <h2 className="text-[1.5rem] font-bold leading-tight text-secondary-navy">
                   스케줄 재조정 후보안
                 </h2>
@@ -531,14 +527,15 @@ export default function RescheduleDetailPage() {
               {/* 선택 후보안 상세 — 좌 레이더 / 우 효과 카드 */}
               <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2.5">
                     <span
-                      className="h-2.5 w-2.5 rounded-full"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-subtitle-2 font-bold text-white"
                       style={{ backgroundColor: accent.hex }}
-                      aria-hidden
-                    />
-                    <span className="text-subtitle-2 font-bold text-secondary-navy">
-                      {activeStrategy.candidate.badge} · {activeStrategy.candidate.title} 상세
+                    >
+                      {strategyLabel(activeIndex)}
+                    </span>
+                    <span className="text-[1.25rem] font-bold leading-tight text-secondary-navy">
+                      {activeStrategy.candidate.title}
                     </span>
                   </div>
 
@@ -579,28 +576,24 @@ export default function RescheduleDetailPage() {
                   {/* ① 위험이 해소되는가 */}
                   <StatCard
                     icon={ShieldAlert}
-                    title="위험 유닛 구제"
+                    title="위험 유닛"
                     hint="납기 위험이 해소되는가"
                     best={isBest('rescue')}
                   >
-                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-                      <span className="text-[1.5rem] font-bold leading-none text-emerald-600">
-                        {rescuedCount}건 구제
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                      <span className="text-[1.5rem] font-bold leading-none text-secondary-navy">
+                        납기 위험 완화 {rescuedCount}건
                       </span>
                       {remainCount > 0 ? (
-                        <span className="text-[1.5rem] font-bold leading-none text-red-600">
-                          {remainCount}건 잔존
+                        <span className="text-[1.5rem] font-bold leading-none text-secondary-navy">
+                          위험 유지 {remainCount}건
                         </span>
                       ) : null}
                       {newRiskCount > 0 ? (
                         <Chip variant="subtle" color="red" size="sm" className="font-bold">
                           신규 위험 +{newRiskCount}
                         </Chip>
-                      ) : (
-                        <Chip variant="subtle" color="emerald" size="sm" className="font-bold">
-                          신규 위험 없음
-                        </Chip>
-                      )}
+                      ) : null}
                     </div>
 
                     <div className="mt-3 flex flex-col gap-1.5">
@@ -622,15 +615,11 @@ export default function RescheduleDetailPage() {
                     <div className="flex items-center gap-5">
                       <div className="flex shrink-0 flex-col">
                         {waitDiff === 0 ? (
-                          <span className="text-[1.5rem] font-bold leading-none text-gray-400">
+                          <span className="text-[1.5rem] font-bold leading-none text-secondary-navy">
                             변화 없음
                           </span>
                         ) : (
-                          <span
-                            className={`flex items-center gap-0.5 text-[1.5rem] font-bold leading-none ${
-                              waitDiff > 0 ? 'text-emerald-600' : 'text-red-600'
-                            }`}
-                          >
+                          <span className="flex items-center gap-0.5 text-[1.5rem] font-bold leading-none text-secondary-navy">
                             {waitDiff > 0 ? (
                               <ArrowDown className="h-6 w-6" aria-hidden />
                             ) : (
@@ -664,7 +653,7 @@ export default function RescheduleDetailPage() {
                   >
                     <div className="flex items-center gap-6">
                       <div className="flex shrink-0 flex-col">
-                        <span className={`text-[1.5rem] font-bold leading-none ${devTone}`}>
+                        <span className="text-[1.5rem] font-bold leading-none text-secondary-navy">
                           {compare.util_dev_label}
                         </span>
                         <span className="mt-1.5 text-label-3 tabular-nums text-gray-400">

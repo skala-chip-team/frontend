@@ -89,7 +89,8 @@ export const rescheduleStrategies: RescheduleStrategy[] = [
     candidate: {
       badge: '후보A안',
       title: '유닛 납기 우선 전략',
-      when: '납기가 임박한 유닛을 먼저 끝내 지연을 막아야 할 때',
+      whenLead: '납기가 임박한 유닛을 먼저 끝내는 것',
+      whenTail: '이 중요할 때 적용해야 할 전략입니다',
       effect: {
         metric: '위험 유닛 납기 완료 시간',
         before: '21:00',
@@ -178,7 +179,8 @@ export const rescheduleStrategies: RescheduleStrategy[] = [
     candidate: {
       badge: '후보B안',
       title: '장비 부하율 균형 전략',
-      when: '특정 장비 과부하를 막고 설비를 고르게 활용하고 싶을 때',
+      whenLead: '장비에 부하가 몰리지 않게 고르게 분산하는 것',
+      whenTail: '이 중요할 때 적용해야 할 전략입니다',
       effect: {
         metric: '장비 부하율 편차',
         before: '20%p',
@@ -266,7 +268,8 @@ export const rescheduleStrategies: RescheduleStrategy[] = [
     candidate: {
       badge: '후보C안',
       title: '대기시간 최소화 전략',
-      when: '큐 적체를 풀어 전체 처리 흐름을 빠르게 하고 싶을 때',
+      whenLead: '큐 적체를 풀어 전체 처리 흐름을 빠르게 하는 것',
+      whenTail: '이 중요할 때 적용해야 할 전략입니다',
       effect: {
         metric: '총 대기 시간',
         before: '100분',
