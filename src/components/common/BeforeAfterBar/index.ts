@@ -1,2 +1,2 @@
-export { BeforeAfterBar } from './BeforeAfterBar';
+export { BeforeAfterBar, BeforeAfterColumn } from './BeforeAfterBar';
 export type { ComparePhase } from './BeforeAfterBar';

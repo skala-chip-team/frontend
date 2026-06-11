@@ -14,7 +14,7 @@ export type { StepOption } from './StepSelector';
 export { ScheduleChangeGantt } from './ScheduleChangeGantt';
 export { StrategyRadar } from './StrategyRadar';
 export type { RadarSeries } from './StrategyRadar';
-export { BeforeAfterBar } from './BeforeAfterBar';
+export { BeforeAfterBar, BeforeAfterColumn } from './BeforeAfterBar';
 export type { ComparePhase } from './BeforeAfterBar';
 export { WorkerTable } from './WorkerTable';
 export { WorkerDetailPanel, type WorkerUpdate } from './WorkerDetailPanel';

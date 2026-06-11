@@ -5,10 +5,10 @@ import {
   Check,
   ChevronLeft,
   Gauge,
-  Medal,
   Minus,
   RotateCcw,
   ShieldAlert,
+  Star,
   Timer,
   TriangleAlert,
   type LucideIcon,
@@ -17,6 +17,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import {
   BeforeAfterBar,
+  BeforeAfterColumn,
   Chip,
   type ComparePhase,
   ConfirmModal,
@@ -25,26 +26,18 @@ import {
   StrategyRadar,
 } from '@components/common';
 import { rescheduleGroups, rescheduleStrategies, riskReasonsByFactor } from '@/mocks';
-import { useAnimatedNumber } from '@/hooks';
 import { districtLabels, useDistrictStore } from '@/stores';
 import { formatDelayHours, riskChipColor, statusChipColor, statusLabel } from '@/utils';
 import type { DueReliefUnit, StrategyBest, StrategyKey, UnitRiskChange } from '@/types';
 
-// 전략별 강조색 — 레이더 폴리곤·진행 바·선택 칩 점에 공통 사용
+// 전략별 강조색 — 레이더 폴리곤·진행 바·선택 칩에 공통 사용
 const STRATEGY_ACCENTS: Record<StrategyKey, { hex: string; bar: string }> = {
   due_date_first: { hex: '#EA002C', bar: 'bg-primary-500' },
-  utilization_bal: { hex: '#64748B', bar: 'bg-slate-500' },
-  line_recovery: { hex: '#081028', bar: 'bg-secondary-navy' },
+  utilization_bal: { hex: '#4F46E5', bar: 'bg-indigo-600' },
+  line_recovery: { hex: '#0F766E', bar: 'bg-teal-700' },
 };
 
 const RADAR_AXES = ['위험 구제', '신규 차단', '완료 속도', '대기 개선', '부하 균등', '순서 안정'];
-
-const BEST_LABELS: Record<StrategyBest, string> = {
-  rescue: '최다 구제',
-  makespan: '최단 완료',
-  wait: '최대 단축',
-  balance: '가장 균등',
-};
 
 /** 납기 위험 완화 UNIT 테이블 — UNIT / 이전 완료 / 이후 완료(+앞당김) */
 function DueReliefTable({ items }: { items: DueReliefUnit[] }) {
@@ -165,37 +158,27 @@ function QueueList({
   );
 }
 
-/** 카운트 애니메이션 숫자 */
-function StatNumber({
-  value,
-  suffix,
-  className = '',
+/** 위험 unit 타일 — 버튼형 사각 디자인. 전: 빨강 경고 / 후: 구제 시 초록 체크, 신규 위험은 후에만 등장 */
+function UnitRiskTile({
+  unit,
+  phase,
+  instant,
 }: {
-  value: number;
-  suffix?: string;
-  className?: string;
+  unit: UnitRiskChange;
+  phase: ComparePhase;
+  instant: boolean;
 }) {
-  const display = useAnimatedNumber(value);
-  return (
-    <span className={`font-bold tabular-nums text-secondary-navy ${className}`}>
-      {Math.round(display)}
-      {suffix}
-    </span>
-  );
-}
-
-/** 위험 unit 칩 — 전: 빨강 경고 / 후: 구제 시 초록 체크, 신규 위험은 후에만 등장 */
-function UnitRiskChip({ unit, phase }: { unit: UnitRiskChange; phase: ComparePhase }) {
   if (phase === 'before' && unit.is_new) return null; // 조정 전에는 위험이 아니던 unit
   const safe = phase === 'after' && unit.relieved;
   return (
-    <Chip
-      variant="subtle"
-      color={safe ? 'emerald' : 'red'}
-      size="sm"
-      className={`font-bold transition-colors duration-500 ${
-        unit.is_new && phase === 'after' ? 'animate-pulse' : ''
-      }`}
+    <span
+      className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-label-2 font-semibold shadow-[0_2px_6px_rgba(15,23,42,0.05)] ${
+        instant ? 'transition-none' : 'transition-colors duration-500'
+      } ${
+        safe
+          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+          : 'border-red-200 bg-red-50 text-red-700'
+      } ${unit.is_new && phase === 'after' ? 'animate-pulse' : ''}`}
     >
       {safe ? (
         <Check className="h-3.5 w-3.5" aria-hidden />
@@ -203,8 +186,8 @@ function UnitRiskChip({ unit, phase }: { unit: UnitRiskChange; phase: ComparePha
         <TriangleAlert className="h-3.5 w-3.5" aria-hidden />
       )}
       {unit.unit_id}
-      {unit.is_new && phase === 'after' ? <span className="text-[10px]">신규</span> : null}
-    </Chip>
+      {unit.is_new && phase === 'after' ? <span className="text-[10px] font-bold">신규</span> : null}
+    </span>
   );
 }
 
@@ -248,32 +231,27 @@ function DeltaChip({
   );
 }
 
-/** 비교 파트 행 — 좌측 라벨(아이콘+짧은 단어, 1등 배지) / 우측 시각화 */
+/** 비교 파트 행 — 좌측 라벨(아이콘+짧은 단어, 1등이면 별 표시) / 우측 시각화 */
 function CompareRow({
   icon: Icon,
   label,
-  badges,
+  best = false,
   children,
 }: {
   icon: LucideIcon;
   label: string;
-  badges?: string[];
+  best?: boolean; // 전략 중 이 파트 1등
   children: ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-2.5 border-b border-gray-100 py-4 first:pt-1 last:border-b-0 last:pb-1 sm:flex-row sm:gap-5">
-      <div className="flex shrink-0 flex-wrap items-center gap-1.5 sm:w-[118px] sm:flex-col sm:items-start">
-        <span className="flex items-center gap-1.5 text-label-2 font-bold text-secondary-navy">
-          <Icon className="h-4 w-4 text-gray-400" aria-hidden />
-          {label}
-        </span>
-        {badges?.map((badge) => (
-          <Chip key={badge} variant="subtle" color="amber" size="xs" className="font-bold">
-            <Medal className="h-3 w-3" aria-hidden />
-            {badge}
-          </Chip>
-        ))}
-      </div>
+      <span className="flex shrink-0 items-center gap-1.5 self-start text-label-2 font-bold text-secondary-navy sm:w-[110px]">
+        <Icon className="h-4 w-4 text-gray-400" aria-hidden />
+        {label}
+        {best ? (
+          <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-label="전략 중 최고" />
+        ) : null}
+      </span>
       <div className="min-w-0 w-full flex-1 self-center">{children}</div>
     </div>
   );
@@ -290,6 +268,7 @@ export default function RescheduleDetailPage() {
     rescheduleStrategies[0].key;
   const [selectedStrategy, setSelectedStrategy] = useState<StrategyKey>(recommendedKey);
   const [phase, setPhase] = useState<ComparePhase>('before');
+  const [snap, setSnap] = useState(false); // true면 전환 애니메이션 없이 즉시 반영
   const [unitModalOpen, setUnitModalOpen] = useState(false);
   const [dueReliefModalOpen, setDueReliefModalOpen] = useState(false);
   const [reportModalOpen, setReportModalOpen] = useState(false);
@@ -302,9 +281,14 @@ export default function RescheduleDetailPage() {
     return () => window.clearTimeout(timer);
   }, []);
 
+  // 조정 전 상태는 애니메이션 없이 즉시 보여주고, 조정 후로 갈 때만 애니메이션
   const replay = () => {
+    setSnap(true);
     setPhase('before');
-    window.setTimeout(() => setPhase('after'), 700);
+    window.setTimeout(() => {
+      setSnap(false);
+      setPhase('after');
+    }, 500);
   };
 
   // 전략 전환 시에도 전→후 변화를 자동 재생
@@ -322,11 +306,7 @@ export default function RescheduleDetailPage() {
   const accent = STRATEGY_ACCENTS[activeStrategy.key];
   const strategyLabel = (index: number) => String.fromCharCode(65 + index); // 0→A, 1→B, 2→C
 
-  const bestBadge = (key: StrategyBest) =>
-    compare.bests.includes(key) ? BEST_LABELS[key] : undefined;
-  const unitBadges = [bestBadge('rescue'), bestBadge('makespan')].filter(
-    (badge): badge is string => badge !== undefined
-  );
+  const isBest = (key: StrategyBest) => compare.bests.includes(key);
 
   const radarSeries = rescheduleStrategies.map((strategy) => ({
     key: strategy.key,
@@ -453,6 +433,7 @@ export default function RescheduleDetailPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   {rescheduleStrategies.map((strategy) => {
                     const active = strategy.key === selectedStrategy;
+                    const hex = STRATEGY_ACCENTS[strategy.key].hex;
                     return (
                       <button
                         key={strategy.key}
@@ -461,13 +442,18 @@ export default function RescheduleDetailPage() {
                         aria-pressed={active}
                         className={`flex items-center gap-2 rounded-full border px-3.5 py-2 text-label-2 font-bold transition ${
                           active
-                            ? 'border-primary-500 bg-primary-50 text-primary-600 ring-1 ring-primary-500/20'
+                            ? ''
                             : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:text-secondary-navy'
                         }`}
+                        style={
+                          active
+                            ? { borderColor: hex, color: hex, backgroundColor: `${hex}14` }
+                            : undefined
+                        }
                       >
                         <span
                           className="h-2 w-2 rounded-full"
-                          style={{ backgroundColor: STRATEGY_ACCENTS[strategy.key].hex }}
+                          style={{ backgroundColor: hex }}
                           aria-hidden
                         />
                         {strategy.name}
@@ -511,9 +497,9 @@ export default function RescheduleDetailPage() {
                 </div>
               </div>
 
-              <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-stretch lg:gap-6">
-                {/* 레이더 — 폴리곤 클릭으로도 전략 전환 */}
-                <div className="mx-auto w-full max-w-[300px] self-center lg:mx-0 lg:w-[280px] lg:shrink-0">
+              <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-stretch lg:gap-7">
+                {/* 레이더(메인) — 전략 전환 시 폴리곤 모핑, 폴리곤 클릭으로도 전환 */}
+                <div className="mx-auto w-full max-w-[420px] self-center lg:mx-0 lg:w-[400px] lg:shrink-0">
                   <StrategyRadar
                     axes={RADAR_AXES}
                     series={radarSeries}
@@ -525,43 +511,20 @@ export default function RescheduleDetailPage() {
 
                 {/* 선택 전략 전/후 비교 */}
                 <div className="w-full flex-1 lg:border-l lg:border-gray-100 lg:pl-6">
-                  <CompareRow icon={ShieldAlert} label="위험 유닛" badges={unitBadges}>
+                  <CompareRow icon={ShieldAlert} label="위험 유닛" best={isBest('rescue')}>
                     <div className="flex flex-wrap items-center gap-2">
                       {compare.units.map((unit) => (
-                        <UnitRiskChip key={unit.unit_id} unit={unit} phase={phase} />
-                      ))}
-                    </div>
-                    <div className="mt-2.5 flex flex-wrap items-center gap-x-5 gap-y-1 text-label-3 text-gray-400">
-                      <span className="flex items-center gap-1.5">
-                        전체 완료
-                        <StatNumber
-                          value={
-                            phase === 'before'
-                              ? compare.makespan_before_min
-                              : compare.makespan_after_min
-                          }
-                          suffix="분"
-                          className="text-label-1"
-                        />
-                        <DeltaChip
-                          before={compare.makespan_before_min}
-                          after={compare.makespan_after_min}
+                        <UnitRiskTile
+                          key={unit.unit_id}
+                          unit={unit}
                           phase={phase}
-                          unit="분"
+                          instant={snap}
                         />
-                      </span>
-                      <span>
-                        순서 변경{' '}
-                        <b className="font-bold text-secondary-navy">{compare.moved_units}건</b>
-                      </span>
+                      ))}
                     </div>
                   </CompareRow>
 
-                  <CompareRow
-                    icon={Timer}
-                    label="평균 대기"
-                    badges={bestBadge('wait') ? [BEST_LABELS.wait] : undefined}
-                  >
+                  <CompareRow icon={Timer} label="평균 대기" best={isBest('wait')}>
                     <div className="flex items-center gap-2.5">
                       <BeforeAfterBar
                         before={compare.wait_before_min}
@@ -570,6 +533,7 @@ export default function RescheduleDetailPage() {
                         max={80}
                         unit="분"
                         barClassName={accent.bar}
+                        instant={snap}
                         className="flex-1"
                       />
                       <DeltaChip
@@ -581,25 +545,22 @@ export default function RescheduleDetailPage() {
                     </div>
                   </CompareRow>
 
-                  <CompareRow
-                    icon={Gauge}
-                    label="장비 가동률"
-                    badges={bestBadge('balance') ? [BEST_LABELS.balance] : undefined}
-                  >
-                    <div className="flex flex-col gap-2">
+                  <CompareRow icon={Gauge} label="장비 가동률" best={isBest('balance')}>
+                    <div className="flex items-end gap-7">
                       {compare.utils.map((util) => (
-                        <BeforeAfterBar
+                        <BeforeAfterColumn
                           key={util.machine}
                           label={util.machine}
                           before={util.util_before}
                           after={util.util_after}
                           phase={phase}
-                          max={100}
-                          unit="%"
                           barClassName={accent.bar}
+                          instant={snap}
                         />
                       ))}
-                      <span className="text-label-3 text-gray-400">{compare.util_summary}</span>
+                      <span className="pb-6 text-label-3 text-gray-400">
+                        {compare.util_summary}
+                      </span>
                     </div>
                   </CompareRow>
                 </div>
