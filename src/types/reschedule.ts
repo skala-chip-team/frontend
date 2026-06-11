@@ -31,6 +31,9 @@ export interface UnitRiskChange {
   unit_id: string;
   relieved: boolean; // 조정 후 위험 해소 여부
   is_new?: boolean; // 조정 후 새로 위험권 진입(조정 전에는 위험이 아니던 unit)
+  done_before: string; // 조정 전 예상 완료 시각 (ex. '21:00')
+  done_after: string; // 조정 후 예상 완료 시각
+  delta_hr: number; // 완료 변화(시간). 양수=앞당김, 음수=지연
 }
 
 export interface MachineUtilChange {
@@ -46,8 +49,9 @@ export interface StrategyCompare {
   makespan_after_min: number; // 전체 완료 소요 이후(분)
   wait_before_min: number; // 평균 대기 이전(분)
   wait_after_min: number; // 평균 대기 이후(분)
-  utils: MachineUtilChange[]; // 장비별 가동률 전/후
-  util_summary: string; // ex. '평균 67% · 편차 큼'
+  utils: MachineUtilChange[]; // 장비별 부하율 전/후
+  util_dev_pp: number; // 부하율 편차(±%p, 최대-최소 기준)
+  util_dev_label: string; // ex. '편차 큼', '매우 균등'
   moved_units: number; // 순서 바뀐 unit 수
   radar: number[]; // 레이더 6축 점수(0~100) — RADAR_AXES 순서
   bests: StrategyBest[]; // 이 전략이 1등인 파트

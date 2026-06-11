@@ -1,0 +1,1 @@
+export { RescheduleFaqChat } from './RescheduleFaqChat';

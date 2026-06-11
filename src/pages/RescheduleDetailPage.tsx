@@ -1,12 +1,12 @@
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import {
   ArrowDown,
+  ArrowRight,
   ArrowUp,
   Check,
   ChevronLeft,
   Gauge,
   Minus,
-  RotateCcw,
   ShieldAlert,
   Star,
   Timer,
@@ -25,6 +25,7 @@ import {
   ScheduleChangeGantt,
   StrategyRadar,
 } from '@components/common';
+import { RescheduleFaqChat } from '@/components/reschedule';
 import { rescheduleGroups, rescheduleStrategies, riskReasonsByFactor } from '@/mocks';
 import { districtLabels, useDistrictStore } from '@/stores';
 import { formatDelayHours, riskChipColor, statusChipColor, statusLabel } from '@/utils';
@@ -159,22 +160,12 @@ function QueueList({
 }
 
 /** 위험 unit 타일 — 버튼형 사각 디자인. 전: 빨강 경고 / 후: 구제 시 초록 체크, 신규 위험은 후에만 등장 */
-function UnitRiskTile({
-  unit,
-  phase,
-  instant,
-}: {
-  unit: UnitRiskChange;
-  phase: ComparePhase;
-  instant: boolean;
-}) {
+function UnitRiskTile({ unit, phase }: { unit: UnitRiskChange; phase: ComparePhase }) {
   if (phase === 'before' && unit.is_new) return null; // 조정 전에는 위험이 아니던 unit
   const safe = phase === 'after' && unit.relieved;
   return (
     <span
-      className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-label-2 font-semibold shadow-[0_2px_6px_rgba(15,23,42,0.05)] ${
-        instant ? 'transition-none' : 'transition-colors duration-500'
-      } ${
+      className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-label-2 font-semibold shadow-[0_2px_6px_rgba(15,23,42,0.05)] transition-colors duration-500 ${
         safe
           ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
           : 'border-red-200 bg-red-50 text-red-700'
@@ -186,48 +177,32 @@ function UnitRiskTile({
         <TriangleAlert className="h-3.5 w-3.5" aria-hidden />
       )}
       {unit.unit_id}
-      {unit.is_new && phase === 'after' ? <span className="text-[10px] font-bold">신규</span> : null}
+      {unit.is_new && phase === 'after' ? (
+        <span className="text-[10px] font-bold">신규</span>
+      ) : null}
     </span>
   );
 }
 
-/** 전/후 변화량 칩 — 낮을수록 좋은 지표(분)용 */
-function DeltaChip({
-  before,
-  after,
-  phase,
-  unit,
-}: {
-  before: number;
-  after: number;
-  phase: ComparePhase;
-  unit: string;
-}) {
-  if (phase === 'before') {
-    return (
-      <Chip variant="subtle" color="gray" size="xs">
-        기준
-      </Chip>
-    );
+/** unit별 완료 시각 변화량 — 양수=앞당김(초록), 음수=지연(빨강) */
+function UnitDelta({ deltaHr }: { deltaHr: number }) {
+  if (deltaHr === 0) {
+    return <span className="w-[72px] text-right text-subtitle-2 font-bold text-gray-400">±0</span>;
   }
-  const diff = after - before;
-  if (diff === 0) {
-    return (
-      <Chip variant="subtle" color="gray" size="xs">
-        ±0{unit}
-      </Chip>
-    );
-  }
+  const improved = deltaHr > 0;
   return (
-    <Chip variant="subtle" color={diff < 0 ? 'emerald' : 'red'} size="xs" className="font-bold">
-      {diff < 0 ? (
-        <ArrowDown className="h-3 w-3" aria-hidden />
+    <span
+      className={`flex w-[72px] items-center justify-end gap-0.5 text-subtitle-2 font-bold ${
+        improved ? 'text-emerald-600' : 'text-red-600'
+      }`}
+    >
+      {improved ? (
+        <ArrowDown className="h-4 w-4" aria-hidden />
       ) : (
-        <ArrowUp className="h-3 w-3" aria-hidden />
+        <ArrowUp className="h-4 w-4" aria-hidden />
       )}
-      {Math.abs(diff)}
-      {unit}
-    </Chip>
+      {formatDelayHours(Math.abs(deltaHr))}
+    </span>
   );
 }
 
@@ -267,35 +242,12 @@ export default function RescheduleDetailPage() {
     rescheduleStrategies.find((strategy) => strategy.recommended)?.key ??
     rescheduleStrategies[0].key;
   const [selectedStrategy, setSelectedStrategy] = useState<StrategyKey>(recommendedKey);
-  const [phase, setPhase] = useState<ComparePhase>('before');
-  const [snap, setSnap] = useState(false); // true면 전환 애니메이션 없이 즉시 반영
+  const [phase, setPhase] = useState<ComparePhase>('after'); // 처음에는 조정 후만 표시
   const [unitModalOpen, setUnitModalOpen] = useState(false);
   const [dueReliefModalOpen, setDueReliefModalOpen] = useState(false);
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [approveModalOpen, setApproveModalOpen] = useState(false);
   const [changeTab, setChangeTab] = useState<'queue' | 'schedule'>('queue');
-
-  // 첫 진입 시 전→후 변화를 자동 재생
-  useEffect(() => {
-    const timer = window.setTimeout(() => setPhase('after'), 700);
-    return () => window.clearTimeout(timer);
-  }, []);
-
-  // 조정 전 상태는 애니메이션 없이 즉시 보여주고, 조정 후로 갈 때만 애니메이션
-  const replay = () => {
-    setSnap(true);
-    setPhase('before');
-    window.setTimeout(() => {
-      setSnap(false);
-      setPhase('after');
-    }, 500);
-  };
-
-  // 전략 전환 시에도 전→후 변화를 자동 재생
-  const selectStrategy = (key: StrategyKey) => {
-    setSelectedStrategy(key);
-    replay();
-  };
 
   const activeIndex = Math.max(
     0,
@@ -305,8 +257,19 @@ export default function RescheduleDetailPage() {
   const { compare } = activeStrategy;
   const accent = STRATEGY_ACCENTS[activeStrategy.key];
   const strategyLabel = (index: number) => String.fromCharCode(65 + index); // 0→A, 1→B, 2→C
+  const recommendedIndex = Math.max(
+    0,
+    rescheduleStrategies.findIndex((strategy) => strategy.key === recommendedKey)
+  );
+  const recommendedStrategy = rescheduleStrategies[recommendedIndex];
 
   const isBest = (key: StrategyBest) => compare.bests.includes(key);
+
+  // 위험 unit 변화량 (기존 위험 → 잔존, 신규는 별도)
+  const riskBeforeCount = compare.units.filter((unit) => !unit.is_new).length;
+  const riskAfterCount = compare.units.filter((unit) => !unit.is_new && !unit.relieved).length;
+  const newRiskCount = compare.units.filter((unit) => unit.is_new).length;
+  const waitDiff = compare.wait_before_min - compare.wait_after_min; // 양수=단축
 
   const radarSeries = rescheduleStrategies.map((strategy) => ({
     key: strategy.key,
@@ -319,7 +282,7 @@ export default function RescheduleDetailPage() {
 
   return (
     <section className="min-h-full bg-surface-50 px-6 pb-6 pt-4 lg:px-8 lg:pb-8">
-      <div className="flex w-full flex-col gap-4">
+      <div className="mx-auto flex w-full max-w-[1680px] flex-col gap-4">
         {/* 뒤로 + 브레드크럼 (구역 필터 시 구역 포함) */}
         <div className="flex items-center gap-2">
           <button
@@ -438,7 +401,7 @@ export default function RescheduleDetailPage() {
                       <button
                         key={strategy.key}
                         type="button"
-                        onClick={() => selectStrategy(strategy.key)}
+                        onClick={() => setSelectedStrategy(strategy.key)}
                         aria-pressed={active}
                         className={`flex items-center gap-2 rounded-full border px-3.5 py-2 text-label-2 font-bold transition ${
                           active
@@ -467,33 +430,23 @@ export default function RescheduleDetailPage() {
                   })}
                 </div>
 
-                {/* 다시 보기 + 전/후 토글 */}
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={replay}
-                    aria-label="전후 변화 다시 보기"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-400 transition hover:bg-surface-100 hover:text-secondary-navy"
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                  </button>
-                  <div className="flex rounded-lg bg-surface-100 p-0.5">
-                    {(['before', 'after'] as const).map((value) => (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => setPhase(value)}
-                        aria-pressed={phase === value}
-                        className={`rounded-md px-3 py-1.5 text-label-3 font-semibold transition ${
-                          phase === value
-                            ? 'bg-secondary-navy text-white shadow'
-                            : 'text-gray-400 hover:text-gray-600'
-                        }`}
-                      >
-                        {value === 'before' ? '조정 전' : '조정 후'}
-                      </button>
-                    ))}
-                  </div>
+                {/* 전/후 토글 */}
+                <div className="flex rounded-lg bg-surface-100 p-0.5">
+                  {(['before', 'after'] as const).map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setPhase(value)}
+                      aria-pressed={phase === value}
+                      className={`rounded-md px-3 py-1.5 text-label-3 font-semibold transition ${
+                        phase === value
+                          ? 'bg-secondary-navy text-white shadow'
+                          : 'text-gray-400 hover:text-gray-600'
+                      }`}
+                    >
+                      {value === 'before' ? '조정 전' : '조정 후'}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -504,7 +457,7 @@ export default function RescheduleDetailPage() {
                     axes={RADAR_AXES}
                     series={radarSeries}
                     selectedKey={selectedStrategy}
-                    onSelect={(key) => selectStrategy(key as StrategyKey)}
+                    onSelect={(key) => setSelectedStrategy(key as StrategyKey)}
                     className="w-full"
                   />
                 </div>
@@ -512,20 +465,59 @@ export default function RescheduleDetailPage() {
                 {/* 선택 전략 전/후 비교 */}
                 <div className="w-full flex-1 lg:border-l lg:border-gray-100 lg:pl-6">
                   <CompareRow icon={ShieldAlert} label="위험 유닛" best={isBest('rescue')}>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {compare.units.map((unit) => (
-                        <UnitRiskTile
-                          key={unit.unit_id}
-                          unit={unit}
-                          phase={phase}
-                          instant={snap}
-                        />
-                      ))}
+                    {/* 변화량 요약 — 메인 강조 */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-[1.625rem] font-bold leading-none text-red-600">
+                        {riskBeforeCount}건
+                      </span>
+                      <ArrowRight className="h-5 w-5 text-gray-300" aria-hidden />
+                      <span
+                        className={`text-[1.625rem] font-bold leading-none ${
+                          riskAfterCount === 0 ? 'text-emerald-600' : 'text-red-600'
+                        }`}
+                      >
+                        {riskAfterCount}건
+                      </span>
+                      {newRiskCount > 0 ? (
+                        <Chip variant="subtle" color="red" size="sm" className="ml-1 font-bold">
+                          신규 +{newRiskCount}
+                        </Chip>
+                      ) : null}
+                    </div>
+
+                    {/* unit별 완료 시각 전→후 */}
+                    <div className="mt-3.5 flex flex-col gap-2">
+                      {compare.units
+                        .filter((unit) => phase === 'after' || !unit.is_new)
+                        .map((unit) => (
+                          <div
+                            key={unit.unit_id}
+                            className="flex flex-wrap items-center justify-between gap-2"
+                          >
+                            <UnitRiskTile unit={unit} phase={phase} />
+                            {phase === 'after' ? (
+                              <span className="flex items-center gap-2">
+                                <span className="text-label-2 tabular-nums text-gray-400">
+                                  {unit.done_before}
+                                </span>
+                                <ArrowRight className="h-3.5 w-3.5 text-gray-300" aria-hidden />
+                                <span className="text-subtitle-2 font-bold tabular-nums text-secondary-navy">
+                                  {unit.done_after}
+                                </span>
+                                <UnitDelta deltaHr={unit.delta_hr} />
+                              </span>
+                            ) : (
+                              <span className="text-subtitle-2 font-bold tabular-nums text-secondary-navy">
+                                {unit.done_before}
+                              </span>
+                            )}
+                          </div>
+                        ))}
                     </div>
                   </CompareRow>
 
                   <CompareRow icon={Timer} label="평균 대기" best={isBest('wait')}>
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex items-center gap-5">
                       <BeforeAfterBar
                         before={compare.wait_before_min}
                         after={compare.wait_after_min}
@@ -533,19 +525,36 @@ export default function RescheduleDetailPage() {
                         max={80}
                         unit="분"
                         barClassName={accent.bar}
-                        instant={snap}
                         className="flex-1"
                       />
-                      <DeltaChip
-                        before={compare.wait_before_min}
-                        after={compare.wait_after_min}
-                        phase={phase}
-                        unit="분"
-                      />
+                      {/* 변화량 — 메인 강조 */}
+                      <div className="flex shrink-0 flex-col items-end">
+                        {waitDiff === 0 ? (
+                          <span className="text-[1.375rem] font-bold leading-none text-gray-400">
+                            ±0분
+                          </span>
+                        ) : (
+                          <span
+                            className={`flex items-center gap-0.5 text-[1.375rem] font-bold leading-none ${
+                              waitDiff > 0 ? 'text-emerald-600' : 'text-red-600'
+                            }`}
+                          >
+                            {waitDiff > 0 ? (
+                              <ArrowDown className="h-5 w-5" aria-hidden />
+                            ) : (
+                              <ArrowUp className="h-5 w-5" aria-hidden />
+                            )}
+                            {Math.abs(waitDiff)}분
+                          </span>
+                        )}
+                        <span className="mt-1 text-label-3 tabular-nums text-gray-400">
+                          {compare.wait_before_min}분 → {compare.wait_after_min}분
+                        </span>
+                      </div>
                     </div>
                   </CompareRow>
 
-                  <CompareRow icon={Gauge} label="장비 가동률" best={isBest('balance')}>
+                  <CompareRow icon={Gauge} label="장비 부하율" best={isBest('balance')}>
                     <div className="flex items-end gap-7">
                       {compare.utils.map((util) => (
                         <BeforeAfterColumn
@@ -555,12 +564,17 @@ export default function RescheduleDetailPage() {
                           after={util.util_after}
                           phase={phase}
                           barClassName={accent.bar}
-                          instant={snap}
                         />
                       ))}
-                      <span className="pb-6 text-label-3 text-gray-400">
-                        {compare.util_summary}
-                      </span>
+                      {/* 편차 — 메인 강조 */}
+                      <div className="flex flex-col gap-1 pb-5">
+                        <span className="text-subtitle-1 font-bold text-secondary-navy">
+                          {compare.util_dev_label}
+                        </span>
+                        <span className="text-label-3 text-gray-400">
+                          편차 ±{compare.util_dev_pp}%p
+                        </span>
+                      </div>
                     </div>
                   </CompareRow>
                 </div>
@@ -739,6 +753,16 @@ export default function RescheduleDetailPage() {
           </>
         )}
       </div>
+
+      {group ? (
+        <RescheduleFaqChat
+          group={group}
+          activeStrategy={activeStrategy}
+          activeStrategyIndex={activeIndex}
+          recommendedStrategy={recommendedStrategy}
+          recommendedStrategyIndex={recommendedIndex}
+        />
+      ) : null}
     </section>
   );
 }
