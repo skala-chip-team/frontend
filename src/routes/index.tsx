@@ -4,6 +4,7 @@ import { SidebarLayout } from '@components/common';
 
 import DashboardPage from '@/pages/DashboardPage';
 import LoginPage from '@/pages/LoginPage';
+import OrderPage from '@/pages/OrderPage';
 import ReschedulePage from '@/pages/ReschedulePage';
 import RescheduleDetailPage from '@/pages/RescheduleDetailPage';
 import SignupPage from '@/pages/SignupPage';
@@ -33,6 +34,11 @@ export const router = createBrowserRouter([
       {
         path: 'dashboard',
         element: <DashboardPage />,
+      },
+
+      {
+        path: 'orders',
+        element: <OrderPage />,
       },
 
       {

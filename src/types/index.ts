@@ -29,3 +29,11 @@ export type {
   DistrictDashboardData,
 } from './dashboard';
 export type { WorkerRole, WorkerDistrict, WorkerStatus, Worker } from './worker';
+export type {
+  OrderDistrict,
+  StepCode,
+  OrderUnitStatus,
+  OrderStatus,
+  OrderUnit,
+  Order,
+} from './order';
