@@ -41,11 +41,11 @@ const STRATEGY_ACCENTS: Record<StrategyKey, { hex: string; bar: string }> = {
 
 // 레이더 축 — 라벨 + hover 설명 (mock compare.radar 값 순서와 일치)
 const RADAR_AXES = [
-  { label: '위험 구제', desc: '지연 위험 유닛을 안전권으로 되돌린 정도' },
-  { label: '완료 속도', desc: '전체 작업이 끝나는 시점이 빨라진 정도' },
-  { label: '대기 개선', desc: '큐에서 대기하는 평균 시간이 줄어든 정도' },
-  { label: '부하 균등', desc: '장비 간 부하가 고르게 분산된 정도' },
-  { label: '순서 안정', desc: '기존 작업 순서를 적게 바꾼 정도' },
+  { label: '지연 위험 완화', desc: '지연 위험 유닛을 안전권으로 되돌린 정도' },
+  { label: '작업 완료 속도', desc: '전체 작업이 끝나는 시점이 빨라진 정도' },
+  { label: '대기 시간 개선', desc: '큐에서 대기하는 평균 시간이 줄어든 정도' },
+  { label: '장비 부하 균등', desc: '장비 간 부하가 고르게 분산된 정도' },
+  { label: '순서 변동 최소', desc: '기존 작업 순서를 적게 바꾼 정도' },
 ];
 
 /** 대기열 행 — 대시보드 대기열 카드 스타일(번호 원형 + 흰 칩), 이후 대기열은 순위 변동 표시 */
@@ -443,22 +443,21 @@ export default function RescheduleDetailPage() {
                   </div>
                 </div>
 
-                {/* 위험 제목 — 한 칸 아래, 크게 */}
-                <div className="flex items-center gap-3">
-                  <Chip
-                    variant="solid"
-                    color={riskChipColor(group.risk_level)}
-                    size="lg"
-                    className="font-bold"
-                  >
-                    {group.risk_level.toUpperCase()}
-                  </Chip>
-                  <div className="text-[1.25rem] font-bold leading-tight text-secondary-navy">
-                    {group.group_id} {group.risk_factor}
+                {/* 위험 제목 — 한 칸 아래, 크게 / 같은 선상 우측에 자세히 보기 */}
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <Chip
+                      variant="solid"
+                      color={riskChipColor(group.risk_level)}
+                      size="lg"
+                      className="font-bold"
+                    >
+                      {group.risk_level.toUpperCase()}
+                    </Chip>
+                    <div className="text-[1.25rem] font-bold leading-tight text-secondary-navy">
+                      {group.group_id} {group.risk_factor}
+                    </div>
                   </div>
-                </div>
-
-                <div className="flex justify-end">
                   <button
                     type="button"
                     onClick={() => setRiskModalOpen(true)}
@@ -477,9 +476,9 @@ export default function RescheduleDetailPage() {
                   <h2 className="text-[1.5rem] font-bold leading-tight text-secondary-navy">
                     스케줄 재조정 후보안
                   </h2>
-                  <span className="inline-flex w-fit items-center rounded-lg border border-gray-200 bg-surface-100 px-4 py-2.5 text-body-1 font-medium text-gray-600">
+                  <p className="text-body-1 text-gray-500">
                     위험 상황을 해결하기 위한 여러 관점에서의 스케줄 재조정안을 AI가 제공합니다.
-                  </span>
+                  </p>
                 </div>
 
                 {/* 액션 버튼 — 후보안 헤더 우측 */}
