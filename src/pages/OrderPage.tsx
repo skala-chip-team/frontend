@@ -1,20 +1,11 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { AlarmClock, ChevronRight, Clock, Zap } from 'lucide-react';
+import { AlarmClock, ChevronRight } from 'lucide-react';
 
-import { Chip, OrderDetailPanel, OrderTable } from '@components/common';
+import { OrderDetailPanel, OrderTable } from '@components/common';
 import { orders as allOrders } from '@/mocks';
 import { districtLabels, useDistrictStore } from '@/stores';
-import {
-  districtShort,
-  formatDueDate,
-  formatPlanDate,
-  isDueToday,
-  orderProgress,
-  orderStatus,
-  orderStatusColor,
-  sortOrders,
-} from '@/utils';
-import type { Order, OrderStatus } from '@/types';
+import { formatPlanDate, isDueToday, orderStatus, sortOrders } from '@/utils';
+import type { OrderStatus } from '@/types';
 
 const STATUS_FILTERS: Array<{ key: OrderStatus | 'all'; label: string }> = [
   { key: 'all', label: '전체' },
@@ -38,8 +29,8 @@ export default function OrderPage() {
     [isAll, selectedDistrict]
   );
 
-  const imminentOrders = useMemo(
-    () => sortOrders(districtOrders.filter((order) => isDueToday(order.due_date, TODAY))),
+  const imminentCount = useMemo(
+    () => districtOrders.filter((order) => isDueToday(order.due_date, TODAY)).length,
     [districtOrders]
   );
 
@@ -69,34 +60,21 @@ export default function OrderPage() {
           ) : null}
         </div>
 
-        {/* 납기 임박(오늘 납기) — 강조 섹션 */}
-        {imminentOrders.length > 0 ? (
-          <div className="overflow-hidden rounded-2xl border border-primary-200 bg-gradient-to-r from-primary-50 to-red-50/40 shadow-[0_8px_24px_rgba(234,0,44,0.08)]">
-            <div className="flex items-center gap-3 border-b border-primary-100/70 px-5 py-3.5">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-500 text-white shadow-[0_6px_16px_rgba(234,0,44,0.25)]">
-                <AlarmClock className="h-5 w-5" aria-hidden />
-              </span>
-              <div className="flex flex-wrap items-baseline gap-x-2">
-                <h2 className="text-subtitle-1 font-bold text-secondary-navy">납기 임박</h2>
-                <span className="text-subtitle-1 font-extrabold text-primary-600">
-                  {imminentOrders.length}건
-                </span>
-              </div>
-              <span className="ml-auto text-label-2 text-gray-500">
-                오늘({formatPlanDate(TODAY)}) 납기
+        {/* 납기 임박(오늘 납기) — 건수 강조 배너 */}
+        {imminentCount > 0 ? (
+          <div className="flex items-center gap-3 rounded-2xl border border-primary-200 bg-gradient-to-r from-primary-50 to-red-50/40 px-5 py-4 shadow-[0_8px_24px_rgba(234,0,44,0.08)]">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-500 text-white shadow-[0_6px_16px_rgba(234,0,44,0.25)]">
+              <AlarmClock className="h-5 w-5" aria-hidden />
+            </span>
+            <div className="flex flex-wrap items-baseline gap-x-2.5">
+              <h2 className="text-subtitle-1 font-bold text-secondary-navy">납기 임박</h2>
+              <span className="text-heading-3 font-extrabold leading-none text-primary-600">
+                {imminentCount}건
               </span>
             </div>
-
-            <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
-              {imminentOrders.map((order) => (
-                <ImminentCard
-                  key={order.order_id}
-                  order={order}
-                  selected={selectedId === order.order_id}
-                  onSelect={() => setSelectedId(order.order_id)}
-                />
-              ))}
-            </div>
+            <span className="ml-auto text-label-2 text-gray-500">
+              오늘({formatPlanDate(TODAY)}) 납기 주문입니다.
+            </span>
           </div>
         ) : null}
 
@@ -143,66 +121,6 @@ export default function OrderPage() {
         onClose={() => setSelectedId(null)}
       />
     </section>
-  );
-}
-
-/** 납기 임박 주문 카드 — 클릭 시 상세 패널 오픈 */
-function ImminentCard({
-  order,
-  selected,
-  onSelect,
-}: {
-  order: Order;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  const status = orderStatus(order.units);
-  const { done, total, percent } = orderProgress(order.units);
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      aria-pressed={selected}
-      className={`flex flex-col gap-2.5 rounded-xl border bg-white p-3.5 text-left shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition ${
-        selected
-          ? 'border-primary-500 ring-1 ring-primary-500/20'
-          : 'border-primary-100 hover:border-primary-300'
-      }`}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <span className="flex items-center gap-2">
-          <span className="font-bold text-secondary-navy">{order.order_id}</span>
-          {order.is_burst ? (
-            <Chip variant="subtle" color="red" size="xs" className="font-bold">
-              <Zap className="h-3 w-3" aria-hidden />
-              긴급
-            </Chip>
-          ) : null}
-        </span>
-        <Chip variant="soft" color={orderStatusColor(status)} size="xs">
-          {status}
-        </Chip>
-      </div>
-
-      <div className="flex items-center justify-between gap-2">
-        <span className="flex items-center gap-1.5 text-label-2 font-bold text-primary-600">
-          <Clock className="h-3.5 w-3.5" aria-hidden />
-          {formatDueDate(order.due_date)}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="text-label-3 text-gray-400">구역 {districtShort(order.district_id)}</span>
-          <span className="h-1.5 w-12 overflow-hidden rounded-full bg-gray-100">
-            <span
-              className="block h-full rounded-full bg-primary-500"
-              style={{ width: `${percent}%` }}
-            />
-          </span>
-          <span className="text-label-3 tabular-nums text-gray-400">
-            {done}/{total}
-          </span>
-        </span>
-      </div>
-    </button>
   );
 }
 
