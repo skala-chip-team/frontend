@@ -28,4 +28,4 @@ export type {
   SummaryCard,
   DistrictDashboardData,
 } from './dashboard';
-export type { WorkerRole, WorkerDistrict, WorkerStatus, Worker } from './worker';
+export type { WorkerRole, Worker } from './worker';

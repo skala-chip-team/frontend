@@ -9,6 +9,7 @@ export {
 } from './monitoring';
 export { getSimStatus } from './sim';
 export { login, signup } from './auth';
+export { getUsers, changeUserRole, assignUserDistricts, deleteUser } from './users';
 export {
   getRescheduleGroups,
   getPendingRescheduleGroups,
@@ -45,6 +46,7 @@ export type {
   SimStatus,
   StepGantt,
   StepQueue,
+  UserSummary,
   WaitingUnit,
   WorkStatusItem,
 } from './types';

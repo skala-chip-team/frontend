@@ -7,6 +7,16 @@ export interface ApiResponse<T> {
   data: T;
 }
 
+/** GET /api/users 항목 (UserSummary) */
+export interface UserSummary {
+  userId: string;
+  username: string;
+  email: string;
+  role: string; // ADMIN | OPERATOR | WORKER
+  active: boolean;
+  districtIds: string[]; // 권한 구역 (DST-01 등)
+}
+
 /** POST /api/auth/login 요청/응답 data */
 export interface LoginRequest {
   email: string;

@@ -5,3 +5,5 @@ export { useRiskAlerts } from './useRiskAlerts';
 export { useRescheduleGroups } from './useRescheduleGroups';
 export { useRescheduleDetail } from './useRescheduleDetail';
 export { useGenerateReschedule, useSelectRescheduleStrategy } from './useRescheduleActions';
+export { useUsers } from './useUsers';
+export { useSaveWorker, useDeleteUser } from './useUserActions';

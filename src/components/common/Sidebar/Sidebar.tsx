@@ -10,6 +10,8 @@ import {
   Settings,
   HelpCircle,
 } from 'lucide-react';
+import { useAuthStore } from '@/stores';
+
 import type { MenuItem, OptionProps, TitleSectionProps, ToggleCloseProps } from './types';
 
 const MAIN_MENU: MenuItem[] = [
@@ -17,8 +19,12 @@ const MAIN_MENU: MenuItem[] = [
   { icon: Activity, title: '장비 모니터링' },
   { icon: Lightbulb, title: '재조정 제안 관리', path: '/reschedule' },
   { icon: Boxes, title: 'UNIT 관리' },
+  // 작업자 관리는 ADMIN 전용 (path로 식별해 필터)
   { icon: Users, title: '작업자 관리', path: '/workers' },
 ];
+
+/** ADMIN만 접근 가능한 메뉴 경로 */
+const ADMIN_ONLY_PATHS = new Set(['/workers']);
 
 const ACCOUNT_MENU: MenuItem[] = [
   { icon: Settings, title: '설정' },
@@ -31,6 +37,13 @@ export function Sidebar() {
   const { pathname } = useLocation();
   // 라우트가 없는 메뉴(장비 모니터링 등)는 클릭 시 임시 선택 상태만 유지
   const [selectedTitle, setSelectedTitle] = useState('대시보드');
+
+  // ADMIN만 작업자 관리 메뉴 노출
+  const role = useAuthStore((state) => state.user?.role);
+  const isAdmin = (role ?? '').toUpperCase() === 'ADMIN';
+  const mainMenu = MAIN_MENU.filter(
+    (item) => !item.path || !ADMIN_ONLY_PATHS.has(item.path) || isAdmin
+  );
 
   const isItemSelected = (item: MenuItem) =>
     item.path ? pathname.startsWith(item.path) : selectedTitle === item.title;
@@ -52,7 +65,7 @@ export function Sidebar() {
       <TitleSection open={open} />
 
       <div className="mb-8 space-y-1">
-        {MAIN_MENU.map((item) => (
+        {mainMenu.map((item) => (
           <Option
             key={item.title}
             icon={item.icon}

@@ -10,6 +10,7 @@ import SignupPage from '@/pages/SignupPage';
 import WorkerPage from '@/pages/WorkerPage';
 
 import { RequireAuth } from './RequireAuth';
+import { RequireAdmin } from './RequireAdmin';
 
 export const router = createBrowserRouter([
   // 인증 페이지
@@ -52,7 +53,11 @@ export const router = createBrowserRouter([
 
           {
             path: 'workers',
-            element: <WorkerPage />,
+            element: (
+              <RequireAdmin>
+                <WorkerPage />
+              </RequireAdmin>
+            ),
           },
         ],
       },
