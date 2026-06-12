@@ -9,12 +9,16 @@ export interface RadarSeries {
 
 interface StrategyRadarProps {
   axes: string[];
+  descriptions?: string[]; // 축별 설명(툴팁), axes와 같은 순서
+  bestAxes?: boolean[]; // 축별 — 선택 전략이 세 전략 중 1등인지, axes와 같은 순서
   series: RadarSeries[];
   selectedKey: string;
   onSelect?: (key: string) => void;
   className?: string;
 }
 
+const VW = 320;
+const VH = 268;
 const CX = 160;
 const CY = 130;
 const R = 92;
@@ -48,9 +52,11 @@ function useAnimatedValues(target: number[], duration = 500): number[] {
   return display;
 }
 
-/** 전략 비교 레이더 — 선택 전략 폴리곤이 모핑하며 전환, 나머지는 점선 고스트 */
+/** 전략 비교 레이더 — 선택 전략 폴리곤만 모핑하며 표시. 축 라벨 hover 시 설명 툴팁 */
 export function StrategyRadar({
   axes,
+  descriptions,
+  bestAxes,
   series,
   selectedKey,
   onSelect,
@@ -80,54 +86,28 @@ export function StrategyRadar({
       .join(' ');
 
   return (
-    <svg viewBox="0 0 320 268" className={className} role="img" aria-label="전략 비교 레이더 차트">
-      {[1, 2 / 3, 1 / 3].map((ratio) => (
-        <polygon
-          key={ratio}
-          points={ringPoints(ratio)}
-          fill="none"
-          stroke="#E5E7EB"
-          strokeWidth={ratio === 1 ? 1 : 0.5}
-        />
-      ))}
-      {axes.map((_, index) => {
-        const { x, y } = pt(index, 1);
-        return <line key={index} x1={CX} y1={CY} x2={x} y2={y} stroke="#F3F4F6" />;
-      })}
-
-      {/* 비선택 전략 — 점선 고스트 (넓은 투명 스트로크로 클릭 영역 확보) */}
-      {series
-        .filter((item) => item.key !== selected.key)
-        .map((item) => (
-          <g
-            key={item.key}
-            onClick={() => onSelect?.(item.key)}
-            className={onSelect ? 'cursor-pointer' : undefined}
-          >
-            <polygon
-              points={toPoints(item.values)}
-              fill="none"
-              stroke="transparent"
-              strokeWidth={14}
-              strokeLinejoin="round"
-            >
-              <title>{item.name}</title>
-            </polygon>
-            <polygon
-              points={toPoints(item.values)}
-              fill="none"
-              stroke={item.color}
-              strokeOpacity={0.28}
-              strokeWidth={1.3}
-              strokeDasharray="4 3"
-              strokeLinejoin="round"
-              className="pointer-events-none"
-            />
-          </g>
+    <div className={`relative ${className}`}>
+      <svg
+        viewBox={`0 0 ${VW} ${VH}`}
+        className="block w-full"
+        role="img"
+        aria-label="전략 비교 레이더 차트"
+      >
+        {[1, 2 / 3, 1 / 3].map((ratio) => (
+          <polygon
+            key={ratio}
+            points={ringPoints(ratio)}
+            fill="none"
+            stroke="#E5E7EB"
+            strokeWidth={ratio === 1 ? 1 : 0.5}
+          />
         ))}
+        {axes.map((_, index) => {
+          const { x, y } = pt(index, 1);
+          return <line key={index} x1={CX} y1={CY} x2={x} y2={y} stroke="#F3F4F6" />;
+        })}
 
-      {/* 선택 전략 — 모핑 폴리곤 + 꼭짓점 */}
-      <g>
+        {/* 선택 전략 — 모핑 폴리곤 + 꼭짓점 */}
         <polygon
           points={toPoints(animatedValues)}
           fill={selected.color}
@@ -136,9 +116,7 @@ export function StrategyRadar({
           strokeWidth={2.5}
           strokeLinejoin="round"
           className="transition-colors duration-300"
-        >
-          <title>{selected.name}</title>
-        </polygon>
+        />
         {animatedValues.map((value, index) => {
           const { x, y } = pt(index, value / 100);
           return (
@@ -149,28 +127,75 @@ export function StrategyRadar({
               r={3.5}
               fill={selected.color}
               className="transition-colors duration-300"
-            >
-              <title>{`${axes[index]} ${selected.values[index]}점`}</title>
-            </circle>
+            />
           );
         })}
-      </g>
+      </svg>
 
+      {/* 축 라벨(HTML 오버레이) — hover 시 설명 툴팁 */}
       {axes.map((label, index) => {
         const { x, y } = pt(index, 1.16);
-        const anchor = Math.abs(x - CX) < 6 ? 'middle' : x > CX ? 'start' : 'end';
+        const isMiddle = Math.abs(x - CX) < 6;
+        const isRight = x > CX;
+        // 라벨 박스를 점 기준으로 정렬: 가운데/오른쪽/왼쪽
+        const translateX = isMiddle ? '-50%' : isRight ? '0' : '-100%';
+        const best = bestAxes?.[index];
         return (
-          <text
+          <span
             key={label}
-            x={x}
-            y={y + 4}
-            textAnchor={anchor}
-            className="fill-gray-500 text-[11px] font-semibold"
+            className="group absolute -translate-y-1/2 cursor-default whitespace-nowrap"
+            style={{
+              left: `${(x / VW) * 100}%`,
+              top: `${(y / VH) * 100}%`,
+              transform: `translate(${translateX}, -50%)`,
+            }}
           >
-            {label}
-          </text>
+            <span
+              className={`inline-flex items-center gap-1 text-[11px] ${
+                best ? 'font-bold text-secondary-navy' : 'font-semibold text-gray-500'
+              }`}
+            >
+              {best ? <span className="text-amber-400">★</span> : null}
+              {label}
+            </span>
+
+            {descriptions?.[index] ? (
+              <span
+                role="tooltip"
+                className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-1.5 -translate-x-1/2 scale-95 rounded-md bg-zinc-900 px-3 py-1.5 text-[11px] font-medium leading-snug text-white opacity-0 shadow-md shadow-black/10 transition duration-150 group-hover:scale-100 group-hover:opacity-100"
+              >
+                {descriptions[index]}
+                <span className="absolute left-1/2 top-full -translate-x-1/2 border-x-4 border-t-4 border-x-transparent border-t-zinc-900" />
+              </span>
+            ) : null}
+          </span>
         );
       })}
-    </svg>
+
+      {/* 전략 전환 클릭 영역 — 다른 전략 폴리곤 외곽선(투명). svg 자체는 이벤트 통과 */}
+      {onSelect ? (
+        <svg
+          viewBox={`0 0 ${VW} ${VH}`}
+          className="pointer-events-none absolute inset-0 block w-full"
+        >
+          {series
+            .filter((item) => item.key !== selected.key)
+            .map((item) => (
+              <polygon
+                key={item.key}
+                points={toPoints(item.values)}
+                fill="none"
+                stroke="transparent"
+                strokeWidth={16}
+                strokeLinejoin="round"
+                className="pointer-events-auto cursor-pointer"
+                onClick={() => onSelect(item.key)}
+              >
+                <title>{item.name}</title>
+              </polygon>
+            ))}
+        </svg>
+      ) : null}
+    </div>
   );
 }

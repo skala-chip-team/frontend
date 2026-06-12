@@ -116,7 +116,7 @@ export const rescheduleStrategies: RescheduleStrategy[] = [
       util_dev_pp: 27,
       util_dev_label: '편차 큼',
       moved_units: 1,
-      radar: [100, 100, 100, 100, 45, 100],
+      radar: [100, 100, 100, 45, 100],
       bests: ['rescue', 'makespan', 'wait'],
     },
     detail: {
@@ -207,7 +207,7 @@ export const rescheduleStrategies: RescheduleStrategy[] = [
       util_dev_pp: 2,
       util_dev_label: '매우 균등',
       moved_units: 1,
-      radar: [55, 40, 25, 15, 100, 100],
+      radar: [55, 25, 15, 100, 100],
       bests: ['balance'],
     },
     detail: {
@@ -295,7 +295,7 @@ export const rescheduleStrategies: RescheduleStrategy[] = [
       util_dev_pp: 4,
       util_dev_label: '비교적 균등',
       moved_units: 3,
-      radar: [100, 100, 60, 70, 60, 25],
+      radar: [100, 60, 70, 60, 25],
       bests: ['rescue'],
     },
     detail: {

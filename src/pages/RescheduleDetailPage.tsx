@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowRight,
@@ -8,6 +8,7 @@ import {
   Gauge,
   Minus,
   ShieldAlert,
+  Sparkles,
   Star,
   Timer,
   TrendingUp,
@@ -30,13 +31,7 @@ import { RescheduleFaqChat } from '@/components/reschedule';
 import { rescheduleGroups, rescheduleStrategies, riskReasonsByFactor } from '@/mocks';
 import { districtLabels, useDistrictStore } from '@/stores';
 import { formatDelayHours, riskChipColor, statusChipColor, statusLabel } from '@/utils';
-import type {
-  DueReliefUnit,
-  RescheduleStrategy,
-  StrategyBest,
-  StrategyKey,
-  UnitRiskChange,
-} from '@/types';
+import type { RescheduleStrategy, StrategyBest, StrategyKey, UnitRiskChange } from '@/types';
 
 // 전략별 강조색 — 레이더 폴리곤·진행 바·선택 칩에 공통 사용
 const STRATEGY_ACCENTS: Record<StrategyKey, { hex: string; bar: string }> = {
@@ -45,41 +40,14 @@ const STRATEGY_ACCENTS: Record<StrategyKey, { hex: string; bar: string }> = {
   line_recovery: { hex: '#0F766E', bar: 'bg-teal-700' },
 };
 
-const RADAR_AXES = ['위험 구제', '신규 차단', '완료 속도', '대기 개선', '부하 균등', '순서 안정'];
-
-/** 납기 위험 완화 UNIT 테이블 — UNIT / 이전 완료 / 이후 완료(+앞당김) */
-function DueReliefTable({ items }: { items: DueReliefUnit[] }) {
-  return (
-    <div className="overflow-hidden rounded-xl border border-gray-100">
-      <table className="w-full text-label-3">
-        <thead className="bg-surface-100 text-gray-500">
-          <tr>
-            <th className="px-3 py-2 text-left font-semibold">UNIT</th>
-            <th className="px-3 py-2 text-right font-semibold">이전 완료</th>
-            <th className="px-3 py-2 text-right font-semibold">이후 완료</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((unit) => (
-            <tr key={unit.unit_id} className="border-t border-gray-100">
-              <td className="px-3 py-2 font-semibold text-secondary-navy">{unit.unit_id}</td>
-              <td className="px-3 py-2 text-right text-gray-500">{unit.before}</td>
-              <td className="px-3 py-2 text-right">
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="font-semibold text-secondary-navy">{unit.after}</span>
-                  <span className="flex items-center gap-0.5 font-semibold text-emerald-600">
-                    <ArrowDown className="h-3 w-3" aria-hidden />
-                    {formatDelayHours(unit.delta_hr)}
-                  </span>
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+// 레이더 축 — 라벨 + hover 설명 (mock compare.radar 값 순서와 일치)
+const RADAR_AXES = [
+  { label: '위험 구제', desc: '납기 위험 유닛을 안전권으로 되돌린 정도' },
+  { label: '완료 속도', desc: '전체 작업이 끝나는 시점이 빨라진 정도' },
+  { label: '대기 개선', desc: '큐에서 대기하는 평균 시간이 줄어든 정도' },
+  { label: '부하 균등', desc: '장비 간 부하가 고르게 분산된 정도' },
+  { label: '순서 안정', desc: '기존 작업 순서를 적게 바꾼 정도' },
+];
 
 /** 대기열 행 — 대시보드 대기열 카드 스타일(번호 원형 + 흰 칩), 이후 대기열은 순위 변동 표시 */
 function QueueRow({
@@ -349,11 +317,32 @@ export default function RescheduleDetailPage() {
     rescheduleStrategies[0].key;
   const [selectedStrategy, setSelectedStrategy] = useState<StrategyKey>(recommendedKey);
   const [phase, setPhase] = useState<ComparePhase>('after'); // 처음에는 조정 후만 표시
-  const [unitModalOpen, setUnitModalOpen] = useState(false);
-  const [dueReliefModalOpen, setDueReliefModalOpen] = useState(false);
+  const [riskModalOpen, setRiskModalOpen] = useState(false); // 원인 설명 + 영향 UNIT 모달
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [approveModalOpen, setApproveModalOpen] = useState(false);
   const [changeTab, setChangeTab] = useState<'queue' | 'schedule'>('queue');
+
+  // 조정 전/후 토글 안내 툴팁 — 진입·전략 전환 시 3초간 노출
+  const [showPhaseHint, setShowPhaseHint] = useState(true);
+  const phaseHintTimer = useRef<number | null>(null);
+  const flashPhaseHint = () => {
+    setShowPhaseHint(true);
+    if (phaseHintTimer.current !== null) window.clearTimeout(phaseHintTimer.current);
+    phaseHintTimer.current = window.setTimeout(() => setShowPhaseHint(false), 3000);
+  };
+  // 진입 시 안내 툴팁은 기본 노출 상태 — 3초 뒤 숨김
+  useEffect(() => {
+    phaseHintTimer.current = window.setTimeout(() => setShowPhaseHint(false), 3000);
+    return () => {
+      if (phaseHintTimer.current !== null) window.clearTimeout(phaseHintTimer.current);
+    };
+  }, []);
+
+  // 전략 전환 — 안내 툴팁 재노출
+  const selectStrategy = (key: StrategyKey) => {
+    setSelectedStrategy(key);
+    flashPhaseHint();
+  };
 
   const activeIndex = Math.max(
     0,
@@ -383,6 +372,11 @@ export default function RescheduleDetailPage() {
     color: STRATEGY_ACCENTS[strategy.key].hex,
     values: strategy.compare.radar,
   }));
+  // 축별로 선택 전략이 세 전략 중 1등(공동 1등 포함)인지
+  const bestAxes = RADAR_AXES.map((_, axisIndex) => {
+    const max = Math.max(...rescheduleStrategies.map((s) => s.compare.radar[axisIndex]));
+    return compare.radar[axisIndex] >= max;
+  });
 
   const reasons = group ? (riskReasonsByFactor[group.risk_factor] ?? []) : [];
 
@@ -429,86 +423,59 @@ export default function RescheduleDetailPage() {
               <h2 className="text-[1.5rem] font-bold leading-tight text-secondary-navy">
                 현재 위험 상황
               </h2>
-              <div className="flex flex-col gap-4 lg:flex-row">
-                {/* 위험 내용 */}
-              <div className="flex flex-1 flex-col gap-2 rounded-2xl border border-gray-200/80 bg-white p-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
+              {/* 위험 내용 — 가로 꽉 채움, 우측 하단 자세히 보기 */}
+              <div className="flex flex-col gap-3 rounded-2xl border border-gray-200/80 bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-2.5">
                     <Chip variant="outline" size="sm">{`구역${group.district_id}`}</Chip>
                     <Chip variant="outline" size="sm">
                       {group.process_step}
                     </Chip>
+                    <Chip
+                      variant="solid"
+                      color={riskChipColor(group.risk_level)}
+                      size="md"
+                      className="font-bold"
+                    >
+                      {group.risk_level.toUpperCase()}
+                    </Chip>
+                    <div className="text-subtitle-2 font-bold text-secondary-navy">
+                      {group.group_id} {group.risk_factor}
+                    </div>
                   </div>
-                  <Chip variant="subtle" color={statusChipColor(group.group_status)} size="md">
-                    {statusLabel(group.group_status)}
-                  </Chip>
-                </div>
-
-                <div className="flex items-center gap-2.5">
-                  <Chip
-                    variant="solid"
-                    color={riskChipColor(group.risk_level)}
-                    size="md"
-                    className="font-bold"
-                  >
-                    {group.risk_level.toUpperCase()}
-                  </Chip>
-                  <div className="text-subtitle-2 font-bold text-secondary-navy">
-                    {group.group_id} {group.risk_factor}
-                  </div>
-                </div>
-              </div>
-
-              {/* 원인 설명 (별도 카드, 제목 없음) */}
-              <div className="flex flex-1 flex-col justify-center rounded-2xl border border-gray-200/80 bg-white p-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
-                {reasons.length > 0 ? (
-                  <ul className="flex flex-col gap-1">
-                    {reasons.map((reason) => (
-                      <li
-                        key={reason}
-                        className="flex gap-1.5 text-label-3 leading-snug text-gray-600"
-                      >
-                        <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-gray-300" />
-                        <span>{reason}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-label-3 text-gray-400">원인 정보가 없습니다.</p>
-                )}
-              </div>
-
-              {/* 영향 UNIT — 개수 + 자세히 보기 */}
-              <div className="flex flex-col gap-2 rounded-2xl border border-gray-200/80 bg-white p-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)] lg:w-[200px] lg:shrink-0">
-                <div className="flex items-baseline justify-between">
-                  <h3 className="text-label-1 font-bold text-secondary-navy">영향 UNIT</h3>
-                  <span>
-                    <span className="text-[1.5rem] font-bold leading-none text-secondary-navy">
-                      {group.affected_units.length}
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-label-2 text-gray-400">
+                      영향 UNIT{' '}
+                      <b className="text-secondary-navy">{group.affected_units.length}개</b>
                     </span>
-                    <span className="ml-0.5 text-label-3 text-gray-400">개</span>
-                  </span>
+                    <Chip variant="subtle" color={statusChipColor(group.group_status)} size="md">
+                      {statusLabel(group.group_status)}
+                    </Chip>
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setUnitModalOpen(true)}
-                  className="mt-auto rounded-lg border border-gray-200 px-3 py-1.5 text-label-2 font-semibold text-secondary-navy transition hover:bg-surface-100"
-                >
-                  자세히 보기
-                </button>
-              </div>
+
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setRiskModalOpen(true)}
+                    className="rounded-lg border border-gray-200 px-3.5 py-2 text-label-2 font-semibold text-secondary-navy transition hover:bg-surface-100"
+                  >
+                    자세히 보기
+                  </button>
+                </div>
               </div>
             </section>
 
             {/* 스케줄 재조정 후보안 */}
             <section className="mt-5 flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
                 <h2 className="text-[1.5rem] font-bold leading-tight text-secondary-navy">
                   스케줄 재조정 후보안
                 </h2>
-                <p className="text-body-1 text-gray-500">
-                  위험 상황을 해결하기 위한 스케줄 재조정안을 AI가 제공합니다.
-                </p>
+                <span className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-surface-100 px-3.5 py-2 text-label-2 font-medium text-gray-600">
+                  <Sparkles className="h-4 w-4 text-primary-500" aria-hidden />
+                  위험 상황을 해결하기 위한 여러 관점에서의 스케줄 재조정안을 AI가 제공합니다.
+                </span>
               </div>
 
               {/* 후보안 카드 — 클릭 시 아래 상세가 해당 전략으로 전환 */}
@@ -519,7 +486,7 @@ export default function RescheduleDetailPage() {
                     strategy={strategy}
                     active={strategy.key === selectedStrategy}
                     accentHex={STRATEGY_ACCENTS[strategy.key].hex}
-                    onSelect={() => setSelectedStrategy(strategy.key)}
+                    onSelect={() => selectStrategy(strategy.key)}
                   />
                 ))}
               </div>
@@ -539,23 +506,31 @@ export default function RescheduleDetailPage() {
                     </span>
                   </div>
 
-                  {/* 전/후 토글 */}
-                  <div className="flex rounded-lg bg-surface-100 p-0.5">
-                    {(['before', 'after'] as const).map((value) => (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => setPhase(value)}
-                        aria-pressed={phase === value}
-                        className={`rounded-md px-3 py-1.5 text-label-3 font-semibold transition ${
-                          phase === value
-                            ? 'bg-secondary-navy text-white shadow'
-                            : 'text-gray-400 hover:text-gray-600'
-                        }`}
-                      >
-                        {value === 'before' ? '조정 전' : '조정 후'}
-                      </button>
-                    ))}
+                  {/* 전/후 토글 + 안내 툴팁 */}
+                  <div className="relative">
+                    {showPhaseHint ? (
+                      <div className="pointer-events-none absolute bottom-full right-0 z-20 mb-2 whitespace-nowrap rounded-md bg-zinc-900 px-3 py-1.5 text-[11px] font-medium text-white shadow-md shadow-black/10">
+                        재조정안을 적용하기 전과 후의 효과를 비교할 수 있습니다
+                        <span className="absolute right-6 top-full h-0 w-0 border-x-4 border-t-4 border-x-transparent border-t-zinc-900" />
+                      </div>
+                    ) : null}
+                    <div className="flex rounded-lg bg-surface-100 p-0.5">
+                      {(['before', 'after'] as const).map((value) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setPhase(value)}
+                          aria-pressed={phase === value}
+                          className={`rounded-md px-3 py-1.5 text-label-3 font-semibold transition ${
+                            phase === value
+                              ? 'bg-secondary-navy text-white shadow'
+                              : 'text-gray-400 hover:text-gray-600'
+                          }`}
+                        >
+                          {value === 'before' ? '조정 전' : '조정 후'}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
@@ -563,10 +538,12 @@ export default function RescheduleDetailPage() {
                 {/* 레이더(메인) — 전략 전환 시 폴리곤 모핑, 폴리곤 클릭으로도 전환 */}
                 <div className="mx-auto w-full max-w-[420px] self-center lg:mx-0 lg:w-[400px] lg:shrink-0">
                   <StrategyRadar
-                    axes={RADAR_AXES}
+                    axes={RADAR_AXES.map((axis) => axis.label)}
+                    descriptions={RADAR_AXES.map((axis) => axis.desc)}
+                    bestAxes={bestAxes}
                     series={radarSeries}
                     selectedKey={selectedStrategy}
-                    onSelect={(key) => setSelectedStrategy(key as StrategyKey)}
+                    onSelect={(key) => selectStrategy(key as StrategyKey)}
                     className="w-full"
                   />
                 </div>
@@ -679,9 +656,9 @@ export default function RescheduleDetailPage() {
               </div>
             </section>
 
-            {/* 하단: 변경 상세 탭 + 납기 위험 완화 */}
-            <div className="flex flex-col gap-4 lg:flex-row">
-              <div className="flex-1 rounded-2xl border border-gray-200/80 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+            {/* 하단: 변경 상세 탭 (가로 꽉 채움) */}
+            <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+              <div>
                 <div className="flex gap-1 border-b border-gray-200">
                   {[
                     { key: 'queue' as const, label: '큐 우선순위 변경 내용' },
@@ -735,25 +712,6 @@ export default function RescheduleDetailPage() {
                   )}
                 </div>
               </div>
-
-              <div className="flex flex-col rounded-2xl border border-gray-200/80 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)] lg:w-[340px] lg:shrink-0">
-                <div className="mb-2 flex items-center justify-between">
-                  <h3 className="text-label-1 font-bold text-gray-500">납기 위험 완화 UNIT</h3>
-                  <span className="text-label-3 text-gray-400">
-                    {activeStrategy.detail.dueRelief.length}건
-                  </span>
-                </div>
-                <DueReliefTable items={activeStrategy.detail.dueRelief.slice(0, 2)} />
-                {activeStrategy.detail.dueRelief.length >= 3 ? (
-                  <button
-                    type="button"
-                    onClick={() => setDueReliefModalOpen(true)}
-                    className="mt-2 rounded-lg border border-gray-200 px-3 py-2 text-label-2 font-semibold text-secondary-navy transition hover:bg-surface-100"
-                  >
-                    자세히 보기 (외 {activeStrategy.detail.dueRelief.length - 2}건)
-                  </button>
-                ) : null}
-              </div>
             </div>
 
             {/* 액션 버튼 */}
@@ -774,49 +732,70 @@ export default function RescheduleDetailPage() {
               </button>
             </div>
 
-            {/* 영향 UNIT 상세 모달 */}
+            {/* 위험 상황 상세 모달 — 원인 설명 + 영향 UNIT */}
             <Modal
-              open={unitModalOpen}
-              onClose={() => setUnitModalOpen(false)}
-              title={`영향 UNIT (${group.affected_units.length}개)`}
+              open={riskModalOpen}
+              onClose={() => setRiskModalOpen(false)}
+              title={`${group.group_id} ${group.risk_factor}`}
             >
-              <div className="overflow-hidden rounded-xl border border-gray-100">
-                <table className="w-full text-label-2">
-                  <thead className="bg-surface-100 text-label-3 text-gray-500">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-semibold">UNIT</th>
-                      <th className="px-3 py-2 text-right font-semibold">위험점수</th>
-                      <th className="px-3 py-2 text-right font-semibold">지연확률</th>
-                      <th className="px-3 py-2 text-right font-semibold">지연 예측</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {group.affected_units.map((unit) => (
-                      <tr key={unit.unit_id} className="border-t border-gray-100">
-                        <td className="px-3 py-2 font-semibold text-secondary-navy">
-                          {unit.unit_id}
-                        </td>
-                        <td className="px-3 py-2 text-right text-gray-700">{unit.risk_score}</td>
-                        <td className="px-3 py-2 text-right text-gray-700">
-                          {Math.round(unit.delay_probability * 100)}%
-                        </td>
-                        <td className="px-3 py-2 text-right font-semibold text-primary-600">
-                          +{formatDelayHours(unit.estimated_delay_hr)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Modal>
+              <div className="flex flex-col gap-5">
+                {/* 원인 설명 */}
+                <div>
+                  <h4 className="mb-2 text-label-1 font-bold text-secondary-navy">원인 설명</h4>
+                  {reasons.length > 0 ? (
+                    <ul className="flex flex-col gap-1.5">
+                      {reasons.map((reason) => (
+                        <li
+                          key={reason}
+                          className="flex gap-1.5 text-label-2 leading-snug text-gray-600"
+                        >
+                          <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-gray-300" />
+                          <span>{reason}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-label-2 text-gray-400">원인 정보가 없습니다.</p>
+                  )}
+                </div>
 
-            {/* 납기 위험 완화 UNIT 전체 모달 */}
-            <Modal
-              open={dueReliefModalOpen}
-              onClose={() => setDueReliefModalOpen(false)}
-              title={`납기 위험 완화 UNIT (${activeStrategy.detail.dueRelief.length}건)`}
-            >
-              <DueReliefTable items={activeStrategy.detail.dueRelief} />
+                {/* 영향 UNIT */}
+                <div>
+                  <h4 className="mb-2 text-label-1 font-bold text-secondary-navy">
+                    영향 UNIT ({group.affected_units.length}개)
+                  </h4>
+                  <div className="overflow-hidden rounded-xl border border-gray-100">
+                    <table className="w-full text-label-2">
+                      <thead className="bg-surface-100 text-label-3 text-gray-500">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-semibold">UNIT</th>
+                          <th className="px-3 py-2 text-right font-semibold">위험점수</th>
+                          <th className="px-3 py-2 text-right font-semibold">지연확률</th>
+                          <th className="px-3 py-2 text-right font-semibold">지연 예측</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {group.affected_units.map((unit) => (
+                          <tr key={unit.unit_id} className="border-t border-gray-100">
+                            <td className="px-3 py-2 font-semibold text-secondary-navy">
+                              {unit.unit_id}
+                            </td>
+                            <td className="px-3 py-2 text-right text-gray-700">
+                              {unit.risk_score}
+                            </td>
+                            <td className="px-3 py-2 text-right text-gray-700">
+                              {Math.round(unit.delay_probability * 100)}%
+                            </td>
+                            <td className="px-3 py-2 text-right font-semibold text-primary-600">
+                              +{formatDelayHours(unit.estimated_delay_hr)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
             </Modal>
 
             {/* AI 리포트 모달 */}

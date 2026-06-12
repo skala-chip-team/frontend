@@ -53,7 +53,7 @@ export interface StrategyCompare {
   util_dev_pp: number; // 부하율 편차(±%p, 최대-최소 기준)
   util_dev_label: string; // ex. '편차 큼', '매우 균등'
   moved_units: number; // 순서 바뀐 unit 수
-  radar: number[]; // 레이더 6축 점수(0~100) — RADAR_AXES 순서
+  radar: number[]; // 레이더 5축 점수(0~100) — RADAR_AXES 순서
   bests: StrategyBest[]; // 이 전략이 1등인 파트
 }
 
