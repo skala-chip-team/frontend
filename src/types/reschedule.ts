@@ -1,5 +1,5 @@
 // 재조정안 관련 타입. 필드명은 docs/data.dbml 컬럼명을 따른다.
-export type RiskLevel = 'Critical' | 'High' | 'Medium' | 'Low';
+export type RiskLevel = 'High' | 'Medium' | 'Low';
 export type GroupStatus = 'pending' | 'approved' | 'expired';
 export type RescheduleDistrict = 'A' | 'B' | 'C';
 
@@ -22,23 +22,39 @@ export interface RescheduleGroup {
 }
 
 // reschedule_selection.strategy 값
-export type StrategyKey = 'due_date_first' | 'bottleneck_minimization' | 'utilization_balance';
+export type StrategyKey = 'due_date_first' | 'utilization_bal' | 'line_recovery';
 
-export interface StrategyEffect {
-  metricLabel: string; // ex. '납기 시간'
-  before: string; // ex. '21:00'
-  after: string; // ex. '18:00'
-  deltaLabel: string; // ex. '3시간 단축'
-  deltaDirection: 'up' | 'down'; // 지표 변화 방향(표시용)
+/** 전략이 1등인 비교 파트 — 배지(아이콘+짧은 단어) 표시용 */
+export type StrategyBest = 'rescue' | 'makespan' | 'wait' | 'balance';
+
+export interface UnitRiskChange {
+  unit_id: string;
+  relieved: boolean; // 조정 후 위험 해소 여부
+  is_new?: boolean; // 조정 후 새로 위험권 진입(조정 전에는 위험이 아니던 unit)
+  done_before: string; // 조정 전 예상 완료 시각 (ex. '21:00')
+  done_after: string; // 조정 후 예상 완료 시각
+  delta_hr: number; // 완료 변화(시간). 양수=앞당김, 음수=지연
 }
 
-export interface StrategyMetric {
-  label: string; // ex. '전체 가동률'
-  value: string; // 표시 값(이후/카운트) ex. '83%', '2건'
-  before?: string; // 있으면 before→value 표시
-  deltaLabel?: string; // ex. '21%p 증가'
-  direction?: 'up' | 'down' | 'flat'; // 화살표 방향
-  sentiment?: 'good' | 'bad' | 'neutral'; // 색상(개선=good)
+export interface MachineUtilChange {
+  machine: string; // 표시 장비명
+  util_before: number; // 가동률 이전(%)
+  util_after: number; // 가동률 이후(%)
+}
+
+/** 전략 비교 섹션 데이터 — 전/후 인터랙션 비교용 */
+export interface StrategyCompare {
+  units: UnitRiskChange[]; // 위험 unit 변화(구제/잔존/신규)
+  makespan_before_min: number; // 전체 완료 소요 이전(분)
+  makespan_after_min: number; // 전체 완료 소요 이후(분)
+  wait_before_min: number; // 평균 대기 이전(분)
+  wait_after_min: number; // 평균 대기 이후(분)
+  utils: MachineUtilChange[]; // 장비별 부하율 전/후
+  util_dev_pp: number; // 부하율 편차(±%p, 최대-최소 기준)
+  util_dev_label: string; // ex. '편차 큼', '매우 균등'
+  moved_units: number; // 순서 바뀐 unit 수
+  radar: number[]; // 레이더 5축 점수(0~100) — RADAR_AXES 순서
+  bests: StrategyBest[]; // 이 전략이 1등인 파트
 }
 
 export interface ScheduleUnitBar {
@@ -54,8 +70,8 @@ export interface ScheduleUnitBar {
 
 export interface ScheduleMachineRow {
   machine: string; // 표시 장비명
-  load_before?: number; // 부하율 이전(%) — API 미제공 시 생략
-  load_after?: number; // 부하율 이후(%) — API 미제공 시 생략
+  load_before: number; // 부하율 이전(%)
+  load_after: number; // 부하율 이후(%)
   units: ScheduleUnitBar[];
 }
 
@@ -74,59 +90,34 @@ export interface QueueState {
 
 export interface StrategyDetail {
   summary: string; // 핵심 내용 한 줄
-  metrics: StrategyMetric[]; // 핵심 효과 카드
   queue: QueueState; // 큐 우선순위 변경(이전/이후)
   schedule: ScheduleMachineRow[]; // 스케줄 변경 간트
   dueRelief: DueReliefUnit[]; // 납기 위험 완화 UNIT
 }
 
+/** 후보안 카드의 핵심 효과 — 전→후 + 개선폭 (ex. 21:00 → 18:00, 3시간 확보) */
+export interface CandidateEffect {
+  metric: string; // ex. '위험 유닛 납기 완료 시간'
+  before: string;
+  after: string;
+  delta: string; // ex. '3시간 확보'
+}
+
+/** 후보안 카드 메타 — 제목/선택 기준/핵심 효과 */
+export interface CandidateMeta {
+  badge: string; // ex. '후보A안'
+  title: string; // ex. '유닛 납기 우선 전략'
+  whenLead: string; // 선택 기준 설명 중 강조할 앞부분 (ex. '납기가 임박한 유닛을 먼저 끝내는 것')
+  whenTail: string; // 나머지 (ex. '이 중요할 때 적용해야 할 전략입니다')
+  recommendReason?: string; // 추천 전략일 때 추천 이유(앞부분) — '~기 때문에 현재 상황에 가장 잘 맞는 전략이에요'로 마무리
+  effect: CandidateEffect;
+}
+
 export interface RescheduleStrategy {
   key: StrategyKey;
-  name: string; // ex. '납기 우선 전략'
+  name: string; // ex. '유닛 납기 우선 전략'
   recommended: boolean;
-  effect: StrategyEffect; // 목록 카드용 대표 효과
-  detail: StrategyDetail; // 상세 패널용
-}
-
-// ─────────────────────────────────────────────────────────────
-// API 연결용 뷰모델 (utils/rescheduleTransform 에서 생성).
-// "있는 것만 표시" 정책: API에 없는 before/부하율/dueRelief 는 포함하지 않음.
-// ─────────────────────────────────────────────────────────────
-
-export interface RescheduleHeaderVM {
-  group_id: string;
-  districtLabel: string; // ex. '구역 A'
-  process_step: string;
-  group_status: GroupStatus;
-  risk_level: RiskLevel;
-  risk_factor: string; // root_cause.category 등, 없으면 ''
-}
-
-export interface RescheduleAffectedUnitVM {
-  unit_id: string;
-  risk_score: number; // 0~100 (delay_risk.risk_score ×100)
-  delay_probability: number; // 0~1
-  estimated_delay_hr: number;
-}
-
-export interface StrategyVM {
-  key: string; // strategy (due_date_first 등)
-  name: string; // 한글 라벨
-  recommended: boolean;
-  selected: boolean; // 확정된 전략
-  usable: boolean; // analysisStatus==='success' && 수치 있음 → 승인 가능
-  fallbackReason: string | null;
-  summary: string;
-  headline: { label: string; value: string } | null; // 전략 카드 대표 수치(after)
-  metrics: StrategyMetric[]; // 핵심 효과(after-only value 카드)
-  queue: QueueState; // queueReorder로 재구성한 이전/이후
-  schedule: ScheduleMachineRow[]; // afterSchedule로 만든 장비별 행
-  scheduleWindow: { start: number; end: number }; // 간트 시간 범위(시)
-}
-
-export interface RescheduleDetailVM {
-  header: RescheduleHeaderVM;
-  reasons: string[]; // riskAnalysis 근거(없으면 [])
-  affectedUnits: RescheduleAffectedUnitVM[];
-  strategies: StrategyVM[];
+  candidate: CandidateMeta; // 후보안 카드용
+  compare: StrategyCompare; // 전략 비교 섹션용
+  detail: StrategyDetail; // 하단 상세(큐/간트/납기완화)용
 }
