@@ -4,6 +4,7 @@ import {
   Home,
   Activity,
   Lightbulb,
+  ClipboardList,
   Boxes,
   Users,
   ChevronsRight,
@@ -17,6 +18,7 @@ import type { MenuItem, OptionProps, TitleSectionProps, ToggleCloseProps } from 
 const MAIN_MENU: MenuItem[] = [
   { icon: Home, title: '대시보드', path: '/dashboard' },
   { icon: Activity, title: '장비 모니터링' },
+  { icon: ClipboardList, title: '주문 관리', path: '/orders' },
   { icon: Lightbulb, title: '재조정 제안 관리', path: '/reschedule' },
   { icon: Boxes, title: 'UNIT 관리' },
   // 작업자 관리는 ADMIN 전용 (path로 식별해 필터)
