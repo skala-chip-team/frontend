@@ -12,6 +12,7 @@ export type { DistrictOption } from './DistrictSelect';
 export { StepSelector } from './StepSelector';
 export type { StepOption } from './StepSelector';
 export { ScheduleChangeGantt } from './ScheduleChangeGantt';
+export { OverviewDashboard } from './AllDistrictsBoard';
 export { StrategyRadar } from './StrategyRadar';
 export type { RadarSeries } from './StrategyRadar';
 export { BeforeAfterBar, BeforeAfterColumn } from './BeforeAfterBar';

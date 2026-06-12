@@ -10,6 +10,9 @@ import RescheduleDetailPage from '@/pages/RescheduleDetailPage';
 import SignupPage from '@/pages/SignupPage';
 import WorkerPage from '@/pages/WorkerPage';
 
+import { RequireAuth } from './RequireAuth';
+import { RequireAdmin } from './RequireAdmin';
+
 export const router = createBrowserRouter([
   // 인증 페이지
   {
@@ -21,11 +24,14 @@ export const router = createBrowserRouter([
     element: <SignupPage />,
   },
 
-  // 로그인 이후
+  // 로그인 이후 (미로그인 시 RequireAuth가 /login으로 리다이렉트)
   {
-    path: '/',
-    element: <SidebarLayout />,
+    element: <RequireAuth />,
     children: [
+      {
+        path: '/',
+        element: <SidebarLayout />,
+        children: [
       {
         index: true,
         element: <Navigate to="/dashboard" replace />,
@@ -51,9 +57,15 @@ export const router = createBrowserRouter([
         element: <RescheduleDetailPage />,
       },
 
-      {
-        path: 'workers',
-        element: <WorkerPage />,
+          {
+            path: 'workers',
+            element: (
+              <RequireAdmin>
+                <WorkerPage />
+              </RequireAdmin>
+            ),
+          },
+        ],
       },
     ],
   },

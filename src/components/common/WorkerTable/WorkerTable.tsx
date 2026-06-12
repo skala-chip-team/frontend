@@ -1,15 +1,12 @@
-import type { Worker, WorkerRole, WorkerStatus } from '@/types';
+import { districtShort } from '@/utils';
+import type { Worker, WorkerRole } from '@/types';
 
 import { Chip, type ChipColor } from '../Chip';
 
 function roleChipColor(role: WorkerRole): ChipColor {
   if (role === '운영자') return 'primary';
   if (role === '작업자') return 'emerald';
-  return 'gray';
-}
-
-function statusChipColor(status: WorkerStatus): ChipColor {
-  return status === '근무중' ? 'emerald' : 'gray';
+  return 'gray'; // 관리자
 }
 
 interface WorkerTableProps {
@@ -18,19 +15,18 @@ interface WorkerTableProps {
   onSelect: (worker: Worker) => void;
 }
 
-/** 작업자 테이블 — 아이디 / 유저 이름 / 역할 / 권한 구역 / 현재 상태 / 마지막 로그인. 행은 스태거 등장 애니메이션. */
+/** 작업자 테이블 — 이메일 / 이름 / 역할 / 권한 구역 / 계정 상태. 행은 스태거 등장 애니메이션. */
 export function WorkerTable({ workers, selectedId, onSelect }: WorkerTableProps) {
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
       <table className="w-full text-left text-label-2">
         <thead className="border-b border-gray-200 bg-surface-100/70 text-label-3 text-gray-500">
           <tr>
-            <th className="px-5 py-3 font-semibold">아이디</th>
+            <th className="px-5 py-3 font-semibold">이메일</th>
             <th className="px-5 py-3 font-semibold">유저 이름</th>
             <th className="px-5 py-3 font-semibold">역할</th>
             <th className="px-5 py-3 font-semibold">권한 구역</th>
-            <th className="px-5 py-3 font-semibold">현재 상태</th>
-            <th className="px-5 py-3 font-semibold">마지막 로그인</th>
+            <th className="px-5 py-3 font-semibold">계정 상태</th>
           </tr>
         </thead>
         <tbody>
@@ -49,7 +45,7 @@ export function WorkerTable({ workers, selectedId, onSelect }: WorkerTableProps)
                 selectedId === worker.user_id ? 'bg-primary-50/50' : ''
               }`}
             >
-              <td className="px-5 py-3 font-medium text-gray-500">{worker.user_id}</td>
+              <td className="px-5 py-3 font-medium text-gray-500">{worker.email}</td>
               <td className="px-5 py-3 font-semibold text-secondary-navy">{worker.username}</td>
               <td className="px-5 py-3">
                 <Chip variant="soft" color={roleChipColor(worker.role)} size="sm">
@@ -59,18 +55,17 @@ export function WorkerTable({ workers, selectedId, onSelect }: WorkerTableProps)
               <td className="px-5 py-3">
                 {worker.districts.length > 0 ? (
                   <span className="text-label-1 font-bold tracking-wide text-secondary-navy">
-                    구역 {worker.districts.join(' · ')}
+                    구역 {worker.districts.map(districtShort).join(' · ')}
                   </span>
                 ) : (
                   <span className="text-gray-300">-</span>
                 )}
               </td>
               <td className="px-5 py-3">
-                <Chip variant="soft" color={statusChipColor(worker.status)} size="sm">
-                  {worker.status}
+                <Chip variant="soft" color={worker.active ? 'emerald' : 'gray'} size="sm">
+                  {worker.active ? '활성' : '비활성'}
                 </Chip>
               </td>
-              <td className="px-5 py-3 text-label-2 text-gray-500">{worker.last_login}</td>
             </tr>
           ))}
         </tbody>
