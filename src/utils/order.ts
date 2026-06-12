@@ -105,3 +105,8 @@ export function formatPlanDate(date: string): string {
   const match = date.match(/^\d{4}-(\d{2})-(\d{2})/);
   return match ? `${match[1]}.${match[2]}` : date;
 }
+
+/** 납기일(due_date)이 기준일(today, 'YYYY-MM-DD')과 같은 날 = 오늘 납기(임박) */
+export function isDueToday(dueDate: string, today: string): boolean {
+  return dueDate.slice(0, 10) === today;
+}

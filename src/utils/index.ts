@@ -11,5 +11,6 @@ export {
   sortOrders,
   formatDueDate,
   formatPlanDate,
+  isDueToday,
 } from './order';
 export type { PriorityMeta, StepState } from './order';

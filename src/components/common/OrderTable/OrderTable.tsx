@@ -1,9 +1,10 @@
-import { Zap } from 'lucide-react';
+import { AlarmClock, Zap } from 'lucide-react';
 
 import {
   districtShort,
   formatDueDate,
   formatPlanDate,
+  isDueToday,
   orderProgress,
   orderStatus,
   orderStatusColor,
@@ -16,11 +17,12 @@ import { Chip } from '../Chip';
 interface OrderTableProps {
   orders: Order[];
   selectedId?: string | null;
+  today?: string; // 'YYYY-MM-DD' — 오늘 납기(임박) 행 강조용
   onSelect: (order: Order) => void;
 }
 
 /** 주문 테이블 — 주문ID / 구역 / 진행 상태 / 우선순위 / 수량 / 계획일 / 납기. 행은 스태거 등장. */
-export function OrderTable({ orders, selectedId, onSelect }: OrderTableProps) {
+export function OrderTable({ orders, selectedId, today, onSelect }: OrderTableProps) {
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
       <table className="w-full text-left text-label-2">
@@ -40,6 +42,8 @@ export function OrderTable({ orders, selectedId, onSelect }: OrderTableProps) {
             const status = orderStatus(order.units);
             const { done, total, percent } = orderProgress(order.units);
             const priority = priorityMeta(order.order_priority);
+            const imminent = today ? isDueToday(order.due_date, today) : false;
+            const selected = selectedId === order.order_id;
             return (
               <tr
                 key={order.order_id}
@@ -51,8 +55,12 @@ export function OrderTable({ orders, selectedId, onSelect }: OrderTableProps) {
                   animationFillMode: 'both',
                   animationDelay: `${index * 0.05}s`,
                 }}
-                className={`cursor-pointer border-b border-gray-100 transition last:border-none hover:bg-surface-100/70 ${
-                  selectedId === order.order_id ? 'bg-primary-50/50' : ''
+                className={`cursor-pointer border-b border-gray-100 transition last:border-none ${
+                  selected
+                    ? 'bg-primary-50/50'
+                    : imminent
+                      ? 'bg-red-50/50 hover:bg-red-50'
+                      : 'hover:bg-surface-100/70'
                 }`}
               >
                 {/* 주문 ID + burst */}
@@ -110,9 +118,23 @@ export function OrderTable({ orders, selectedId, onSelect }: OrderTableProps) {
                   {formatPlanDate(order.plan_date)}
                 </td>
 
-                {/* 납기 */}
-                <td className="px-5 py-3 font-semibold tabular-nums text-secondary-navy">
-                  {formatDueDate(order.due_date)}
+                {/* 납기 — 오늘 납기면 빨강 강조 + 임박 칩 */}
+                <td className="px-5 py-3">
+                  <span className="flex items-center gap-2">
+                    <span
+                      className={`font-semibold tabular-nums ${
+                        imminent ? 'text-primary-600' : 'text-secondary-navy'
+                      }`}
+                    >
+                      {formatDueDate(order.due_date)}
+                    </span>
+                    {imminent ? (
+                      <Chip variant="subtle" color="red" size="xs" className="font-bold">
+                        <AlarmClock className="h-3 w-3" aria-hidden />
+                        임박
+                      </Chip>
+                    ) : null}
+                  </span>
                 </td>
               </tr>
             );
