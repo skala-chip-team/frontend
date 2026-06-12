@@ -151,11 +151,12 @@ export function StrategyRadar({
             }}
           >
             <span
-              className={`inline-flex items-center gap-1 text-[11px] ${
-                best ? 'font-bold text-secondary-navy' : 'font-semibold text-gray-500'
+              className={`inline-flex items-center transition-all ${
+                best
+                  ? 'text-[15px] font-extrabold text-secondary-navy'
+                  : 'text-[12.5px] font-semibold text-gray-500'
               }`}
             >
-              {best ? <span className="text-amber-400">★</span> : null}
               {label}
             </span>
 

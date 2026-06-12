@@ -8,7 +8,6 @@ import {
   Gauge,
   Minus,
   ShieldAlert,
-  Sparkles,
   Star,
   Timer,
   TrendingUp,
@@ -42,7 +41,7 @@ const STRATEGY_ACCENTS: Record<StrategyKey, { hex: string; bar: string }> = {
 
 // 레이더 축 — 라벨 + hover 설명 (mock compare.radar 값 순서와 일치)
 const RADAR_AXES = [
-  { label: '위험 구제', desc: '납기 위험 유닛을 안전권으로 되돌린 정도' },
+  { label: '위험 구제', desc: '지연 위험 유닛을 안전권으로 되돌린 정도' },
   { label: '완료 속도', desc: '전체 작업이 끝나는 시점이 빨라진 정도' },
   { label: '대기 개선', desc: '큐에서 대기하는 평균 시간이 줄어든 정도' },
   { label: '부하 균등', desc: '장비 간 부하가 고르게 분산된 정도' },
@@ -425,23 +424,13 @@ export default function RescheduleDetailPage() {
               </h2>
               {/* 위험 내용 — 가로 꽉 채움, 우측 하단 자세히 보기 */}
               <div className="flex flex-col gap-3 rounded-2xl border border-gray-200/80 bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+                {/* 메타 행 — 구역/스텝 + 영향 UNIT/상태 */}
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex flex-wrap items-center gap-2.5">
                     <Chip variant="outline" size="sm">{`구역${group.district_id}`}</Chip>
                     <Chip variant="outline" size="sm">
                       {group.process_step}
                     </Chip>
-                    <Chip
-                      variant="solid"
-                      color={riskChipColor(group.risk_level)}
-                      size="md"
-                      className="font-bold"
-                    >
-                      {group.risk_level.toUpperCase()}
-                    </Chip>
-                    <div className="text-subtitle-2 font-bold text-secondary-navy">
-                      {group.group_id} {group.risk_factor}
-                    </div>
                   </div>
                   <div className="flex items-center gap-2.5">
                     <span className="text-label-2 text-gray-400">
@@ -451,6 +440,21 @@ export default function RescheduleDetailPage() {
                     <Chip variant="subtle" color={statusChipColor(group.group_status)} size="md">
                       {statusLabel(group.group_status)}
                     </Chip>
+                  </div>
+                </div>
+
+                {/* 위험 제목 — 한 칸 아래, 크게 */}
+                <div className="flex items-center gap-3">
+                  <Chip
+                    variant="solid"
+                    color={riskChipColor(group.risk_level)}
+                    size="lg"
+                    className="font-bold"
+                  >
+                    {group.risk_level.toUpperCase()}
+                  </Chip>
+                  <div className="text-[1.25rem] font-bold leading-tight text-secondary-navy">
+                    {group.group_id} {group.risk_factor}
                   </div>
                 </div>
 
@@ -468,14 +472,33 @@ export default function RescheduleDetailPage() {
 
             {/* 스케줄 재조정 후보안 */}
             <section className="mt-5 flex flex-col gap-4">
-              <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                <h2 className="text-[1.5rem] font-bold leading-tight text-secondary-navy">
-                  스케줄 재조정 후보안
-                </h2>
-                <span className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-surface-100 px-3.5 py-2 text-label-2 font-medium text-gray-600">
-                  <Sparkles className="h-4 w-4 text-primary-500" aria-hidden />
-                  위험 상황을 해결하기 위한 여러 관점에서의 스케줄 재조정안을 AI가 제공합니다.
-                </span>
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="flex flex-col gap-2.5">
+                  <h2 className="text-[1.5rem] font-bold leading-tight text-secondary-navy">
+                    스케줄 재조정 후보안
+                  </h2>
+                  <span className="inline-flex w-fit items-center rounded-lg border border-gray-200 bg-surface-100 px-4 py-2.5 text-body-1 font-medium text-gray-600">
+                    위험 상황을 해결하기 위한 여러 관점에서의 스케줄 재조정안을 AI가 제공합니다.
+                  </span>
+                </div>
+
+                {/* 액션 버튼 — 후보안 헤더 우측 */}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setReportModalOpen(true)}
+                    className="rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-label-1 font-semibold text-secondary-navy transition hover:bg-surface-100"
+                  >
+                    AI 리포트 확인하기
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setApproveModalOpen(true)}
+                    className="rounded-lg bg-primary-500 px-4 py-2.5 text-label-1 font-semibold text-white shadow-[0_8px_20px_rgba(234,0,44,0.18)] transition hover:bg-primary-600"
+                  >
+                    재조정안{strategyLabel(activeIndex)} 승인
+                  </button>
+                </div>
               </div>
 
               {/* 후보안 카드 — 클릭 시 아래 상세가 해당 전략으로 전환 */}
@@ -506,14 +529,18 @@ export default function RescheduleDetailPage() {
                     </span>
                   </div>
 
-                  {/* 전/후 토글 + 안내 툴팁 */}
+                  {/* 전/후 토글 + 안내 툴팁 (페이드+슬라이드 인터랙션) */}
                   <div className="relative">
-                    {showPhaseHint ? (
-                      <div className="pointer-events-none absolute bottom-full right-0 z-20 mb-2 whitespace-nowrap rounded-md bg-zinc-900 px-3 py-1.5 text-[11px] font-medium text-white shadow-md shadow-black/10">
-                        재조정안을 적용하기 전과 후의 효과를 비교할 수 있습니다
-                        <span className="absolute right-6 top-full h-0 w-0 border-x-4 border-t-4 border-x-transparent border-t-zinc-900" />
-                      </div>
-                    ) : null}
+                    <div
+                      className={`pointer-events-none absolute bottom-full right-0 z-20 mb-2 whitespace-nowrap rounded-md bg-zinc-900 px-3 py-1.5 text-[11px] font-medium text-white shadow-md shadow-black/10 transition-all duration-300 ease-out ${
+                        showPhaseHint
+                          ? 'translate-y-0 scale-100 opacity-100'
+                          : 'pointer-events-none translate-y-1.5 scale-95 opacity-0'
+                      }`}
+                    >
+                      재조정안을 적용하기 전과 후의 효과를 비교할 수 있습니다
+                      <span className="absolute right-6 top-full h-0 w-0 border-x-4 border-t-4 border-x-transparent border-t-zinc-900" />
+                    </div>
                     <div className="flex rounded-lg bg-surface-100 p-0.5">
                       {(['before', 'after'] as const).map((value) => (
                         <button
@@ -554,12 +581,12 @@ export default function RescheduleDetailPage() {
                   <StatCard
                     icon={ShieldAlert}
                     title="위험 유닛"
-                    hint="납기 위험이 해소되는가"
+                    hint="지연 위험이 해소되는가"
                     best={isBest('rescue')}
                   >
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                       <span className="text-[1.5rem] font-bold leading-none text-secondary-navy">
-                        납기 위험 완화 {rescuedCount}건
+                        지연 위험 완화 {rescuedCount}건
                       </span>
                       {remainCount > 0 ? (
                         <span className="text-[1.5rem] font-bold leading-none text-secondary-navy">
@@ -712,24 +739,6 @@ export default function RescheduleDetailPage() {
                   )}
                 </div>
               </div>
-            </div>
-
-            {/* 액션 버튼 */}
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setReportModalOpen(true)}
-                className="rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-label-1 font-semibold text-secondary-navy transition hover:bg-surface-100"
-              >
-                AI 리포트 확인하기
-              </button>
-              <button
-                type="button"
-                onClick={() => setApproveModalOpen(true)}
-                className="rounded-lg bg-primary-500 px-4 py-2.5 text-label-1 font-semibold text-white shadow-[0_8px_20px_rgba(234,0,44,0.18)] transition hover:bg-primary-600"
-              >
-                재조정안{strategyLabel(activeIndex)} 승인
-              </button>
             </div>
 
             {/* 위험 상황 상세 모달 — 원인 설명 + 영향 UNIT */}
