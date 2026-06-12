@@ -8,6 +8,7 @@ import {
   Gauge,
   Minus,
   ShieldAlert,
+  Sparkles,
   Star,
   Timer,
   TrendingUp,
@@ -167,9 +168,15 @@ function UnitRiskRow({ unit, phase }: { unit: UnitRiskChange; phase: ComparePhas
     <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-white px-3 py-2 shadow-[0_2px_6px_rgba(15,23,42,0.04)]">
       <span className="flex items-center gap-1.5 text-label-2 font-bold text-secondary-navy">
         {safe ? (
-          <CircleCheck className="h-4 w-4 text-emerald-500 transition-colors duration-500" aria-label="위험 해소" />
+          <CircleCheck
+            className="h-4 w-4 text-emerald-500 transition-colors duration-500"
+            aria-label="위험 해소"
+          />
         ) : (
-          <TriangleAlert className="h-4 w-4 text-red-500 transition-colors duration-500" aria-label="위험" />
+          <TriangleAlert
+            className="h-4 w-4 text-red-500 transition-colors duration-500"
+            aria-label="위험"
+          />
         )}
         {unit.unit_id}
         {unit.is_new ? (
@@ -256,7 +263,11 @@ function CandidateCard({
           className="flex items-center gap-1.5 text-label-2 font-bold"
           style={{ color: accentHex }}
         >
-          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: accentHex }} aria-hidden />
+          <span
+            className="h-2 w-2 rounded-full"
+            style={{ backgroundColor: accentHex }}
+            aria-hidden
+          />
           {candidate.badge}
         </span>
         {strategy.recommended ? (
@@ -268,7 +279,7 @@ function CandidateCard({
       </div>
 
       <h3 className="mt-2 text-subtitle-1 font-bold text-secondary-navy">{candidate.title}</h3>
-      <p className="mt-1.5 text-body-2 leading-relaxed text-gray-500">
+      <p className="mt-1.5 text-body-1 leading-relaxed text-gray-500">
         <span className="font-bold text-secondary-navy">{candidate.whenLead}</span>
         {candidate.whenTail}
       </p>
@@ -477,7 +488,8 @@ export default function RescheduleDetailPage() {
                     스케줄 재조정 후보안
                   </h2>
                   <p className="text-body-1 text-gray-500">
-                    위험 상황을 해결하기 위한 여러 관점에서의 스케줄 재조정안을 AI가 제공합니다.
+                    위험 상황을 해결하기 위한 <b>여러 관점에서의 스케줄 재조정안</b>을 AI가
+                    제공합니다.
                   </p>
                 </div>
 
@@ -526,6 +538,15 @@ export default function RescheduleDetailPage() {
                     <span className="text-[1.25rem] font-bold leading-tight text-secondary-navy">
                       {activeStrategy.candidate.title}
                     </span>
+                    {activeStrategy.recommended ? (
+                      <Chip variant="subtle" color="primary" size="sm" className="font-bold">
+                        <Star
+                          className="h-3.5 w-3.5 fill-primary-500 text-primary-500"
+                          aria-hidden
+                        />
+                        추천
+                      </Chip>
+                    ) : null}
                   </div>
 
                   {/* 전/후 토글 + 안내 툴팁 (페이드+슬라이드 인터랙션) */}
@@ -561,124 +582,135 @@ export default function RescheduleDetailPage() {
                 </div>
 
                 <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-stretch lg:gap-7">
-                {/* 레이더(메인) — 전략 전환 시 폴리곤 모핑, 폴리곤 클릭으로도 전환 */}
-                <div className="mx-auto w-full max-w-[420px] self-center lg:mx-0 lg:w-[400px] lg:shrink-0">
-                  <StrategyRadar
-                    axes={RADAR_AXES.map((axis) => axis.label)}
-                    descriptions={RADAR_AXES.map((axis) => axis.desc)}
-                    bestAxes={bestAxes}
-                    series={radarSeries}
-                    selectedKey={selectedStrategy}
-                    onSelect={(key) => selectStrategy(key as StrategyKey)}
-                    className="w-full"
-                  />
-                </div>
+                  {/* 레이더(메인) — 전략 전환 시 폴리곤 모핑, 폴리곤 클릭으로도 전환 */}
+                  <div className="mx-auto w-full max-w-[420px] self-center lg:mx-0 lg:w-[400px] lg:shrink-0">
+                    <StrategyRadar
+                      axes={RADAR_AXES.map((axis) => axis.label)}
+                      descriptions={RADAR_AXES.map((axis) => axis.desc)}
+                      bestAxes={bestAxes}
+                      series={radarSeries}
+                      selectedKey={selectedStrategy}
+                      onSelect={(key) => selectStrategy(key as StrategyKey)}
+                      className="w-full"
+                    />
+                  </div>
 
-                {/* 선택 전략 효과 — 의사결정 질문 1개 = 카드 1개, 결론부터 크게 */}
-                <div className="flex w-full flex-1 flex-col gap-3">
-                  {/* ① 위험이 해소되는가 */}
-                  <StatCard
-                    icon={ShieldAlert}
-                    title="위험 유닛"
-                    hint="지연 위험이 해소되는가"
-                    best={isBest('rescue')}
-                  >
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                      <span className="text-[1.5rem] font-bold leading-none text-secondary-navy">
-                        지연 위험 완화 {rescuedCount}건
-                      </span>
-                      {remainCount > 0 ? (
+                  {/* 선택 전략 효과 — 의사결정 질문 1개 = 카드 1개, 결론부터 크게 */}
+                  <div className="flex w-full flex-1 flex-col gap-3">
+                    {/* ① 위험이 해소되는가 */}
+                    <StatCard
+                      icon={ShieldAlert}
+                      title="위험 유닛"
+                      hint="지연 위험이 해소되는가"
+                      best={isBest('rescue')}
+                    >
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                         <span className="text-[1.5rem] font-bold leading-none text-secondary-navy">
-                          위험 유지 {remainCount}건
+                          지연 위험 완화 {rescuedCount}건
                         </span>
-                      ) : null}
-                      {newRiskCount > 0 ? (
-                        <Chip variant="subtle" color="red" size="sm" className="font-bold">
-                          신규 위험 +{newRiskCount}
-                        </Chip>
-                      ) : null}
-                    </div>
-
-                    <div className="mt-3 flex flex-col gap-1.5">
-                      {compare.units
-                        .filter((unit) => phase === 'after' || !unit.is_new)
-                        .map((unit) => (
-                          <UnitRiskRow key={unit.unit_id} unit={unit} phase={phase} />
-                        ))}
-                    </div>
-                  </StatCard>
-
-                  {/* ② 라인 흐름이 빨라지는가 */}
-                  <StatCard
-                    icon={Timer}
-                    title="평균 대기"
-                    hint="라인 흐름이 빨라지는가"
-                    best={isBest('wait')}
-                  >
-                    <div className="flex items-center gap-5">
-                      <div className="flex shrink-0 flex-col">
-                        {waitDiff === 0 ? (
+                        {remainCount > 0 ? (
                           <span className="text-[1.5rem] font-bold leading-none text-secondary-navy">
-                            변화 없음
+                            위험 유지 {remainCount}건
                           </span>
-                        ) : (
-                          <span className="flex items-center gap-0.5 text-[1.5rem] font-bold leading-none text-secondary-navy">
-                            {waitDiff > 0 ? (
-                              <ArrowDown className="h-6 w-6" aria-hidden />
-                            ) : (
-                              <ArrowUp className="h-6 w-6" aria-hidden />
-                            )}
-                            {Math.abs(waitDiff)}분
-                          </span>
-                        )}
-                        <span className="mt-1.5 text-label-3 tabular-nums text-gray-400">
-                          {compare.wait_before_min}분 → {compare.wait_after_min}분
-                        </span>
+                        ) : null}
+                        {newRiskCount > 0 ? (
+                          <Chip variant="subtle" color="red" size="sm" className="font-bold">
+                            신규 위험 +{newRiskCount}
+                          </Chip>
+                        ) : null}
                       </div>
-                      <BeforeAfterBar
-                        before={compare.wait_before_min}
-                        after={compare.wait_after_min}
-                        phase={phase}
-                        max={80}
-                        unit="분"
-                        barClassName={accent.bar}
-                        className="flex-1"
-                      />
-                    </div>
-                  </StatCard>
 
-                  {/* ③ 부하가 고르게 분배되는가 */}
-                  <StatCard
-                    icon={Gauge}
-                    title="장비 부하율"
-                    hint="부하가 고르게 분배되는가"
-                    best={isBest('balance')}
-                  >
-                    <div className="flex items-center gap-6">
-                      <div className="flex shrink-0 flex-col">
-                        <span className="text-[1.5rem] font-bold leading-none text-secondary-navy">
-                          {compare.util_dev_label}
-                        </span>
-                        <span className="mt-1.5 text-label-3 tabular-nums text-gray-400">
-                          편차 ±{compare.util_dev_pp}%p
-                        </span>
+                      <div className="mt-3 flex flex-col gap-1.5">
+                        {compare.units
+                          .filter((unit) => phase === 'after' || !unit.is_new)
+                          .map((unit) => (
+                            <UnitRiskRow key={unit.unit_id} unit={unit} phase={phase} />
+                          ))}
                       </div>
-                      <div className="ml-auto flex items-end gap-6">
-                        {compare.utils.map((util) => (
-                          <BeforeAfterColumn
-                            key={util.machine}
-                            label={util.machine}
-                            before={util.util_before}
-                            after={util.util_after}
-                            phase={phase}
-                            barClassName={accent.bar}
-                          />
-                        ))}
+                    </StatCard>
+
+                    {/* ② 라인 흐름이 빨라지는가 */}
+                    <StatCard
+                      icon={Timer}
+                      title="평균 대기"
+                      hint="라인 흐름이 빨라지는가"
+                      best={isBest('wait')}
+                    >
+                      <div className="flex items-center gap-5">
+                        <div className="flex shrink-0 flex-col">
+                          {waitDiff === 0 ? (
+                            <span className="text-[1.5rem] font-bold leading-none text-secondary-navy">
+                              변화 없음
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-0.5 text-[1.5rem] font-bold leading-none text-secondary-navy">
+                              {waitDiff > 0 ? (
+                                <ArrowDown className="h-6 w-6" aria-hidden />
+                              ) : (
+                                <ArrowUp className="h-6 w-6" aria-hidden />
+                              )}
+                              {Math.abs(waitDiff)}분
+                            </span>
+                          )}
+                          <span className="mt-1.5 text-label-3 tabular-nums text-gray-400">
+                            {compare.wait_before_min}분 → {compare.wait_after_min}분
+                          </span>
+                        </div>
+                        <BeforeAfterBar
+                          before={compare.wait_before_min}
+                          after={compare.wait_after_min}
+                          phase={phase}
+                          max={80}
+                          unit="분"
+                          barClassName={accent.bar}
+                          className="flex-1"
+                        />
                       </div>
-                    </div>
-                  </StatCard>
+                    </StatCard>
+
+                    {/* ③ 부하가 고르게 분배되는가 */}
+                    <StatCard
+                      icon={Gauge}
+                      title="장비 부하율"
+                      hint="부하가 고르게 분배되는가"
+                      best={isBest('balance')}
+                    >
+                      <div className="flex items-center gap-6">
+                        <div className="flex shrink-0 flex-col">
+                          <span className="text-[1.5rem] font-bold leading-none text-secondary-navy">
+                            {compare.util_dev_label}
+                          </span>
+                          <span className="mt-1.5 text-label-3 tabular-nums text-gray-400">
+                            편차 ±{compare.util_dev_pp}%p
+                          </span>
+                        </div>
+                        <div className="ml-auto flex items-end gap-6">
+                          {compare.utils.map((util) => (
+                            <BeforeAfterColumn
+                              key={util.machine}
+                              label={util.machine}
+                              before={util.util_before}
+                              after={util.util_after}
+                              phase={phase}
+                              barClassName={accent.bar}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </StatCard>
+                  </div>
                 </div>
-              </div>
+
+                {/* 추천 이유 — 추천 전략일 때만 */}
+                {activeStrategy.recommended && activeStrategy.candidate.recommendReason ? (
+                  <div className="mt-4 flex items-start gap-2 rounded-xl bg-primary-50 px-4 py-3">
+                    <p className="text-label-1 leading-relaxed text-secondary-navy">
+                      <b className="text-primary-600">추천 이유 : </b>
+                      {activeStrategy.candidate.recommendReason}기 때문에 현재 상황에 가장 잘 맞는
+                      전략이에요.
+                    </p>
+                  </div>
+                ) : null}
               </div>
             </section>
 

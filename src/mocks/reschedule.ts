@@ -91,6 +91,7 @@ export const rescheduleStrategies: RescheduleStrategy[] = [
       title: '유닛 납기 우선 전략',
       whenLead: '납기가 임박한 유닛을 먼저 끝내는 것',
       whenTail: '이 중요할 때 적용해야 할 전략입니다',
+      recommendReason: '지연 위험 유닛 3건을 모두 완화하면서 작업 완료도 가장 빠르',
       effect: {
         metric: '위험 유닛 납기 완료 시간',
         before: '21:00',

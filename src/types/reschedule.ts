@@ -109,6 +109,7 @@ export interface CandidateMeta {
   title: string; // ex. '유닛 납기 우선 전략'
   whenLead: string; // 선택 기준 설명 중 강조할 앞부분 (ex. '납기가 임박한 유닛을 먼저 끝내는 것')
   whenTail: string; // 나머지 (ex. '이 중요할 때 적용해야 할 전략입니다')
+  recommendReason?: string; // 추천 전략일 때 추천 이유(앞부분) — '~기 때문에 현재 상황에 가장 잘 맞는 전략이에요'로 마무리
   effect: CandidateEffect;
 }
 
