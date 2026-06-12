@@ -2,13 +2,7 @@ import type { Order, OrderStatus, OrderUnit, StepCode } from '@/types';
 
 // Chip color 서브셋 (components import 회피 — 기존 reschedule util 컨벤션)
 type OrderChipColor = 'gray' | 'red' | 'orange' | 'amber' | 'emerald' | 'primary';
-
-const DISTRICT_SHORT: Record<string, string> = { 'DST-01': 'A', 'DST-02': 'B' };
-
-/** 'DST-01' → 'A' (구역 셀렉터/테이블 표시용) */
-export function districtShort(id: string): string {
-  return DISTRICT_SHORT[id] ?? id;
-}
+// districtShort 는 userTransform.ts 의 것을 사용 (중복 정의 제거)
 
 // 공정 순서 (TM_PROCESS_STEP_ORDER) + 평균 소요(분)
 export const STEP_SEQUENCE: { code: StepCode; label: string; avgMin: number }[] = [
