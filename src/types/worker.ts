@@ -1,13 +1,11 @@
-// 작업자(사용자) 타입. 필드명은 docs/data.dbml 컬럼명을 따른다.
-export type WorkerRole = '운영자' | '작업자' | '미배치'; // user_role.role_name
-export type WorkerDistrict = 'A' | 'B' | 'C';
-export type WorkerStatus = '근무중' | '자리비움';
+// 작업자(사용자) 타입. 백엔드 UserSummary(GET /api/users) 기준.
+export type WorkerRole = '관리자' | '운영자' | '작업자';
 
 export interface Worker {
-  user_id: string; // user.user_id
-  username: string; // user.username
+  user_id: string; // userId
+  username: string;
+  email: string;
   role: WorkerRole;
-  districts: WorkerDistrict[]; // user_district_map → district (권한 구역, N개 가능)
-  status: WorkerStatus; // 현재 상태
-  last_login: string; // user.last_login
+  districts: string[]; // 권한 구역 id 목록 (DST-01 등), 없으면 []
+  active: boolean; // 계정 활성 여부
 }

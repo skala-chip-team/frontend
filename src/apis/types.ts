@@ -7,6 +7,40 @@ export interface ApiResponse<T> {
   data: T;
 }
 
+/** GET /api/users 항목 (UserSummary) */
+export interface UserSummary {
+  userId: string;
+  username: string;
+  email: string;
+  role: string; // ADMIN | OPERATOR | WORKER
+  active: boolean;
+  districtIds: string[]; // 권한 구역 (DST-01 등)
+}
+
+/** POST /api/auth/login 요청/응답 data */
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+export interface LoginResponse {
+  accessToken: string;
+  tokenType: string;
+  username: string;
+  role: string;
+}
+
+/** POST /api/auth/signup 요청/응답 data */
+export interface SignUpRequest {
+  username: string;
+  email: string;
+  password: string;
+}
+export interface SignUpResponse {
+  userId: string;
+  username: string;
+  email: string;
+}
+
 /** GET /sim/status (시뮬레이션 서버 8000). 래퍼 없이 평면 객체로 옴 */
 export interface SimStatus {
   status: string; // 'idle' | 'running' | 'finished' 등
@@ -30,11 +64,104 @@ export interface RescheduleGroupSummary {
   districtId: string;
   stepId: string;
   processStep: string;
-  maxRiskScore: number;
-  riskLevel: ApiRiskLevel;
-  groupStatus: string;
+  maxRiskScore: number; // 0~1
+  riskLevel: ApiRiskLevel | null; // 만료 등에서 null 가능
+  groupStatus: string; // pending / approved / expired
   createdAt: string;
   affectedUnits: RescheduleAffectedUnit[];
+}
+
+/** 상세 delayRisks[] 항목 (delay_risk) */
+export interface DelayRisk {
+  riskId: string;
+  unitId: string;
+  riskLevel: ApiRiskLevel;
+  riskFactor: string; // ex. Machine_Capacity
+  riskScore: number; // 0~1
+  delayProbability: number; // 0~1
+  estimatedDelayHr: number;
+  detectionTime: string;
+}
+
+/** root_cause.evidence[] 항목 (signal 지표 + 해석) */
+export interface RiskEvidence {
+  value: number | string | null;
+  signal: string;
+  interpretation: string;
+}
+
+/** 에이전트 원인분석. 미호출 시 null. fallback 시 evidence 비고 category 'Unknown' */
+export interface RiskAnalysis {
+  root_cause: { category: string; evidence: RiskEvidence[] } | null;
+  causal_chain: string | null;
+  signal_agreement: string | null;
+  analysis_status: string;
+}
+
+/** options[].afterSchedule.units[].steps[] */
+export interface AfterScheduleStep {
+  step_id: string;
+  start: string; // ISO
+  finish: string; // ISO
+  machine_id: string;
+}
+export interface AfterScheduleUnit {
+  unit_id: string;
+  steps: AfterScheduleStep[];
+}
+export interface AfterSchedule {
+  units: AfterScheduleUnit[];
+}
+
+/** options[].queueReorder[] 항목 */
+export interface QueueReorderItem {
+  unit_id: string;
+  queue_id: string;
+  original_queue_position: number;
+  new_queue_position: number;
+  priority_score: number;
+}
+
+/** options[] — 전략별 재조정안 카드. fallback/실패 시 metrics·afterSchedule가 null일 수 있음 */
+export interface RescheduleOption {
+  strategy: string; // due_date_first | bottleneck_minimization | utilization_balance
+  analysisStatus: string; // success | fallback
+  fallbackReason: string | null;
+  recommended: boolean;
+  summary: string;
+  selected: boolean;
+  estimatedDelayHrAfter: number | null;
+  avgWaitTimeMinAfter: number | null;
+  avgUtilizationRateAfter: number | null; // 0~1
+  maxWaitTimeMinAfter: number | null;
+  deadlineViolationCount: number | null;
+  afterSchedule: AfterSchedule | null;
+  queueReorder: QueueReorderItem[];
+}
+
+/** GET /api/reschedule/groups/{groupId} 응답 data */
+export interface RescheduleGroupDetail {
+  groupId: string;
+  districtId: string;
+  stepId: string;
+  processStep: string;
+  stepOrder: number;
+  maxDelayProbability: number;
+  groupStatus: string;
+  actedAt: string;
+  delayRisks: DelayRisk[];
+  riskAnalysis: RiskAnalysis | null;
+  options: RescheduleOption[];
+}
+
+/** POST /api/reschedule/groups/{groupId}/select 응답 data */
+export interface RescheduleSelectionResult {
+  selectionId: string;
+  groupId: string;
+  strategy: string;
+  status: string;
+  selectedAt: string;
+  groupStatus: string;
 }
 
 /** GET /api/monitoring/districts/{districtId}/summary */

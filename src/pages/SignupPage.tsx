@@ -1,7 +1,53 @@
+import { useState, type FormEvent } from 'react';
+
 import { Lock, Mail, ShieldCheck, User } from 'lucide-react';
+import { useMutation } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+
 import InputBox from '@/components/common/InputBox/InputBox';
+import { login, signup } from '@apis/index';
+import { useAuthStore } from '@/stores';
+import { getApiErrorMessage } from '@/utils';
 
 export default function SignupPage() {
+  const navigate = useNavigate();
+  const setAuth = useAuthStore((state) => state.setAuth);
+
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  const signupMutation = useMutation({
+    // 가입 후 응답엔 토큰이 없으므로, 같은 계정으로 바로 로그인까지 진행한다.
+    mutationFn: async () => {
+      await signup({ username, email, password });
+      return login({ email, password });
+    },
+    onSuccess: (loginData) => {
+      setAuth(loginData.accessToken, { username: loginData.username, role: loginData.role });
+      navigate('/dashboard', { replace: true });
+    },
+  });
+
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!username || !email || !password) return;
+    if (password !== confirm) {
+      setValidationError('비밀번호가 일치하지 않습니다.');
+      return;
+    }
+    setValidationError(null);
+    if (!signupMutation.isPending) signupMutation.mutate();
+  };
+
+  const errorMessage = validationError
+    ? validationError
+    : signupMutation.isError
+      ? getApiErrorMessage(signupMutation.error, '회원가입에 실패했습니다. 입력값을 확인해주세요.')
+      : null;
+
   return (
     <main className="flex min-h-screen overflow-hidden bg-surface-50">
       <section className="relative hidden w-[58%] flex-col justify-between overflow-hidden bg-secondary-navy px-[5%] py-[4%] text-white lg:flex">
@@ -83,40 +129,59 @@ export default function SignupPage() {
               </p>
             </div>
 
-            <form className="space-y-5">
+            <form className="space-y-5" onSubmit={handleSubmit}>
               <InputBox
                 label="이름"
                 icon={User}
                 type="text"
+                autoComplete="username"
                 placeholder="이름을 입력해주세요"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
               />
 
               <InputBox
                 label="이메일"
                 icon={Mail}
                 type="email"
+                autoComplete="email"
                 placeholder="admin@chipscheduler.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
 
               <InputBox
                 label="비밀번호"
                 icon={Lock}
                 type="password"
+                autoComplete="new-password"
                 placeholder="비밀번호를 입력해주세요"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
               />
 
               <InputBox
                 label="비밀번호 확인"
                 icon={Lock}
                 type="password"
+                autoComplete="new-password"
                 placeholder="비밀번호를 다시 입력해주세요"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
               />
+
+              {errorMessage ? (
+                <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-600">
+                  {errorMessage}
+                </p>
+              ) : null}
 
               <button
                 type="submit"
-                className="h-12 w-full rounded-2xl bg-primary-500 text-sm font-bold text-white transition duration-200 hover:bg-primary-600 active:scale-[0.99]"
+                disabled={signupMutation.isPending}
+                className="h-12 w-full rounded-2xl bg-primary-500 text-sm font-bold text-white transition duration-200 hover:bg-primary-600 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                회원가입
+                {signupMutation.isPending ? '가입 중…' : '회원가입'}
               </button>
             </form>
           </div>
@@ -126,9 +191,7 @@ export default function SignupPage() {
 
             <button
               type="button"
-              onClick={() => {
-                window.location.href = '/login';
-              }}
+              onClick={() => navigate('/login')}
               className="
                 ml-2
                 font-semibold

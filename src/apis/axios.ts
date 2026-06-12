@@ -10,3 +10,10 @@ export const apiClient = axios.create({
   timeout: 10000,
   headers: { 'Content-Type': 'application/json' },
 });
+
+// 저장된 accessToken을 모든 요청에 Bearer로 첨부 (키는 authStore의 AUTH_TOKEN_KEY와 동일)
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('auth.accessToken');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});

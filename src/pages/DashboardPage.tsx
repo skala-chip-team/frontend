@@ -2,7 +2,12 @@ import { useRef, useState, type ReactNode } from 'react';
 
 import { ChevronRight } from 'lucide-react';
 
-import { DashboardInfoCard, MachineScheduleGanttBoard, StepSelector } from '@components/common';
+import {
+  DashboardInfoCard,
+  MachineScheduleGanttBoard,
+  OverviewDashboard,
+  StepSelector,
+} from '@components/common';
 import { MachineFleetBoard } from '@components/three';
 import { districtLabels, useDistrictStore } from '@/stores';
 import { useDistrictDashboard, useSimStatus } from '@/hooks';
@@ -120,7 +125,7 @@ export default function DashboardPage() {
   );
 
   const renderBody = () => {
-    if (isAll) return null;
+    if (isAll) return <OverviewDashboard />;
     if (isLoading) return <DashboardMessage>대시보드를 불러오는 중…</DashboardMessage>;
     if (isError) return <DashboardMessage>대시보드를 불러오지 못했습니다.</DashboardMessage>;
     if (!data || data.steps.length === 0) {

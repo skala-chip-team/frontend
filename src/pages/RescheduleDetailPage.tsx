@@ -8,7 +8,6 @@ import {
   Gauge,
   Minus,
   ShieldAlert,
-  Sparkles,
   Star,
   Timer,
   TrendingUp,

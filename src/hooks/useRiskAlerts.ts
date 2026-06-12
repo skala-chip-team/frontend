@@ -33,7 +33,7 @@ export function useRiskAlerts() {
 
       addToast({
         tone,
-        level: group.riskLevel,
+        level: group.riskLevel ?? undefined,
         title: '위험이 탐지되었습니다',
         description: `${group.districtId} · ${group.processStep}`,
         groupId: group.groupId,
