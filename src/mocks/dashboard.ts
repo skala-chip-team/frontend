@@ -34,7 +34,7 @@ const step = (
   process_step: string,
   avg_wait_time_min: number,
   machines: DistrictMachine[]
-): ProcessStep => ({ step_id, process_step, avg_wait_time_min, machines });
+): ProcessStep => ({ step_id, process_step, avg_wait_time_min, machines, waiting_units: [] });
 
 const summary = (
   available: string,

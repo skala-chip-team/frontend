@@ -10,14 +10,7 @@ export {
 export { getSimStatus } from './sim';
 export { login, signup } from './auth';
 export { getUsers, changeUserRole, assignUserDistricts, deleteUser } from './users';
-export {
-  getRescheduleGroups,
-  getPendingRescheduleGroups,
-  getRescheduleGroupDetail,
-  generateReschedule,
-  selectRescheduleStrategy,
-} from './reschedule';
-export type { RescheduleGroupsParams } from './reschedule';
+export { getRescheduleGroups, getPendingRescheduleGroups } from './reschedule';
 export type {
   ActiveSchedule,
   AfterSchedule,
