@@ -1,251 +1,291 @@
-Table daily_order {
-  order_id varchar [pk]
-  district_id varchar [not null, ref: > district_master.district_id]
-  plan_date date
-  due_date datetime
-  planned_output_qty int
-  order_priority int
-  is_burst boolean
+// =====================================================
+// Full ERD (PostgreSQL) - Physical Table Names
+// =====================================================
+
+// ----- Zone 1: 주문/생산 -----
+
+Table TT_DAILY_ORDER {
+  order_id           varchar  [pk]
+  district_id        varchar  [not null, ref: > TM_DISTRICT_MASTER.district_id]
+  plan_date          date
+  due_date           datetime
+  planned_output_qty int      [note: '100 고정 (4 Unit × 25)']
+  order_priority     int      [note: '1(높음) ~ 5(낮음)']
+  is_burst           boolean  [note: 'order_burst_scenario 로 추가된 burst 주문 여부 (기본 false)']
 }
 
-Table unit_master {
-  unit_id varchar [pk]
-  order_id varchar [not null, ref: > daily_order.order_id]
-  district_id varchar [not null, ref: > district_master.district_id]
-  unit_status varchar
-  unit_size_qty int
-  actual_start_time datetime
-  actual_complete_time datetime
+Table TM_UNIT_MASTER {
+  unit_id              varchar  [pk]
+  order_id             varchar  [not null, ref: > TT_DAILY_ORDER.order_id]
+  district_id          varchar  [not null, ref: > TM_DISTRICT_MASTER.district_id]
+  unit_status          varchar  [note: '대기 / 진행중 / 완료']
+  unit_size_qty        int      [note: '25 고정']
+  actual_start_time    datetime [null, note: 'STEP_A 시작 시각; 미시작 NULL']
+  actual_complete_time datetime [null, note: 'STEP_D 완료 시각; 미완료 NULL']
 }
 
-Table user_role {
-  role_id varchar [pk]
-  role_name varchar
+// ----- Zone 2: 사용자/권한 -----
+
+Table TC_USER_ROLE {
+  role_id     varchar [pk]
+  role_name   varchar [note: 'operator / manager / agent']
   description varchar
 }
 
-Table user {
-  user_id varchar [pk]
-  role_id varchar [not null, ref: > user_role.role_id]
-  username varchar
-  email varchar
+Table TM_USER {
+  user_id       varchar  [pk]
+  role_id       varchar  [not null, ref: > TC_USER_ROLE.role_id]
+  username      varchar
+  email         varchar
   password_hash varchar
-  is_active boolean
-  created_at datetime
-  last_login datetime
+  is_active     boolean
+  created_at    datetime
+  last_login    datetime [null]
 }
 
-Table user_district_map {
-  map_id varchar [pk]
-  user_id varchar [not null, ref: > user.user_id]
-  district_id varchar [not null, ref: > district_master.district_id]
+Table TT_USER_DISTRICT_MAP {
+  map_id      varchar [pk]
+  user_id     varchar [not null, ref: > TM_USER.user_id]
+  district_id varchar [not null, ref: > TM_DISTRICT_MASTER.district_id]
 }
 
-Table notification {
-  notification_id varchar [pk]
-  user_id varchar [not null, ref: > user.user_id]
-  type varchar
-  title varchar
-  content varchar
-  is_read boolean
-  created_at datetime
-  read_at datetime
+Table TT_NOTIFICATION {
+  notification_id varchar  [pk]
+  user_id         varchar  [not null, ref: > TM_USER.user_id]
+  type            varchar  [note: 'risk_alert / reschedule / system']
+  title           varchar
+  content         varchar
+  is_read         boolean
+  created_at      datetime
+  read_at         datetime [null]
 }
 
-Table chatbot_session {
-  session_id varchar [pk]
-  user_id varchar [not null, ref: > user.user_id]
+Table TT_CHATBOT_SESSION {
+  session_id varchar  [pk]
+  user_id    varchar  [not null, ref: > TM_USER.user_id]
   started_at datetime
-  ended_at datetime
+  ended_at   datetime [null]
 }
 
-Table chatbot_message {
-  message_id varchar [pk]
-  session_id varchar [not null, ref: > chatbot_session.session_id]
-  message_type varchar
-  content varchar
-  created_at datetime
+Table TD_CHATBOT_MESSAGE {
+  message_id   varchar  [pk]
+  session_id   varchar  [not null, ref: > TT_CHATBOT_SESSION.session_id]
+  message_type varchar  [note: 'user / assistant']
+  content      varchar
+  created_at   datetime
 }
 
-Table district_master {
-  district_id varchar [pk]
+// ----- Zone 3: 인프라/설비 -----
+
+Table TM_DISTRICT_MASTER {
+  district_id   varchar [pk, note: 'DST-01, DST-02']
   district_name varchar
-  commander_id varchar
+  commander_id  varchar
 }
 
-Table machine_master {
-  machine_id varchar [pk]
-  machine_type varchar
-  district_id varchar [not null, ref: > district_master.district_id]
-  maker varchar
-  install_year int
-  machine_status varchar
-  daily_capacity int
+Table TM_MACHINE_MASTER {
+  machine_id     varchar [pk, note: 'MACHINE-01 ~ MACHINE-39']
+  machine_type   varchar [note: 'TYPE_A ~ TYPE_D']
+  district_id    varchar [not null, ref: > TM_DISTRICT_MASTER.district_id]
+  maker          varchar
+  daily_capacity int     [null, note: '일일 처리 용량 (구 rated_capacity)']
+  install_year   int
+  machine_status varchar [note: '가동 / 대기 / 정지 / 점검중']
 }
 
-Table machine_status_event {
-  event_id varchar [pk]
-  machine_id varchar [not null, ref: > machine_master.machine_id]
-  status varchar
+Table TH_MACHINE_STATUS_EVENT {
+  event_id   varchar  [pk]
+  machine_id varchar  [not null, ref: > TM_MACHINE_MASTER.machine_id]
+  status     varchar  [note: '가동 / 대기 / 정지 / 점검중']
   start_time datetime
-  end_time datetime
+  end_time   datetime
+
+  indexes {
+    machine_id
+    (machine_id, start_time)
+  }
+
+  note: '상태 전환마다 구간 기록. 가동률 = SUM(end-start WHERE status=가동) / 총 시뮬 기간'
 }
 
-Table process_step_order {
-  step_id varchar [pk]
-  process_step varchar
-  step_order int
-  step_avg_time int
+Table TM_PROCESS_STEP_ORDER {
+  step_id       varchar [pk, note: 'STEP-XXXXXXXX']
+  process_step  varchar [note: 'STEP_A ~ STEP_D']
+  step_order    int
+  step_avg_time int     [note: 'A:90 B:120 C:90 D:90 (분)']
 }
 
-Table machine_step_map {
-  map_id varchar [pk]
-  machine_id varchar [not null, ref: > machine_master.machine_id]
-  step_id varchar [not null, ref: > process_step_order.step_id]
+Table TT_MACHINE_STEP_MAP {
+  map_id     varchar [pk]
+  machine_id varchar [not null, ref: > TM_MACHINE_MASTER.machine_id]
+  step_id    varchar [not null, ref: > TM_PROCESS_STEP_ORDER.step_id]
 }
 
-Table process_queue {
-  queue_id varchar [pk]
-  step_id varchar [not null, ref: > process_step_order.step_id]
-  district_id varchar [not null, ref: > district_master.district_id]
-  unit_id varchar [not null, ref: > unit_master.unit_id]
+// ----- Zone 4: 스케줄링/실행 -----
+
+Table TT_PROCESS_QUEUE {
+  queue_id       varchar  [pk]
+  step_id        varchar  [not null, ref: > TM_PROCESS_STEP_ORDER.step_id]
+  district_id    varchar  [not null, ref: > TM_DISTRICT_MASTER.district_id]
+  unit_id        varchar  [not null, ref: > TM_UNIT_MASTER.unit_id]
+  option_id      varchar  [null, note: '재조정 옵션 식별자']
   queue_position int
-  enqueue_time datetime
+  enqueue_time   datetime
+
+  note: '현재 대기 중인 unit 만 유지. 작업 시작과 동시에 DELETE.'
 }
 
-Table process_queue_history {
-  history_id varchar [pk]
-  risk_id varchar [ref: > delay_risk.risk_id]
-  step_id varchar [not null, ref: > process_step_order.step_id]
-  district_id varchar [not null, ref: > district_master.district_id]
-  unit_id varchar [not null, ref: > unit_master.unit_id]
+Table TH_PROCESS_QUEUE_HISTORY {
+  history_id     varchar  [pk]
+  risk_id        varchar  [null, ref: > TT_DELAY_RISK.risk_id]
+  step_id        varchar  [not null, ref: > TM_PROCESS_STEP_ORDER.step_id]
+  district_id    varchar  [not null, ref: > TM_DISTRICT_MASTER.district_id]
+  unit_id        varchar  [not null, ref: > TM_UNIT_MASTER.unit_id]
   queue_position int
-  snapshot_time datetime
-  enqueue_time datetime
-  wait_min float
+  snapshot_time  datetime
+  enqueue_time   datetime
+  wait_min       float
   dispatch_score float
 }
 
-Table schedule_master {
-  schedule_id varchar [pk]
-  queue_id varchar [ref: > process_queue.queue_id]
-  unit_id varchar [not null, ref: > unit_master.unit_id]
-  machine_id varchar [not null, ref: > machine_master.machine_id]
-  step_id varchar [not null, ref: > process_step_order.step_id]
-  priority int
+Table TM_SCHEDULE_MASTER {
+  schedule_id     varchar  [pk]
+  queue_id        varchar  [null, ref: > TT_PROCESS_QUEUE.queue_id]
+  unit_id         varchar  [not null, ref: > TM_UNIT_MASTER.unit_id]
+  machine_id      varchar  [not null, ref: > TM_MACHINE_MASTER.machine_id]
+  step_id         varchar  [not null, ref: > TM_PROCESS_STEP_ORDER.step_id]
+  priority        int
   estimated_start datetime
-  status varchar
-  active boolean
+  status          varchar
+  active          boolean
 }
 
-Table work_status {
-  status_id varchar [pk]
-  schedule_id varchar [not null, ref: > schedule_master.schedule_id]
-  machine_id varchar [not null, ref: > machine_master.machine_id]
-  shift varchar
-  start_time datetime
-  end_time datetime
-  defect_count float
-  output_qty float
+Table TT_WORK_STATUS {
+  status_id    varchar  [pk]
+  schedule_id  varchar  [not null, ref: > TM_SCHEDULE_MASTER.schedule_id]
+  machine_id   varchar  [not null, ref: > TM_MACHINE_MASTER.machine_id]
+  shift        varchar
+  start_time   datetime
+  end_time     datetime [null]
+  defect_count int
+  output_qty   int
 }
 
-Table district_status {
-  district_id varchar [not null, ref: > district_master.district_id]
-  created_at datetime
-  total_machine_count int
-  available_machine_count int
-  down_machine_count int
-  avg_utilization_rate float
+// ----- Zone 5: 모니터링/리스크 -----
+
+Table TS_DISTRICT_STATUS {
+  district_id              varchar [not null, ref: > TM_DISTRICT_MASTER.district_id]
+  created_at               datetime
+  total_machine_count      int
+  available_machine_count  int
+  down_machine_count       int
+  avg_utilization_rate     float
   total_waiting_unit_count int
-  avg_wait_time_min float
-  active_schedule_count int
-  daily_output_qty int
+  avg_wait_time_min        float
+  active_schedule_count    int
+  daily_output_qty         int
 
   indexes {
     (district_id, created_at) [pk]
   }
+
+  note: '60분 단위 스냅샷'
 }
 
-Table delay_risk {
-  risk_id varchar [pk]
-  unit_id varchar [not null, ref: > unit_master.unit_id]
-  order_id varchar [not null, ref: > daily_order.order_id]
-  district_id varchar [not null, ref: > district_master.district_id]
-  step_id varchar [not null, ref: > process_step_order.step_id]
-  risk_score float
+Table TT_DELAY_RISK {
+  risk_id            varchar  [pk]
+  queue_id           varchar  [null, ref: > TT_PROCESS_QUEUE.queue_id]
+  unit_id            varchar  [not null, ref: > TM_UNIT_MASTER.unit_id]
+  order_id           varchar  [not null, ref: > TT_DAILY_ORDER.order_id]
+  district_id        varchar  [not null, ref: > TM_DISTRICT_MASTER.district_id]
+  step_id            varchar  [not null, ref: > TM_PROCESS_STEP_ORDER.step_id]
+  risk_score         float
   estimated_delay_hr float
-  delay_probability float
-  risk_level varchar
-  risk_factor varchar
-  detection_time datetime
+  delay_probability  float
+  risk_level         varchar
+  risk_factor        varchar
+  detection_time     datetime
+
+  indexes {
+    (unit_id, detection_time)
+    (step_id, detection_time)
+  }
 }
 
-Table reschedule_group {
-  group_id varchar [pk]
-  district_id varchar [not null, ref: > district_master.district_id]
-  step_id varchar [not null, ref: > process_step_order.step_id]
-  member_risk_ids jsonb [not null, note: '이 그룹에 포함된 delay_risk.risk_id 목록']
-  max_risk_score float [note: 'delay_probability 중 최대값']
-  group_status varchar [note: 'pending / approved(선택 확정) / expired']
-  reschedule_detail jsonb [null, note: '에이전트 재조정안. reschedule_options[].selected_yn=true 가 선택된 전략']
-  acted_at datetime [note: '그룹핑 저장 / 선택 확정 시각']
+Table TT_RESCHEDULE_GROUP {
+  group_id           varchar  [pk]
+  district_id        varchar  [not null, ref: > TM_DISTRICT_MASTER.district_id]
+  step_id            varchar  [not null, ref: > TM_PROCESS_STEP_ORDER.step_id]
+  member_risk_ids    jsonb    [not null]
+  max_risk_score     float
+  group_status       varchar
+  reschedule_detail  jsonb
+  acted_at           datetime
 
   indexes {
     (district_id, step_id)
     group_status
   }
-
-  note: '재조정 검토 단위. 같은 step queue 의 위험 예측들을 묶어 운영자가 검토'
 }
 
-Table reschedule_selection {
-  selection_id varchar [pk]
-  group_id varchar [not null, unique, ref: > reschedule_group.group_id]
-  strategy varchar [not null, note: 'due_date_first / bottleneck_minimization / utilization_balance']
-  selected_detail jsonb [not null, note: '선택된 전략 상세 통째 (queue_reorder, after_schedule 등)']
-  status varchar [note: 'applied / reverted']
-  selected_at datetime [not null]
-
-  note: '운영자가 선택·확정한 재조정. 그룹당 1건. 선택 시 process_queue 에 실제 반영됨'
+Table TT_RESCHEDULE_SELECTION {
+  selection_id    varchar  [pk]
+  group_id        varchar  [not null, unique, ref: > TT_RESCHEDULE_GROUP.group_id]
+  strategy        varchar  [not null]
+  selected_detail jsonb    [not null]
+  status          varchar
+  selected_at     datetime [not null]
 }
 
-Table material_master {
-  material_id varchar [pk]
-  material_name varchar
-  material_category varchar
-  step_id varchar [not null, ref: > process_step_order.step_id]
-  measure varchar
+Table TC_RESCHEDULE_CONFIG {
+  config_key   varchar  [pk]
+  config_value varchar
+  updated_at   datetime
+}
+
+// ----- Zone 6: 자재/재고 -----
+
+Table TM_MATERIAL_MASTER {
+  material_id          varchar [pk, note: 'MAT-XXX']
+  material_name        varchar
+  material_category    varchar
+  step_id              varchar [not null, ref: > TM_PROCESS_STEP_ORDER.step_id]
+  measure              varchar
   consumption_per_unit float
-  min_safety_stock float
-  supplier varchar
-  lead_time_days int
+  min_safety_stock     float
+  supplier             varchar
+  lead_time_days       int
 }
 
-Table material_inventory {
-  inventory_id varchar [pk]
-  material_id varchar [not null, ref: > material_master.material_id]
-  district_id varchar [not null, ref: > district_master.district_id]
-  step_id varchar [not null, ref: > process_step_order.step_id]
-  current_stock float
-  reorder_point float
-  target_stock float
+Table TT_MATERIAL_INVENTORY {
+  inventory_id      varchar  [pk]
+  material_id       varchar  [not null, ref: > TM_MATERIAL_MASTER.material_id]
+  district_id       varchar  [not null, ref: > TM_DISTRICT_MASTER.district_id]
+  step_id           varchar  [not null, ref: > TM_PROCESS_STEP_ORDER.step_id]
+  current_stock     float
+  reorder_point     float
+  target_stock      float
   next_arrival_date date
-  next_arrival_qty float
-  stock_status varchar
-  last_updated datetime
+  next_arrival_qty  float
+  stock_status      varchar
+  last_updated      datetime
 
   indexes {
     (material_id, district_id) [unique]
   }
 }
 
-Table material_inventory_log {
-  log_id varchar [pk]
-  inventory_id varchar [not null, ref: > material_inventory.inventory_id]
-  material_id varchar [not null, ref: > material_master.material_id]
-  district_id varchar [not null, ref: > district_master.district_id]
-  step_id varchar [not null, ref: > process_step_order.step_id]
+Table TH_MATERIAL_INVENTORY_LOG {
+  log_id        varchar  [pk]
+  inventory_id  varchar  [not null, ref: > TT_MATERIAL_INVENTORY.inventory_id]
+  material_id   varchar  [not null, ref: > TM_MATERIAL_MASTER.material_id]
+  district_id   varchar  [not null, ref: > TM_DISTRICT_MASTER.district_id]
+  step_id       varchar  [not null, ref: > TM_PROCESS_STEP_ORDER.step_id]
   current_stock float
-  stock_status varchar
+  stock_status  varchar
   snapshot_time datetime
+
+  indexes {
+    (material_id, district_id, snapshot_time)
+  }
 }
