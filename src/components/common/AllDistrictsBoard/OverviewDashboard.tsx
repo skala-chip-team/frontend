@@ -4,6 +4,7 @@ import { ArrowLeft, X } from 'lucide-react';
 
 import { districtOverviews } from '@/mocks';
 import type { DistrictOverview, OverviewMachine, OverviewMachineStatus } from '@/mocks/districtOverview';
+import { useDistrictOverviews, useSimStatus } from '@/hooks';
 
 import { Chip } from '../Chip';
 import { FactoryMonitor3D } from './FactoryMonitor3D';
@@ -85,7 +86,14 @@ export function OverviewDashboard() {
   const [unit, setUnit] = useState<string | null>(null);
   const [reveal, setReveal] = useState<string | null>(null);
 
-  const sel = focusedId ? (districtOverviews.find((d) => d.district_id === focusedId) ?? null) : null;
+  const { data: sim } = useSimStatus();
+  const { data, isLoading, isError } = useDistrictOverviews(sim?.is_running ?? false);
+  const isMockFallback = !data || data.length === 0;
+  const districts = isMockFallback ? districtOverviews : data;
+  const districtLetter = (id: string) =>
+    String.fromCharCode(65 + districts.findIndex((d) => d.district_id === id));
+
+  const sel = focusedId ? (districts.find((d) => d.district_id === focusedId) ?? null) : null;
   const lr = sel?.latest_reschedule ?? null;
   const maxQ = sel ? Math.max(...sel.queue_by_step.map((q) => q.waiting), 1) : 1;
   const st = sel ? stateOf(sel) : null;
@@ -97,6 +105,14 @@ export function OverviewDashboard() {
     ? (lr?.propagation.filter((p) => p.role === 'impact').map((p) => p.machine_id) ?? [])
     : [];
   const revealed = !!machine && reveal === machine.machine_id;
+
+  // 장애 지속시간: 정지 시작 ISO(fault_since) ↔ 시뮬 현재시각 차이
+  const faultIso = machine?.fault_since ?? null;
+  const faultElapsedHr =
+    faultIso && faultIso.includes('T') && sim?.sim_now_iso
+      ? Math.max(0, (Date.parse(sim.sim_now_iso) - Date.parse(faultIso)) / 3_600_000)
+      : null;
+  const fmtTime = (s: string) => (s.includes('T') ? s.split('T')[1].slice(0, 5) : s.slice(0, 5));
 
   const focusZone = (id: string) => {
     setFocusedId(id);
@@ -124,6 +140,7 @@ export function OverviewDashboard() {
   return (
     <div className="relative min-h-[760px]">
       <FactoryMonitor3D
+        districts={districts}
         focusedId={focusedId}
         selectedMachineId={machine?.machine_id ?? null}
         routeUnitId={unit}
@@ -131,6 +148,19 @@ export function OverviewDashboard() {
         onZoneClick={focusZone}
         onMachineClick={selectMachine}
       />
+
+      {/* 연결 상태 배지 */}
+      {isLoading || isMockFallback ? (
+        <div className="pointer-events-none absolute left-3 top-3 z-20 rounded-full border border-white/70 bg-white/85 px-3 py-1 text-[11px] font-semibold shadow-sm backdrop-blur">
+          {isLoading ? (
+            <span className="text-gray-500">구역 데이터 불러오는 중…</span>
+          ) : isError ? (
+            <span className="text-rose-500">API 연결 실패 · 데모 데이터</span>
+          ) : (
+            <span className="text-amber-600">데모 데이터</span>
+          )}
+        </div>
+      ) : null}
 
       <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-between gap-4 p-4">
         {sel && st ? (
@@ -148,7 +178,7 @@ export function OverviewDashboard() {
                 </button>
                 <div className="flex items-center gap-2 pr-2">
                   <span className="text-body-1 font-extrabold text-secondary-navy">
-                    구역 {String.fromCharCode(65 + districtOverviews.findIndex((d) => d.district_id === sel.district_id))}
+                    구역 {districtLetter(sel.district_id)}
                   </span>
                   <span className={`ml-1 flex items-center gap-1 text-label-3 font-bold ${STATE_STYLE[st].text}`}>
                     <span className={`h-2 w-2 rounded-full ${STATE_STYLE[st].dot}`} />
@@ -218,13 +248,12 @@ export function OverviewDashboard() {
                     <div className="mt-3 flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5">
                       <div>
                         <p className="text-[10px] font-semibold text-rose-500">{machine.machine_status} 지속</p>
-                        <p className="text-body-1 font-extrabold text-rose-600">{machine.fault_elapsed_hr}시간째</p>
+                        <p className="text-body-1 font-extrabold text-rose-600">
+                          {faultElapsedHr != null ? `${faultElapsedHr.toFixed(1)}시간째` : '—'}
+                        </p>
                       </div>
                       <div className="text-right text-label-3 text-rose-500">
-                        <p>감지 {machine.fault_since}</p>
-                        <p>
-                          목표 복구 <b className="text-rose-600">{machine.recovery_eta}</b>
-                        </p>
+                        <p>감지 {faultIso ? fmtTime(faultIso) : '정보 없음'}</p>
                       </div>
                     </div>
                   ) : null}
@@ -256,7 +285,7 @@ export function OverviewDashboard() {
                     <div className="rounded-xl bg-surface-100/70 px-3 py-2.5">
                       <dt className="text-[10px] text-gray-400">소속 구역</dt>
                       <dd className="text-body-2 font-bold text-secondary-navy">
-                        구역 {String.fromCharCode(65 + districtOverviews.findIndex((d) => d.district_id === sel.district_id))}
+                        구역 {districtLetter(sel.district_id)}
                       </dd>
                     </div>
                   </dl>

@@ -3,12 +3,19 @@ import type {
   ApiResponse,
   DistrictGantt,
   DistrictMachines,
+  DistrictOverviewDto,
   DistrictStepQueue,
   DistrictSummary,
   WorkStatusItem,
 } from './types';
 
 const DISTRICTS_BASE = '/api/monitoring/districts';
+
+/** 전체 구역 단일 스냅샷 (모든 구역이 같은 시점) */
+export async function getMonitoringOverview(): Promise<DistrictOverviewDto[]> {
+  const { data } = await apiClient.get<ApiResponse<DistrictOverviewDto[]>>('/api/monitoring/overview');
+  return data.data;
+}
 
 /** 구역 상태 요약 (요약 카드용) */
 export async function getDistrictSummary(districtId: string): Promise<DistrictSummary> {
