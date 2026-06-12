@@ -12,7 +12,6 @@ import {
 } from '@react-three/drei';
 import { Group, Mesh, Vector3 } from 'three';
 
-import { districtOverviews } from '@/mocks';
 import type { DistrictOverview, OverviewMachine, OverviewMachineStatus, ProcessStep } from '@/mocks/districtOverview';
 
 const ZONE_TONE = '#ced2d9';
@@ -29,6 +28,7 @@ const G4 = '#8592A0';
 const G5 = '#616E7D';
 const SCREEN_BG = '#0A131C';
 const SCREEN_LINE = '#96E4FF';
+const GHOST = '#c7ccd3'; // inactive(경로 외) 기계 반투명 톤 (밝은 회색)
 
 const STATUS_HEX: Record<OverviewMachineStatus, string> = {
   가동중: '#22c55e',
@@ -49,11 +49,13 @@ const LIFT = 0.16;
 const CELL_X = 0.86;
 const CELL_Z = 1.16;
 const MACHINE_SCALE = 1.15;
-const FLOW_Y = PLAT_TOP + 0.5; // 흐름 높이 — 솟은 기계 몸체 높이에 맞춤(바닥 X)
+// 흐름 높이: 기계 몸체 높이로 통과(불투명이라 기계가 가리면 가려지고, 앞이면 덮음).
+const FLOW_Y = PLAT_TOP + 0.5;
 
-const N = districtOverviews.length;
-const TOTAL_W = N * ZONE_W + (N - 1) * GAP;
-const zoneX = (i: number) => -TOTAL_W / 2 + ZONE_W / 2 + i * (ZONE_W + GAP);
+const zoneXOf = (i: number, n: number) => {
+  const totalW = n * ZONE_W + (n - 1) * GAP;
+  return -totalW / 2 + ZONE_W / 2 + i * (ZONE_W + GAP);
+};
 
 const laneZ = (li: number) => (li - (STEPS.length - 1) / 2) * CELL_Z;
 const machineX = (col: number, len: number) => (col - (len - 1) / 2) * CELL_X + 0.28;
@@ -147,13 +149,21 @@ function MiniMachine({
   const sig = STATUS_HEX[status];
   const on = status === '가동중' || status === '점검중';
 
-  // 경로 외 기기: 세부 형체 대신 단순 반투명 덩어리(고스트)로 — 진짜 투명하게
+  // 경로 외 기기: 겹침으로 색이 뭉치지 않게 주요 실루엣(받침·본체·캐비닛)만 반투명으로
   if (inactive) {
     return (
-      <mesh position={[0, 0.3, 0]}>
-        <boxGeometry args={[0.46, 0.56, 0.44]} />
-        <meshStandardMaterial color="#aab2c0" transparent opacity={0.1} depthWrite={false} roughness={0.9} metalness={0} />
-      </mesh>
+      <group>
+        <mesh position={[0, 0.025, 0]}>
+          <boxGeometry args={[0.5, 0.05, 0.46]} />
+          <meshStandardMaterial color={GHOST} transparent opacity={0.28} depthWrite={false} roughness={0.9} metalness={0} />
+        </mesh>
+        <RoundedBox args={[0.42, 0.26, 0.4]} radius={0.04} smoothness={3} position={[0, 0.18, 0]}>
+          <meshStandardMaterial color={GHOST} transparent opacity={0.28} depthWrite={false} roughness={0.9} metalness={0} />
+        </RoundedBox>
+        <RoundedBox args={[0.16, 0.42, 0.32]} radius={0.04} smoothness={3} position={[-0.15, 0.26, 0]}>
+          <meshStandardMaterial color={GHOST} transparent opacity={0.28} depthWrite={false} roughness={0.9} metalness={0} />
+        </RoundedBox>
+      </group>
     );
   }
 
@@ -244,8 +254,8 @@ function FlowTrack({ nodes, color = ROUTE }: { nodes: [number, number, number][]
       {/* 바닥 트랙 베이스 */}
       {arc.segs.map((seg, i) => (
         <mesh key={i} position={seg.mid} rotation={[0, seg.angle, 0]}>
-          <boxGeometry args={[seg.len + 0.2, 0.012, 0.22]} />
-          <meshStandardMaterial color={color} transparent opacity={0.2} roughness={0.6} metalness={0.1} />
+          <boxGeometry args={[seg.len + 0.2, 0.05, 0.12]} />
+          <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.25} roughness={0.5} metalness={0.2} />
         </mesh>
       ))}
       {/* 흐르는 빛 */}
@@ -257,7 +267,7 @@ function FlowTrack({ nodes, color = ROUTE }: { nodes: [number, number, number][]
           }}
         >
           <boxGeometry args={[0.62, 0.02, 0.24]} />
-          <meshStandardMaterial color={color} emissive={color} emissiveIntensity={1.4} transparent opacity={0.92} roughness={0.3} />
+          <meshStandardMaterial color={color} emissive={color} emissiveIntensity={1.4} roughness={0.3} />
         </mesh>
       ))}
     </>
@@ -363,24 +373,41 @@ function Zone({
           <meshStandardMaterial color={focused ? '#dfe2e7' : '#b9bdc4'} roughness={0.7} metalness={0.05} />
         </RoundedBox>
 
-        <RoundedBox args={[ZONE_W, PLAT_TOP - BASE_TOP, ZONE_D]} radius={0.05} smoothness={3} position={[0, (PLAT_TOP + BASE_TOP) / 2, 0]}>
-          <meshStandardMaterial
-            color={tone}
-            roughness={0.5}
-            metalness={0.1}
-            envMapIntensity={focused ? 1.1 : 0.7}
-            emissive={focused ? '#ffffff' : '#000000'}
-            emissiveIntensity={focused ? 0.3 : 0}
-          />
-        </RoundedBox>
+        {/* 스텝별 독립 베이(패드) */}
+        {STEPS.map((s, li) => (
+          <group key={`pad-${s}`} position={[0, 0, laneZ(li)]}>
+            <RoundedBox
+              args={[ZONE_W - 0.3, PLAT_TOP - BASE_TOP, CELL_Z - 0.34]}
+              radius={0.05}
+              smoothness={3}
+              position={[0, (PLAT_TOP + BASE_TOP) / 2, 0]}
+            >
+              <meshStandardMaterial
+                color={tone}
+                roughness={0.5}
+                metalness={0.1}
+                envMapIntensity={focused ? 1.1 : 0.7}
+                emissive={focused ? '#ffffff' : '#000000'}
+                emissiveIntensity={focused ? 0.26 : 0}
+              />
+            </RoundedBox>
+            <RoundedBox args={[0.5, 0.06, 0.6]} radius={0.03} smoothness={3} position={[-ZONE_W / 2 + 0.42, PLAT_TOP + 0.03, 0]}>
+              <meshStandardMaterial color="#5f646d" roughness={0.6} metalness={0.15} />
+            </RoundedBox>
+          </group>
+        ))}
+        {/* 스텝 사이 컨베이어 (A→B→C→D) */}
+        {[0, 1, 2].map((b) => (
+          <StepConveyor key={`scv-${b}`} z={laneZ(b) + CELL_Z / 2} />
+        ))}
 
         {lanes.map((lane, li) => (
           <group key={lane.step} position={[0, PLAT_TOP, laneZ(li)]}>
             <Text
-              position={[-ZONE_W / 2 + 0.28, 0.01, 0]}
+              position={[-ZONE_W / 2 + 0.42, 0.064, 0]}
               rotation={[-Math.PI / 2, 0, 0]}
               fontSize={0.34}
-              color="#7c828d"
+              color="#ffffff"
               anchorX="center"
               anchorY="middle"
             >
@@ -415,7 +442,8 @@ function Zone({
                 bodyEmissive = ROUTE;
                 bodyEmissiveI = 0.3;
               }
-              const targetY = sel ? 0.62 : isCause || isImpact || onRoute ? 0.34 : 0;
+              // 흐름 볼 때는 선택 기계도 경로 높이(0.34)로 — 흐름이 몸통을 관통하지 않게
+              const targetY = sel && !routeUnitId ? 0.62 : isCause || isImpact || onRoute || sel ? 0.34 : 0;
               // UNIT 흐름 볼 때 경로 외 기기는 흐리게(inactive)
               const inactive = !!routeUnitId && !onRoute && !sel;
 
@@ -496,6 +524,29 @@ function Conveyor({ x }: { x: number }) {
   );
 }
 
+/** 구역 안 스텝 사이 컨베이어 (A→B→C→D, +Z 방향) */
+function StepConveyor({ z }: { z: number }) {
+  const beltY = PLAT_TOP - 0.05;
+  return (
+    <group position={[0, 0, z]}>
+      <RoundedBox args={[1.15, 0.1, 0.55]} radius={0.03} smoothness={3} position={[0, beltY, 0]}>
+        <meshStandardMaterial color="#828892" roughness={0.45} metalness={0.35} />
+      </RoundedBox>
+      {[-1, 1].map((s) => (
+        <RoundedBox key={s} args={[0.08, 0.12, 0.55]} radius={0.02} smoothness={2} position={[s * 0.57, beltY + 0.02, 0]}>
+          <meshStandardMaterial color="#5f646d" roughness={0.4} metalness={0.4} />
+        </RoundedBox>
+      ))}
+      {[-0.13, 0.13].map((dz) => (
+        <mesh key={dz} rotation={[Math.PI / 2, 0, 0]} position={[0, beltY + 0.07, dz]}>
+          <coneGeometry args={[0.13, 0.22, 3]} />
+          <meshStandardMaterial color="#d7dadf" roughness={0.6} metalness={0.1} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 function Rig({ focusX }: { focusX: number | null }) {
   const controls = useRef<ComponentRef<typeof CameraControls>>(null);
   useEffect(() => {
@@ -511,6 +562,7 @@ function Rig({ focusX }: { focusX: number | null }) {
 
 /** 공정 파이프라인 — 줌인 드릴다운 + 문제 위치/공정 순서 시각화 */
 export function FactoryMonitor3D({
+  districts,
   focusedId,
   selectedMachineId,
   routeUnitId,
@@ -518,6 +570,7 @@ export function FactoryMonitor3D({
   onZoneClick,
   onMachineClick,
 }: {
+  districts: DistrictOverview[];
   focusedId: string | null;
   selectedMachineId: string | null;
   routeUnitId: string | null;
@@ -525,7 +578,10 @@ export function FactoryMonitor3D({
   onZoneClick: (id: string) => void;
   onMachineClick: (m: OverviewMachine) => void;
 }) {
-  const focusIdx = focusedId ? districtOverviews.findIndex((d) => d.district_id === focusedId) : -1;
+  const n = districts.length;
+  const totalW = n * ZONE_W + (n - 1) * GAP;
+  const zoneX = (i: number) => zoneXOf(i, n);
+  const focusIdx = focusedId ? districts.findIndex((d) => d.district_id === focusedId) : -1;
   const focusX = focusIdx >= 0 ? zoneX(focusIdx) : null;
 
   return (
@@ -539,7 +595,7 @@ export function FactoryMonitor3D({
           <Lightformer intensity={0.5} position={[9, 3, -4]} scale={[8, 8, 1]} color="#ffffff" />
         </Environment>
 
-        {districtOverviews.map((d, i) => (
+        {districts.map((d, i) => (
           <Zone
             key={d.district_id}
             d={d}
@@ -555,11 +611,11 @@ export function FactoryMonitor3D({
           />
         ))}
 
-        {districtOverviews.slice(0, -1).map((d, i) => (
+        {districts.slice(0, -1).map((d, i) => (
           <Conveyor key={`cv-${d.district_id}`} x={zoneX(i) + ZONE_W / 2 + GAP / 2} />
         ))}
 
-        <ContactShadows position={[0, 0, 0]} scale={TOTAL_W + 6} blur={2.4} opacity={0.3} far={9} color="#1f2937" />
+        <ContactShadows position={[0, 0, 0]} scale={totalW + 6} blur={2.4} opacity={0.3} far={9} color="#1f2937" />
         <Rig focusX={focusX} />
       </Canvas>
 

@@ -6,11 +6,12 @@ export {
   getDistrictStepQueues,
   getDistrictSummary,
   getDistrictWorkStatus,
+  getMonitoringOverview,
 } from './monitoring';
 export { getSimStatus } from './sim';
 export { login, signup } from './auth';
 export { getUsers, changeUserRole, assignUserDistricts, deleteUser } from './users';
-export { getRescheduleGroups, getPendingRescheduleGroups } from './reschedule';
+export { getRescheduleGroups, getPendingRescheduleGroups, getRescheduleGroupDetail } from './reschedule';
 export type {
   ActiveSchedule,
   AfterSchedule,

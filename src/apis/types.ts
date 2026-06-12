@@ -272,3 +272,62 @@ export interface DistrictStepQueue {
   districtName: string | null;
   steps: StepQueue[];
 }
+
+/** GET /api/monitoring/overview — 전체 구역 단일 스냅샷 */
+export interface OverviewSummary {
+  totalMachineCount: number; // 항상 machines.length 와 일치
+  availableMachineCount: number;
+  downMachineCount: number;
+  avgUtilizationRate: number; // %
+  totalWaitingUnitCount: number;
+  avgWaitTimeMin: number;
+  dailyOutputQty: number;
+}
+
+export interface OverviewMachineDto {
+  machineId: string;
+  machineStatus: string; // 가동 / 점검중 / 정지
+  processStep: string; // STEP_A ...
+  stepOrder: number;
+  utilizationRate: number; // %
+  activeUnitId: string | null;
+  faultSince: string | null; // 정지 시작 ISO시각
+  recoveryEta: string | null; // 항상 null
+}
+
+export interface OverviewStepQueueDto {
+  processStep: string;
+  stepOrder: number;
+  waitingUnitCount: number;
+}
+
+export interface OverviewDelayRiskDto {
+  riskId: string;
+  riskLevel: ApiRiskLevel;
+  detectionTime: string;
+  estimatedDelayHr: number;
+  delayProbability: number;
+  riskFactor: string;
+  unitId: string;
+  machineId: string | null;
+}
+
+export interface OverviewLatestReschedule {
+  groupId: string;
+  processStep: string;
+  maxRiskScore: number;
+  occurredAt: string;
+  rootCauseCategory: string;
+  affectedUnits: string[];
+  delayRisks: OverviewDelayRiskDto[];
+}
+
+export interface DistrictOverviewDto {
+  districtId: string;
+  districtName: string | null;
+  summary: OverviewSummary;
+  machines: OverviewMachineDto[];
+  stepQueues: OverviewStepQueueDto[];
+  rescheduleGroupCount: number;
+  latestReschedule: OverviewLatestReschedule | null;
+}
