@@ -8,7 +8,6 @@ import {
   Html,
   Lightformer,
   RoundedBox,
-  Text,
 } from '@react-three/drei';
 import { Group, Mesh, Vector3 } from 'three';
 
@@ -40,13 +39,13 @@ const STEP_INFO: Record<ProcessStep, string> = {
 };
 
 const ZONE_W = 6.0;
-const ZONE_D = 4.8;
+const ZONE_D = 8.4; // Step 간 거리 확대
 const GAP = 1.3;
 const BASE_TOP = 0.16;
 const PLAT_TOP = 0.34;
 const LIFT = 0.16;
 const CELL_X = 0.86;
-const CELL_Z = 1.16;
+const CELL_Z = 1.95; // Step(레인) 간격 확대
 const MACHINE_SCALE = 1.15;
 // 흐름 높이: 기계 몸체 높이로 통과(불투명이라 기계가 가리면 가려지고, 앞이면 덮음).
 const FLOW_Y = PLAT_TOP + 0.5;
@@ -143,35 +142,29 @@ function toDatum(m: OverviewMachine): MachineDatum {
   };
 }
 
-/** 공정 장비 1대 — 구역 상세 대시보드의 Machine 을 그대로 사용 + 상태 비콘/강조 ring */
+/** 공정 장비 1대 — 구역 상세 대시보드의 Machine 그대로. 정지/장애는 연한 빨강 필터 */
 function MiniMachine({
   machine,
-  highlightColor,
+  down,
   active,
 }: {
   machine: OverviewMachine;
-  highlightColor: string | null;
+  down: boolean;
   active: boolean;
 }) {
-  const sig = STATUS_HEX[machine.machine_status];
   return (
     <group>
-      {highlightColor ? (
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
-          <torusGeometry args={[0.52, 0.05, 12, 40]} />
-          <meshStandardMaterial color={highlightColor} emissive={highlightColor} emissiveIntensity={2.2} toneMapped={false} />
-        </mesh>
-      ) : null}
-
       <group scale={0.16}>
         <Machine data={toDatum(machine)} position={[0, 0, 0]} active={active} />
       </group>
 
-      {/* 상태 비콘 */}
-      <mesh position={[0, 0.92, 0]}>
-        <sphereGeometry args={[0.06, 16, 16]} />
-        <meshStandardMaterial color={sig} emissive={sig} emissiveIntensity={1.6} toneMapped={false} />
-      </mesh>
+      {/* 정지/장애 — 장비에 연한 빨강 필터 */}
+      {down ? (
+        <mesh position={[0, 0.36, 0]}>
+          <boxGeometry args={[0.74, 0.78, 0.66]} />
+          <meshStandardMaterial color="#ef4444" transparent opacity={0.26} depthWrite={false} roughness={0.6} />
+        </mesh>
+      ) : null}
     </group>
   );
 }
@@ -375,16 +368,6 @@ function Zone({
 
         {lanes.map((lane, li) => (
           <group key={lane.step} position={[0, PLAT_TOP, laneZ(li)]}>
-            <Text
-              position={[-ZONE_W / 2 + 0.42, 0.064, 0]}
-              rotation={[-Math.PI / 2, 0, 0]}
-              fontSize={0.34}
-              color="#ffffff"
-              anchorX="center"
-              anchorY="middle"
-            >
-              {lane.step}
-            </Text>
             {/* 구역 줌인 시 Step 카드 */}
             {focused ? (
               <Html position={[-ZONE_W / 2 - 0.55, 0.5, 0]} center distanceFactor={10} zIndexRange={[14, 0]}>
@@ -407,19 +390,13 @@ function Zone({
               const isImpact = impactIds.has(m.machine_id);
               const onRoute = routeIds?.has(m.machine_id) ?? false;
 
-              let highlightColor: string | null = null;
+              // 유닛 공정 흐름 볼 때: 경로 외 장비는 숨겨 경로 장비만 남긴다
+              if (routeUnitId && !onRoute && !sel) return null;
+
+              const down = m.machine_status === '정지' || m.machine_status === '장애';
               let tag: { text: string; cls: string } | null = null;
-              if (isCause) {
-                highlightColor = CAUSE;
-                tag = { text: '위험 장비', cls: 'bg-rose-500' };
-              } else if (isImpact) {
-                highlightColor = IMPACT;
-                tag = { text: '영향 예상', cls: 'bg-amber-500' };
-              } else if (sel) {
-                highlightColor = '#0ea5e9';
-              } else if (onRoute) {
-                highlightColor = ROUTE;
-              }
+              if (isCause) tag = { text: '위험 장비', cls: 'bg-rose-500' };
+              else if (isImpact) tag = { text: '영향 예상', cls: 'bg-amber-500' };
               const active = sel || onRoute || isCause || isImpact;
               // 흐름 볼 때는 선택 기계도 경로 높이(0.34)로 — 흐름이 몸통을 관통하지 않게
               const targetY = sel && !routeUnitId ? 0.62 : isCause || isImpact || onRoute || sel ? 0.34 : 0;
@@ -432,8 +409,7 @@ function Zone({
                   focused={focused}
                   onClick={() => (focused ? onMachineClick(m) : onZoneClick())}
                 >
-                  <MiniMachine machine={m} highlightColor={highlightColor} active={active}
-                  />
+                  <MiniMachine machine={m} down={down} active={active} />
                   {tag ? (
                     <Html position={[0, 1, 0]} center distanceFactor={9}>
                       <div className={`pointer-events-none flex items-center gap-1 whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-bold text-white shadow ${tag.cls}`}>
@@ -545,25 +521,40 @@ function Corridor({ x }: { x: number }) {
   );
 }
 
-/** 구역 안 스텝 사이 컨베이어 (A→B→C→D, +Z 방향) */
+/** 스텝 사이 정적 컨베이어 벨트 (A→B→C→D, +Z 방향, 폭은 구역 가로 전체) */
 function StepConveyor({ z }: { z: number }) {
-  const beltY = PLAT_TOP - 0.05;
+  const beltY = PLAT_TOP - 0.04;
+  const beltW = ZONE_W - 1.2; // X 폭(구역 거의 전체)
+  const beltD = 1.0; // Z 깊이(스텝 사이 간격)
+  const rollerN = 6;
   return (
     <group position={[0, 0, z]}>
-      <RoundedBox args={[1.15, 0.1, 0.55]} radius={0.03} smoothness={3} position={[0, beltY, 0]}>
-        <meshStandardMaterial color="#828892" roughness={0.45} metalness={0.35} />
+      {/* 벨트 상판 */}
+      <RoundedBox args={[beltW, 0.08, beltD]} radius={0.03} smoothness={3} position={[0, beltY, 0]}>
+        <meshStandardMaterial color="#6b7280" roughness={0.6} metalness={0.25} />
       </RoundedBox>
+      {/* 좌우 사이드 레일 */}
       {[-1, 1].map((s) => (
-        <RoundedBox key={s} args={[0.08, 0.12, 0.55]} radius={0.02} smoothness={2} position={[s * 0.57, beltY + 0.02, 0]}>
-          <meshStandardMaterial color="#5f646d" roughness={0.4} metalness={0.4} />
+        <RoundedBox
+          key={s}
+          args={[beltW, 0.14, 0.08]}
+          radius={0.02}
+          smoothness={2}
+          position={[0, beltY + 0.04, s * (beltD / 2)]}
+        >
+          <meshStandardMaterial color="#4b5563" roughness={0.4} metalness={0.45} />
         </RoundedBox>
       ))}
-      {[-0.13, 0.13].map((dz) => (
-        <mesh key={dz} rotation={[Math.PI / 2, 0, 0]} position={[0, beltY + 0.07, dz]}>
-          <coneGeometry args={[0.13, 0.22, 3]} />
-          <meshStandardMaterial color="#d7dadf" roughness={0.6} metalness={0.1} />
-        </mesh>
-      ))}
+      {/* 롤러(정적) — X축을 따라 배열 */}
+      {Array.from({ length: rollerN }).map((_, i) => {
+        const x = (i - (rollerN - 1) / 2) * (beltW / rollerN);
+        return (
+          <mesh key={i} rotation={[Math.PI / 2, 0, 0]} position={[x, beltY + 0.07, 0]}>
+            <cylinderGeometry args={[0.05, 0.05, beltD - 0.16, 14]} />
+            <meshStandardMaterial color="#9aa6b4" roughness={0.4} metalness={0.5} />
+          </mesh>
+        );
+      })}
     </group>
   );
 }
@@ -573,11 +564,11 @@ function Rig({ focusX }: { focusX: number | null }) {
   useEffect(() => {
     const c = controls.current;
     if (!c) return;
-    if (focusX === null) c.setLookAt(0, 8, 17, 0, 0.4, 0, true);
-    else c.setLookAt(focusX + 0.4, 4.4, 8.5, focusX, 0.7, 0, true);
+    if (focusX === null) c.setLookAt(0, 11, 22, 0, 0.4, 0, true);
+    else c.setLookAt(focusX + 0.5, 7, 14, focusX, 0.9, 0, true);
   }, [focusX]);
   return (
-    <CameraControls ref={controls} makeDefault minDistance={4} maxDistance={28} minPolarAngle={0.35} maxPolarAngle={1.35} />
+    <CameraControls ref={controls} makeDefault minDistance={4} maxDistance={34} minPolarAngle={0.35} maxPolarAngle={1.35} />
   );
 }
 
