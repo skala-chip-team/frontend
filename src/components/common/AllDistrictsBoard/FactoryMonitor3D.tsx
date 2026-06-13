@@ -10,26 +10,17 @@ import {
   RoundedBox,
 } from '@react-three/drei';
 import { Color, Group, Mesh, MeshStandardMaterial, Vector3 } from 'three';
+import { Ban } from 'lucide-react';
 
-import type { DistrictOverview, OverviewMachine, OverviewMachineStatus, ProcessStep } from '@/mocks/districtOverview';
+import type { DistrictOverview, OverviewMachine, ProcessStep } from '@/mocks/districtOverview';
 import Machine, { type MachineDatum } from '@/components/three/MachineFleet/Machine';
 
 const ZONE_TONE = '#ced2d9';
 const ZONE_TONE_DIM = '#bcc0c7';
 const ZONE_TONE_SELECTED = '#f7f8fa';
-const CAUSE = '#ef4444'; // 원인(빨강)
 const IMPACT = '#f59e0b'; // 영향 예상(주황)
-const ROUTE = '#2563eb'; // 공정 순서(파랑)
+const ROUTE = '#EA002C'; // 공정 순서(primary)
 
-
-const STATUS_HEX: Record<OverviewMachineStatus, string> = {
-  가동중: '#22c55e',
-  점검중: '#f59e0b',
-  정지: '#94a3b8',
-  장애: '#ef4444',
-};
-
-const STATUS_LEGEND: OverviewMachineStatus[] = ['가동중', '점검중', '정지', '장애'];
 const STEPS: ProcessStep[] = ['A', 'B', 'C', 'D'];
 const STEP_INFO: Record<ProcessStep, string> = {
   A: 'Input / Loading',
@@ -39,13 +30,14 @@ const STEP_INFO: Record<ProcessStep, string> = {
 };
 
 const ZONE_W = 6.0;
-const ZONE_D = 8.4; // Step 간 거리 확대
+const ZONE_D = 8.4;
 const GAP = 1.3;
 const BASE_TOP = 0.16;
 const PLAT_TOP = 0.34;
 const LIFT = 0.16;
 const CELL_X = 0.86;
-const CELL_Z = 1.95; // Step(레인) 간격 확대
+const CELL_Z = 2.0; // Step(레인) 간격
+const PAD_D = 1.5; // Step 패드 깊이(고정)
 const MACHINE_SCALE = 1.15;
 // 흐름 높이: 기계 몸체 높이로 통과(불투명이라 기계가 가리면 가려지고, 앞이면 덮음).
 const FLOW_Y = PLAT_TOP + 0.5;
@@ -188,8 +180,17 @@ function MiniMachine({
   }, [down, dim]);
 
   return (
-    <group ref={ref} scale={0.16}>
-      <Machine data={toDatum(machine)} position={[0, 0, 0]} active={active} />
+    <group>
+      <group ref={ref} scale={0.16}>
+        <Machine data={toDatum(machine)} position={[0, 0, 0]} active={active} />
+      </group>
+
+      {/* 정지/장애 — 장비 가운데 금지 아이콘(배경 없이) */}
+      {down && !dim ? (
+        <Html position={[0, 0.42, 0]} center distanceFactor={6} zIndexRange={[6, 0]}>
+          <Ban className="pointer-events-none h-7 w-7 text-rose-500 drop-shadow" strokeWidth={2.5} />
+        </Html>
+      ) : null}
     </group>
   );
 }
@@ -302,8 +303,8 @@ function FocusOverlays({
       {nodes.length >= 2 ? (
         <group>
           <FlowTrack nodes={nodes} />
-          <Html position={[nodes[0][0], PLAT_TOP + 0.9, nodes[0][2]]} center distanceFactor={11}>
-            <div className="pointer-events-none whitespace-nowrap rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-bold text-white shadow">
+          <Html position={[nodes[0][0], PLAT_TOP + 0.9, nodes[0][2]]} center distanceFactor={11} zIndexRange={[6, 0]}>
+            <div className="pointer-events-none whitespace-nowrap rounded-full bg-primary-500 px-2 py-0.5 text-[10px] font-bold text-white shadow">
               {routeUnitId} 공정 흐름
             </div>
           </Html>
@@ -368,7 +369,7 @@ function Zone({
         {STEPS.map((s, li) => (
           <group key={`pad-${s}`} position={[0, 0, laneZ(li)]}>
             <RoundedBox
-              args={[ZONE_W - 0.3, PLAT_TOP - BASE_TOP, CELL_Z - 0.34]}
+              args={[ZONE_W - 0.3, PLAT_TOP - BASE_TOP, PAD_D]}
               radius={0.05}
               smoothness={3}
               position={[0, (PLAT_TOP + BASE_TOP) / 2, 0]}
@@ -386,24 +387,29 @@ function Zone({
             </RoundedBox>
           </group>
         ))}
-        {/* 스텝을 잇는 연속 롤러 컨베이어 (A→B→C→D) */}
-        <ZoneConveyor dim={routeDim} />
+        {/* 스텝을 세로(Z)로 잇는 연속 롤러 컨베이어 (A→B→C→D) */}
+        <StepConveyor dim={routeDim} />
 
         {lanes.map((lane, li) => (
           <group key={lane.step} position={[0, PLAT_TOP, laneZ(li)]}>
-            {/* 구역 줌인 시 Step 카드 */}
+            {/* 구역 줌인 시 Step 카드 (앱 버튼 스타일, 크게) */}
             {focused ? (
-              <Html position={[-ZONE_W / 2 - 0.55, 0.5, 0]} center distanceFactor={10} zIndexRange={[14, 0]}>
+              <Html position={[-ZONE_W / 2 - 1.1, 0.6, 0]} center distanceFactor={4.6} zIndexRange={[6, 0]}>
                 <div
                   style={{ pointerEvents: 'none' }}
-                  className="whitespace-nowrap rounded-lg border border-white/70 bg-white/90 px-2 py-1 text-center shadow-md backdrop-blur"
+                  className="flex items-center gap-2.5 whitespace-nowrap rounded-2xl border border-gray-200 bg-white px-4 py-2.5 shadow-[0_8px_20px_rgba(15,23,42,0.14)]"
                 >
-                  <div className="text-[11px] font-extrabold leading-none text-secondary-navy">
-                    Step {lane.step}
-                  </div>
-                  <div className="mt-0.5 text-[9px] font-medium text-gray-400">
-                    {STEP_INFO[lane.step]}
-                  </div>
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary-navy text-[18px] font-extrabold text-white">
+                    {lane.step}
+                  </span>
+                  <span className="flex flex-col text-left">
+                    <span className="text-[17px] font-extrabold leading-none text-secondary-navy">
+                      Step {lane.step}
+                    </span>
+                    <span className="mt-1 text-[13px] font-medium text-gray-400">
+                      {STEP_INFO[lane.step]}
+                    </span>
+                  </span>
                 </div>
               </Html>
             ) : null}
@@ -433,14 +439,17 @@ function Zone({
                 >
                   <MiniMachine machine={m} down={down} dim={dim} active={active} />
                   {tag ? (
-                    <Html position={[0, 1, 0]} center distanceFactor={9}>
-                      <div className={`pointer-events-none flex items-center gap-1 whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-bold text-white shadow ${tag.cls}`}>
+                    <Html position={[0, 1.05, 0]} center distanceFactor={8} zIndexRange={[6, 0]}>
+                      <div
+                        className={`pointer-events-none flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-white/80 bg-white px-2.5 py-1 text-[11px] font-bold shadow-[0_4px_12px_rgba(15,23,42,0.14)] ${tag.cls === 'bg-rose-500' ? 'text-rose-600' : 'text-amber-600'}`}
+                      >
+                        <span className={`h-2 w-2 rounded-full ${tag.cls}`} />
                         {tag.text} · {m.machine_id}
                       </div>
                     </Html>
                   ) : sel ? (
-                    <Html position={[0, 1, 0]} center distanceFactor={9}>
-                      <div className="pointer-events-none whitespace-nowrap rounded bg-secondary-navy px-1.5 py-0.5 text-[10px] font-bold text-white shadow">
+                    <Html position={[0, 1.05, 0]} center distanceFactor={8} zIndexRange={[6, 0]}>
+                      <div className="pointer-events-none whitespace-nowrap rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-[11px] font-bold text-secondary-navy shadow-[0_4px_12px_rgba(15,23,42,0.14)]">
                         {m.machine_id}
                       </div>
                     </Html>
@@ -457,20 +466,20 @@ function Zone({
       {/* 구역 벽 (공장 룸) */}
       <ZoneWalls />
 
-      <Html position={[0, focused ? 2.7 : 2.15, 0]} center distanceFactor={13}>
-        <div
-          className={`pointer-events-none whitespace-nowrap rounded-md border px-2 py-1 text-center backdrop-blur-sm transition ${
+      <Html position={[0, focused ? 3.0 : 2.4, 0]} center distanceFactor={focused ? 9 : 10} zIndexRange={[6, 0]}>
+        <button
+          type="button"
+          onClick={onZoneClick}
+          className={`pointer-events-auto whitespace-nowrap rounded-full border-2 px-5 py-2.5 text-[17px] font-extrabold shadow-[0_8px_20px_rgba(15,23,42,0.14)] transition ${
             focused
-              ? 'border-secondary-navy bg-secondary-navy text-white shadow-[0_10px_26px_rgba(8,16,40,0.35)]'
+              ? 'border-secondary-navy bg-secondary-navy text-white'
               : dimmed
-                ? 'border-white/40 bg-white/55 opacity-70'
-                : 'border-white/50 bg-white/70'
+                ? 'border-gray-200 bg-white/80 text-gray-400'
+                : 'border-gray-200 bg-white text-secondary-navy hover:border-secondary-navy hover:text-secondary-navy'
           }`}
         >
-          <div className={`text-[12px] font-extrabold leading-none ${focused ? 'text-white' : 'text-secondary-navy'}`}>
-            {areaLabel}
-          </div>
-        </div>
+          {areaLabel}
+        </button>
       </Html>
     </group>
   );
@@ -543,18 +552,18 @@ function Corridor({ x }: { x: number }) {
   );
 }
 
-/** 스텝을 잇는 연속 롤러 컨베이어 — 구역 좌측에서 A→B→C→D(+Z)로 관통.
- *  프레임 + 가로 롤러 + 다리 (스크린샷 롤러 컨베이어 참고, 박스 없음, 정적) */
-function ZoneConveyor({ dim }: { dim: boolean }) {
-  const cx = -ZONE_W / 2 + 0.62;
-  const len = ZONE_D - 0.3; // Z 길이(구역 거의 전체)
-  const w = 0.66; // X 폭
+/** 스텝을 세로(Z)로 잇는 연속 롤러 컨베이어 — 구역 좌측 아일에서 A→B→C→D 관통.
+ *  프레임 + 가로 롤러(축 X) + 다리 (스크린샷 롤러 컨베이어 참고, 박스 없음, 정적) */
+function StepConveyor({ dim }: { dim: boolean }) {
+  const cx = -ZONE_W / 2 + 0.62; // 좌측 아일
+  const len = ZONE_D - 0.6; // Z 길이(구역 거의 전체)
+  const w = 0.7; // X 폭
   const topY = PLAT_TOP - 0.02;
-  const rollerN = Math.round(len / 0.34);
-  const o = (v: number) => (dim ? v * 0.4 : v); // route dim
+  const rollerN = Math.max(8, Math.round(len / 0.32));
+  const o = (v: number) => (dim ? v * 0.4 : v);
   return (
     <group position={[cx, 0, 0]}>
-      {/* 벨트 프레임 상판 */}
+      {/* 프레임 상판 */}
       <RoundedBox args={[w, 0.05, len]} radius={0.02} smoothness={2} position={[0, topY, 0]}>
         <meshStandardMaterial color="#c4ccd6" roughness={0.4} metalness={0.5} transparent={dim} opacity={o(1)} />
       </RoundedBox>
@@ -570,42 +579,48 @@ function ZoneConveyor({ dim }: { dim: boolean }) {
           <meshStandardMaterial color="#8b95a1" roughness={0.35} metalness={0.55} transparent={dim} opacity={o(1)} />
         </RoundedBox>
       ))}
-      {/* 가로 롤러 (축은 X) — Z를 따라 촘촘히 */}
+      {/* 가로 롤러 (축 X) — Z를 따라 촘촘히 */}
       {Array.from({ length: rollerN }).map((_, i) => {
-        const z = (i - (rollerN - 1) / 2) * (len / rollerN);
+        const rz = (i - (rollerN - 1) / 2) * (len / rollerN);
         return (
-          <mesh key={i} rotation={[0, 0, Math.PI / 2]} position={[0, topY + 0.05, z]}>
+          <mesh key={i} rotation={[0, 0, Math.PI / 2]} position={[0, topY + 0.05, rz]}>
             <cylinderGeometry args={[0.045, 0.045, w + 0.04, 12]} />
             <meshStandardMaterial color="#aab4c0" roughness={0.3} metalness={0.65} transparent={dim} opacity={o(1)} />
           </mesh>
         );
       })}
-      {/* 다리 (지지대) */}
-      {[-1, 1].map((s) =>
-        [0, 1, 2, 3].map((j) => {
-          const z = (j - 1.5) * (len / 4);
-          return (
-            <mesh key={`${s}-${j}`} position={[s * (w / 2 - 0.04), topY / 2, z]}>
-              <cylinderGeometry args={[0.035, 0.035, topY, 10]} />
-              <meshStandardMaterial color="#6b7280" roughness={0.45} metalness={0.5} transparent={dim} opacity={o(1)} />
-            </mesh>
-          );
-        })
+      {/* 다리 (양옆, 일정 간격) */}
+      {[-1, 1].map((sx) =>
+        [-1.5, -0.5, 0.5, 1.5].map((j) => (
+          <mesh key={`${sx}-${j}`} position={[sx * (w / 2 - 0.04), topY / 2, j * (len / 4)]}>
+            <cylinderGeometry args={[0.035, 0.035, topY, 10]} />
+            <meshStandardMaterial color="#6b7280" roughness={0.45} metalness={0.5} transparent={dim} opacity={o(1)} />
+          </mesh>
+        ))
       )}
     </group>
   );
 }
 
-function Rig({ focusX }: { focusX: number | null }) {
+function Rig({ focusX, machineFocus }: { focusX: number | null; machineFocus: [number, number] | null }) {
   const controls = useRef<ComponentRef<typeof CameraControls>>(null);
+  const mx = machineFocus ? machineFocus[0] : null;
+  const mz = machineFocus ? machineFocus[1] : null;
   useEffect(() => {
     const c = controls.current;
     if (!c) return;
-    if (focusX === null) c.setLookAt(0, 11, 22, 0, 0.4, 0, true);
-    else c.setLookAt(focusX + 0.5, 7, 14, focusX, 0.9, 0, true);
-  }, [focusX]);
+    if (mx != null && mz != null) {
+      // 장비 선택: 해당 장비로 더 줌인(+ 우측 카드 공간 확보 위해 오른쪽 패닝)
+      c.setLookAt(mx + 3.0, 4.6, 8.6, mx + 2.3, 0.7, mz, true);
+    } else if (focusX === null) {
+      c.setLookAt(0, 11, 22, 0, 0.4, 0, true);
+    } else {
+      // 포커스: 시점을 오른쪽으로 패닝 → 구역이 화면 좌측에 오고 우측에 정보 카드 공간 확보
+      c.setLookAt(focusX + 4.2, 7.5, 14.5, focusX + 3.6, 0.9, 0, true);
+    }
+  }, [focusX, mx, mz]);
   return (
-    <CameraControls ref={controls} makeDefault minDistance={4} maxDistance={34} minPolarAngle={0.35} maxPolarAngle={1.35} />
+    <CameraControls ref={controls} makeDefault minDistance={3} maxDistance={34} minPolarAngle={0.35} maxPolarAngle={1.35} />
   );
 }
 
@@ -618,6 +633,7 @@ export function FactoryMonitor3D({
   revealCauseId,
   onZoneClick,
   onMachineClick,
+  onBackground,
 }: {
   districts: DistrictOverview[];
   focusedId: string | null;
@@ -626,6 +642,7 @@ export function FactoryMonitor3D({
   revealCauseId: string | null;
   onZoneClick: (id: string) => void;
   onMachineClick: (m: OverviewMachine) => void;
+  onBackground: () => void;
 }) {
   const n = districts.length;
   const totalW = n * ZONE_W + (n - 1) * GAP;
@@ -633,9 +650,21 @@ export function FactoryMonitor3D({
   const focusIdx = focusedId ? districts.findIndex((d) => d.district_id === focusedId) : -1;
   const focusX = focusIdx >= 0 ? zoneX(focusIdx) : null;
 
+  // 선택 장비의 월드 좌표(x,z) → 더 줌인
+  let machineFocus: [number, number] | null = null;
+  if (focusIdx >= 0 && selectedMachineId) {
+    const local = machineFloorPos(districts[focusIdx], selectedMachineId);
+    if (local) machineFocus = [zoneX(focusIdx) + local[0], local[2]];
+  }
+
   return (
     <div className="absolute inset-0 bg-gradient-to-b from-[#eceef1] via-[#f4f5f7] to-[#dde0e5]">
-      <Canvas camera={{ position: [0, 8, 17], fov: 36 }} dpr={[1, 2]} gl={{ alpha: true, antialias: true }}>
+      <Canvas
+        camera={{ position: [0, 8, 17], fov: 36 }}
+        dpr={[1, 2]}
+        gl={{ alpha: true, antialias: true }}
+        onPointerMissed={() => onBackground()}
+      >
         <ambientLight intensity={0.62} />
         <directionalLight position={[6, 11, 6]} intensity={0.5} />
         <Environment resolution={256}>
@@ -671,46 +700,8 @@ export function FactoryMonitor3D({
         ))}
 
         <ContactShadows position={[0, 0, 0]} scale={totalW + 6} blur={2.4} opacity={0.3} far={9} color="#1f2937" />
-        <Rig focusX={focusX} />
+        <Rig focusX={focusX} machineFocus={machineFocus} />
       </Canvas>
-
-      <div className="pointer-events-none absolute bottom-3 right-3 z-20 flex max-w-[60%] flex-wrap items-center justify-end gap-x-3 gap-y-1 rounded-2xl border border-white/60 bg-white/80 px-3 py-1.5 text-[11px] font-medium text-gray-500 shadow-sm backdrop-blur">
-        <span className="text-gray-400">가동</span>
-        {STATUS_LEGEND.map((status) => (
-          <span key={status} className="flex items-center gap-1">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: STATUS_HEX[status] }} />
-            {status}
-          </span>
-        ))}
-        {focusedId ? (
-          <>
-            <span className="mx-1 h-3 w-px bg-gray-300" />
-            {routeUnitId ? (
-              <>
-                <span className="flex items-center gap-1">
-                  <span className="h-2.5 w-3.5 rounded-sm" style={{ backgroundColor: ROUTE }} />
-                  공정 흐름
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="h-2.5 w-2.5 rounded-full border-2" style={{ borderColor: ROUTE }} />
-                  경로 기계
-                </span>
-              </>
-            ) : (
-              <>
-                <span className="flex items-center gap-1">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: CAUSE }} />
-                  원인 발생 기계
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: IMPACT }} />
-                  영향 예상 기계
-                </span>
-              </>
-            )}
-          </>
-        ) : null}
-      </div>
     </div>
   );
 }
