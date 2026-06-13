@@ -220,9 +220,9 @@ export function OverviewDashboard() {
             <div className="absolute bottom-4 right-4 top-[100px] flex w-[400px] max-w-[46%] flex-col gap-3">
               {machine ? (
                 <Card
-                  className="min-h-0 flex-1"
+                  className="shrink-0"
                   title="장비 상세"
-                  bodyClassName="overflow-y-auto p-4"
+                  bodyClassName="p-4"
                   action={
                     <button
                       type="button"
