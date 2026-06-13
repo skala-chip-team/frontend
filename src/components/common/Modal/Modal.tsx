@@ -28,7 +28,7 @@ export function Modal({ open, onClose, title, children, className = '' }: ModalP
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-secondary-navy/30 backdrop-blur-md"
+        className="absolute inset-0 bg-secondary-navy/40 backdrop-blur-[2px]"
         onClick={onClose}
         aria-hidden
       />

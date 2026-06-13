@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, type ComponentRef, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, type ComponentRef, type ReactNode } from 'react';
 
 import { Canvas, useFrame } from '@react-three/fiber';
 import {
@@ -9,7 +9,7 @@ import {
   Lightformer,
   RoundedBox,
 } from '@react-three/drei';
-import { Group, Mesh, Vector3 } from 'three';
+import { Color, Group, Mesh, MeshStandardMaterial, Vector3 } from 'three';
 
 import type { DistrictOverview, OverviewMachine, OverviewMachineStatus, ProcessStep } from '@/mocks/districtOverview';
 import Machine, { type MachineDatum } from '@/components/three/MachineFleet/Machine';
@@ -56,7 +56,7 @@ const zoneXOf = (i: number, n: number) => {
 };
 
 const laneZ = (li: number) => (li - (STEPS.length - 1) / 2) * CELL_Z;
-const machineX = (col: number, len: number) => (col - (len - 1) / 2) * CELL_X + 0.28;
+const machineX = (col: number, len: number) => (col - (len - 1) / 2) * CELL_X + 0.85;
 function hashStr(s: string): number {
   let h = 0;
   for (let i = 0; i < s.length; i += 1) h = (h * 31 + s.charCodeAt(i)) >>> 0;
@@ -142,29 +142,54 @@ function toDatum(m: OverviewMachine): MachineDatum {
   };
 }
 
-/** 공정 장비 1대 — 구역 상세 대시보드의 Machine 그대로. 정지/장애는 연한 빨강 필터 */
+const RED_TINT = new Color('#df8585');
+
+/** 공정 장비 1대 — 구역 상세 Machine 그대로.
+ *  정지/장애는 장비 자체를 연한 빨강으로, route dim 이면 흐리게(반투명). 머티리얼을 직접 조작. */
 function MiniMachine({
   machine,
   down,
+  dim,
   active,
 }: {
   machine: OverviewMachine;
   down: boolean;
+  dim: boolean;
   active: boolean;
 }) {
-  return (
-    <group>
-      <group scale={0.16}>
-        <Machine data={toDatum(machine)} position={[0, 0, 0]} active={active} />
-      </group>
+  const ref = useRef<Group>(null);
+  useLayoutEffect(() => {
+    const g = ref.current;
+    if (!g) return;
+    g.traverse((o) => {
+      const mesh = o as Mesh;
+      if (!mesh.isMesh) return;
+      const mat = mesh.material as MeshStandardMaterial;
+      if (!mat || !mat.color) return;
+      if (mat.userData.base === undefined) {
+        mat.userData.base = mat.color.clone();
+        mat.userData.baseOpacity = mat.opacity;
+        mat.userData.baseTransparent = mat.transparent;
+      }
+      const base = mat.userData.base as Color;
+      mat.color.copy(base);
+      if (down) mat.color.lerp(RED_TINT, 0.5);
+      if (dim) {
+        mat.transparent = true;
+        mat.opacity = 0.14;
+        mat.depthWrite = false;
+      } else {
+        mat.transparent = mat.userData.baseTransparent as boolean;
+        mat.opacity = mat.userData.baseOpacity as number;
+        mat.depthWrite = true;
+      }
+      mat.needsUpdate = true;
+    });
+  }, [down, dim]);
 
-      {/* 정지/장애 — 장비에 연한 빨강 필터 */}
-      {down ? (
-        <mesh position={[0, 0.36, 0]}>
-          <boxGeometry args={[0.74, 0.78, 0.66]} />
-          <meshStandardMaterial color="#ef4444" transparent opacity={0.26} depthWrite={false} roughness={0.6} />
-        </mesh>
-      ) : null}
+  return (
+    <group ref={ref} scale={0.16}>
+      <Machine data={toDatum(machine)} position={[0, 0, 0]} active={active} />
     </group>
   );
 }
@@ -313,6 +338,7 @@ function Zone({
 }) {
   const dimmed = anyFocus && !focused;
   const tone = focused ? ZONE_TONE_SELECTED : dimmed ? ZONE_TONE_DIM : ZONE_TONE;
+  const routeDim = focused && !!routeUnitId; // 유닛 경로 볼 때 바닥/컨베이어 흐리게
   const lanes = STEPS.map((step) => ({ step, list: d.machines.filter((m) => m.step === step) }));
   const routeIds = focused && routeUnitId ? routeMachineIds(d, routeUnitId) : null;
   // 영향 장비 확인하기를 눌러 revealCauseId가 이 구역의 원인 기계와 일치할 때만 전파 표시
@@ -338,7 +364,7 @@ function Zone({
           <meshStandardMaterial color={focused ? '#dfe2e7' : '#b9bdc4'} roughness={0.7} metalness={0.05} />
         </RoundedBox>
 
-        {/* 스텝별 독립 베이(패드) */}
+        {/* 스텝별 독립 베이(패드) — 차콜 라벨판 제거 */}
         {STEPS.map((s, li) => (
           <group key={`pad-${s}`} position={[0, 0, laneZ(li)]}>
             <RoundedBox
@@ -354,17 +380,14 @@ function Zone({
                 envMapIntensity={focused ? 1.1 : 0.7}
                 emissive={focused ? '#ffffff' : '#000000'}
                 emissiveIntensity={focused ? 0.26 : 0}
+                transparent={routeDim}
+                opacity={routeDim ? 0.4 : 1}
               />
-            </RoundedBox>
-            <RoundedBox args={[0.5, 0.06, 0.6]} radius={0.03} smoothness={3} position={[-ZONE_W / 2 + 0.42, PLAT_TOP + 0.03, 0]}>
-              <meshStandardMaterial color="#5f646d" roughness={0.6} metalness={0.15} />
             </RoundedBox>
           </group>
         ))}
-        {/* 스텝 사이 컨베이어 (A→B→C→D) */}
-        {[0, 1, 2].map((b) => (
-          <StepConveyor key={`scv-${b}`} z={laneZ(b) + CELL_Z / 2} />
-        ))}
+        {/* 스텝을 잇는 연속 롤러 컨베이어 (A→B→C→D) */}
+        <ZoneConveyor dim={routeDim} />
 
         {lanes.map((lane, li) => (
           <group key={lane.step} position={[0, PLAT_TOP, laneZ(li)]}>
@@ -390,10 +413,9 @@ function Zone({
               const isImpact = impactIds.has(m.machine_id);
               const onRoute = routeIds?.has(m.machine_id) ?? false;
 
-              // 유닛 공정 흐름 볼 때: 경로 외 장비는 숨겨 경로 장비만 남긴다
-              if (routeUnitId && !onRoute && !sel) return null;
-
               const down = m.machine_status === '정지' || m.machine_status === '장애';
+              // 유닛 공정 흐름 볼 때: 경로 외 장비는 흐리게(숨기지 않음)
+              const dim = !!routeUnitId && !onRoute && !sel;
               let tag: { text: string; cls: string } | null = null;
               if (isCause) tag = { text: '위험 장비', cls: 'bg-rose-500' };
               else if (isImpact) tag = { text: '영향 예상', cls: 'bg-amber-500' };
@@ -409,7 +431,7 @@ function Zone({
                   focused={focused}
                   onClick={() => (focused ? onMachineClick(m) : onZoneClick())}
                 >
-                  <MiniMachine machine={m} down={down} active={active} />
+                  <MiniMachine machine={m} down={down} dim={dim} active={active} />
                   {tag ? (
                     <Html position={[0, 1, 0]} center distanceFactor={9}>
                       <div className={`pointer-events-none flex items-center gap-1 whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-bold text-white shadow ${tag.cls}`}>
@@ -521,40 +543,55 @@ function Corridor({ x }: { x: number }) {
   );
 }
 
-/** 스텝 사이 정적 컨베이어 벨트 (A→B→C→D, +Z 방향, 폭은 구역 가로 전체) */
-function StepConveyor({ z }: { z: number }) {
-  const beltY = PLAT_TOP - 0.04;
-  const beltW = ZONE_W - 1.2; // X 폭(구역 거의 전체)
-  const beltD = 1.0; // Z 깊이(스텝 사이 간격)
-  const rollerN = 6;
+/** 스텝을 잇는 연속 롤러 컨베이어 — 구역 좌측에서 A→B→C→D(+Z)로 관통.
+ *  프레임 + 가로 롤러 + 다리 (스크린샷 롤러 컨베이어 참고, 박스 없음, 정적) */
+function ZoneConveyor({ dim }: { dim: boolean }) {
+  const cx = -ZONE_W / 2 + 0.62;
+  const len = ZONE_D - 0.3; // Z 길이(구역 거의 전체)
+  const w = 0.66; // X 폭
+  const topY = PLAT_TOP - 0.02;
+  const rollerN = Math.round(len / 0.34);
+  const o = (v: number) => (dim ? v * 0.4 : v); // route dim
   return (
-    <group position={[0, 0, z]}>
-      {/* 벨트 상판 */}
-      <RoundedBox args={[beltW, 0.08, beltD]} radius={0.03} smoothness={3} position={[0, beltY, 0]}>
-        <meshStandardMaterial color="#6b7280" roughness={0.6} metalness={0.25} />
+    <group position={[cx, 0, 0]}>
+      {/* 벨트 프레임 상판 */}
+      <RoundedBox args={[w, 0.05, len]} radius={0.02} smoothness={2} position={[0, topY, 0]}>
+        <meshStandardMaterial color="#c4ccd6" roughness={0.4} metalness={0.5} transparent={dim} opacity={o(1)} />
       </RoundedBox>
-      {/* 좌우 사이드 레일 */}
+      {/* 좌우 사이드 레일 (Z 방향) */}
       {[-1, 1].map((s) => (
         <RoundedBox
           key={s}
-          args={[beltW, 0.14, 0.08]}
+          args={[0.07, 0.16, len]}
           radius={0.02}
           smoothness={2}
-          position={[0, beltY + 0.04, s * (beltD / 2)]}
+          position={[s * (w / 2 + 0.02), topY + 0.06, 0]}
         >
-          <meshStandardMaterial color="#4b5563" roughness={0.4} metalness={0.45} />
+          <meshStandardMaterial color="#8b95a1" roughness={0.35} metalness={0.55} transparent={dim} opacity={o(1)} />
         </RoundedBox>
       ))}
-      {/* 롤러(정적) — X축을 따라 배열 */}
+      {/* 가로 롤러 (축은 X) — Z를 따라 촘촘히 */}
       {Array.from({ length: rollerN }).map((_, i) => {
-        const x = (i - (rollerN - 1) / 2) * (beltW / rollerN);
+        const z = (i - (rollerN - 1) / 2) * (len / rollerN);
         return (
-          <mesh key={i} rotation={[Math.PI / 2, 0, 0]} position={[x, beltY + 0.07, 0]}>
-            <cylinderGeometry args={[0.05, 0.05, beltD - 0.16, 14]} />
-            <meshStandardMaterial color="#9aa6b4" roughness={0.4} metalness={0.5} />
+          <mesh key={i} rotation={[0, 0, Math.PI / 2]} position={[0, topY + 0.05, z]}>
+            <cylinderGeometry args={[0.045, 0.045, w + 0.04, 12]} />
+            <meshStandardMaterial color="#aab4c0" roughness={0.3} metalness={0.65} transparent={dim} opacity={o(1)} />
           </mesh>
         );
       })}
+      {/* 다리 (지지대) */}
+      {[-1, 1].map((s) =>
+        [0, 1, 2, 3].map((j) => {
+          const z = (j - 1.5) * (len / 4);
+          return (
+            <mesh key={`${s}-${j}`} position={[s * (w / 2 - 0.04), topY / 2, z]}>
+              <cylinderGeometry args={[0.035, 0.035, topY, 10]} />
+              <meshStandardMaterial color="#6b7280" roughness={0.45} metalness={0.5} transparent={dim} opacity={o(1)} />
+            </mesh>
+          );
+        })
+      )}
     </group>
   );
 }
