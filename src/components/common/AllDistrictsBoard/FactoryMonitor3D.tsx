@@ -29,16 +29,17 @@ const STEP_INFO: Record<ProcessStep, string> = {
   D: 'Output / Packing',
 };
 
-const ZONE_W = 6.0;
-const ZONE_D = 8.4;
+const ZONE_W = 7.4; // 장비가 벽을 넘지 않도록 가로 확대
+const ZONE_D = 11.0;
 const GAP = 1.3;
 const BASE_TOP = 0.16;
 const PLAT_TOP = 0.34;
 const LIFT = 0.16;
 const CELL_X = 0.86;
-const CELL_Z = 2.0; // Step(레인) 간격
-const PAD_D = 1.5; // Step 패드 깊이(고정)
+const CELL_Z = 2.9; // Step(레인) 간격 — 사이마다 컨베이어
+const PAD_D = 1.5; // Step 패드 깊이(고정) — 나머지가 컨베이어 통로
 const MACHINE_SCALE = 1.15;
+const CONV_X = -ZONE_W / 2 + 0.6; // 좌측 컨베이어 아일 X
 // 흐름 높이: 기계 몸체 높이로 통과(불투명이라 기계가 가리면 가려지고, 앞이면 덮음).
 const FLOW_Y = PLAT_TOP + 0.5;
 
@@ -48,7 +49,9 @@ const zoneXOf = (i: number, n: number) => {
 };
 
 const laneZ = (li: number) => (li - (STEPS.length - 1) / 2) * CELL_Z;
-const machineX = (col: number, len: number) => (col - (len - 1) / 2) * CELL_X + 0.85;
+// 장비 행은 컨베이어 우측에서 중앙 정렬 (벽 안쪽)
+const MACHINE_CENTER_X = 0.9;
+const machineX = (col: number, len: number) => (col - (len - 1) / 2) * CELL_X + MACHINE_CENTER_X;
 function hashStr(s: string): number {
   let h = 0;
   for (let i = 0; i < s.length; i += 1) h = (h * 31 + s.charCodeAt(i)) >>> 0;
@@ -188,7 +191,7 @@ function MiniMachine({
       {/* 정지/장애 — 장비 가운데 금지 아이콘(배경 없이) */}
       {down && !dim ? (
         <Html position={[0, 0.42, 0]} center distanceFactor={6} zIndexRange={[6, 0]}>
-          <Ban className="pointer-events-none h-7 w-7 text-rose-500 drop-shadow" strokeWidth={2.5} />
+          <Ban className="pointer-events-none h-7 w-7 text-white drop-shadow-[0_1px_3px_rgba(15,23,42,0.6)]" strokeWidth={2.5} />
         </Html>
       ) : null}
     </group>
@@ -387,8 +390,10 @@ function Zone({
             </RoundedBox>
           </group>
         ))}
-        {/* 스텝을 세로(Z)로 잇는 연속 롤러 컨베이어 (A→B→C→D) */}
-        <StepConveyor dim={routeDim} />
+        {/* 스텝 사이마다 세로 롤러 컨베이어 (A→B, B→C, C→D) */}
+        {[0, 1, 2].map((b) => (
+          <StepConveyor key={`scv-${b}`} z={laneZ(b) + CELL_Z / 2} dim={routeDim} />
+        ))}
 
         {lanes.map((lane, li) => (
           <group key={lane.step} position={[0, PLAT_TOP, laneZ(li)]}>
@@ -552,17 +557,16 @@ function Corridor({ x }: { x: number }) {
   );
 }
 
-/** 스텝을 세로(Z)로 잇는 연속 롤러 컨베이어 — 구역 좌측 아일에서 A→B→C→D 관통.
+/** 스텝 사이마다 세로(Z) 롤러 컨베이어 — 좌측 아일에서 인접 두 스텝을 잇는다.
  *  프레임 + 가로 롤러(축 X) + 다리 (스크린샷 롤러 컨베이어 참고, 박스 없음, 정적) */
-function StepConveyor({ dim }: { dim: boolean }) {
-  const cx = -ZONE_W / 2 + 0.62; // 좌측 아일
-  const len = ZONE_D - 0.6; // Z 길이(구역 거의 전체)
+function StepConveyor({ z, dim }: { z: number; dim: boolean }) {
+  const len = CELL_Z - PAD_D + 0.7; // 두 스텝 패드를 잇는 Z 길이
   const w = 0.7; // X 폭
   const topY = PLAT_TOP - 0.02;
-  const rollerN = Math.max(8, Math.round(len / 0.32));
+  const rollerN = Math.max(4, Math.round(len / 0.3));
   const o = (v: number) => (dim ? v * 0.4 : v);
   return (
-    <group position={[cx, 0, 0]}>
+    <group position={[CONV_X, 0, z]}>
       {/* 프레임 상판 */}
       <RoundedBox args={[w, 0.05, len]} radius={0.02} smoothness={2} position={[0, topY, 0]}>
         <meshStandardMaterial color="#c4ccd6" roughness={0.4} metalness={0.5} transparent={dim} opacity={o(1)} />
@@ -602,14 +606,25 @@ function StepConveyor({ dim }: { dim: boolean }) {
   );
 }
 
-function Rig({ focusX, machineFocus }: { focusX: number | null; machineFocus: [number, number] | null }) {
+function Rig({
+  focusX,
+  machineFocus,
+  routeActive,
+}: {
+  focusX: number | null;
+  machineFocus: [number, number] | null;
+  routeActive: boolean;
+}) {
   const controls = useRef<ComponentRef<typeof CameraControls>>(null);
   const mx = machineFocus ? machineFocus[0] : null;
   const mz = machineFocus ? machineFocus[1] : null;
   useEffect(() => {
     const c = controls.current;
     if (!c) return;
-    if (mx != null && mz != null) {
+    if (routeActive && focusX !== null) {
+      // 유닛 경로 보기: 살짝 줌아웃해 전체 경로가 보이게
+      c.setLookAt(focusX + 4.4, 9.0, 17.0, focusX + 3.4, 0.8, 0, true);
+    } else if (mx != null && mz != null) {
       // 장비 선택: 해당 장비로 더 줌인(+ 우측 카드 공간 확보 위해 오른쪽 패닝)
       c.setLookAt(mx + 3.0, 4.6, 8.6, mx + 2.3, 0.7, mz, true);
     } else if (focusX === null) {
@@ -618,9 +633,9 @@ function Rig({ focusX, machineFocus }: { focusX: number | null; machineFocus: [n
       // 포커스: 시점을 오른쪽으로 패닝 → 구역이 화면 좌측에 오고 우측에 정보 카드 공간 확보
       c.setLookAt(focusX + 4.2, 7.5, 14.5, focusX + 3.6, 0.9, 0, true);
     }
-  }, [focusX, mx, mz]);
+  }, [focusX, mx, mz, routeActive]);
   return (
-    <CameraControls ref={controls} makeDefault minDistance={3} maxDistance={34} minPolarAngle={0.35} maxPolarAngle={1.35} />
+    <CameraControls ref={controls} makeDefault minDistance={3} maxDistance={36} minPolarAngle={0.35} maxPolarAngle={1.35} />
   );
 }
 
@@ -700,7 +715,7 @@ export function FactoryMonitor3D({
         ))}
 
         <ContactShadows position={[0, 0, 0]} scale={totalW + 6} blur={2.4} opacity={0.3} far={9} color="#1f2937" />
-        <Rig focusX={focusX} machineFocus={machineFocus} />
+        <Rig focusX={focusX} machineFocus={machineFocus} routeActive={!!routeUnitId} />
       </Canvas>
     </div>
   );
