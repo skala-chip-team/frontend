@@ -13,6 +13,7 @@ import {
 import { Group, Mesh, Vector3 } from 'three';
 
 import type { DistrictOverview, OverviewMachine, OverviewMachineStatus, ProcessStep } from '@/mocks/districtOverview';
+import Machine, { type MachineDatum } from '@/components/three/MachineFleet/Machine';
 
 const ZONE_TONE = '#ced2d9';
 const ZONE_TONE_DIM = '#bcc0c7';
@@ -21,14 +22,6 @@ const CAUSE = '#ef4444'; // 원인(빨강)
 const IMPACT = '#f59e0b'; // 영향 예상(주황)
 const ROUTE = '#2563eb'; // 공정 순서(파랑)
 
-const G0 = '#F4F8FB';
-const G1 = '#E1E8F0';
-const G2 = '#CAD4DE';
-const G4 = '#8592A0';
-const G5 = '#616E7D';
-const SCREEN_BG = '#0A131C';
-const SCREEN_LINE = '#96E4FF';
-const GHOST = '#c7ccd3'; // inactive(경로 외) 기계 반투명 톤 (밝은 회색)
 
 const STATUS_HEX: Record<OverviewMachineStatus, string> = {
   가동중: '#22c55e',
@@ -39,6 +32,12 @@ const STATUS_HEX: Record<OverviewMachineStatus, string> = {
 
 const STATUS_LEGEND: OverviewMachineStatus[] = ['가동중', '점검중', '정지', '장애'];
 const STEPS: ProcessStep[] = ['A', 'B', 'C', 'D'];
+const STEP_INFO: Record<ProcessStep, string> = {
+  A: 'Input / Loading',
+  B: 'Processing',
+  C: 'Inspection',
+  D: 'Output / Packing',
+};
 
 const ZONE_W = 6.0;
 const ZONE_D = 4.8;
@@ -132,73 +131,46 @@ function LiftMachine({
   );
 }
 
-/** 미니 공정 장비 1대 */
+/** OverviewMachine → 구역 상세 Machine 입력 */
+function toDatum(m: OverviewMachine): MachineDatum {
+  return {
+    machine_id: m.machine_id,
+    machine_type: '',
+    machine_status:
+      m.machine_status === '가동중' ? '가동중' : m.machine_status === '점검중' ? '점검중' : '대기중',
+    avg_utilization_rate: m.utilization,
+    active_unit_id: m.active_unit,
+  };
+}
+
+/** 공정 장비 1대 — 구역 상세 대시보드의 Machine 을 그대로 사용 + 상태 비콘/강조 ring */
 function MiniMachine({
-  status,
-  bodyColor,
-  bodyEmissive,
-  bodyEmissiveI,
-  inactive = false,
+  machine,
+  highlightColor,
+  active,
 }: {
-  status: OverviewMachineStatus;
-  bodyColor: string;
-  bodyEmissive: string;
-  bodyEmissiveI: number;
-  inactive?: boolean;
+  machine: OverviewMachine;
+  highlightColor: string | null;
+  active: boolean;
 }) {
-  const sig = STATUS_HEX[status];
-  const on = status === '가동중' || status === '점검중';
-
-  // 경로 외 기기: 겹침으로 색이 뭉치지 않게 주요 실루엣(받침·본체·캐비닛)만 반투명으로
-  if (inactive) {
-    return (
-      <group>
-        <mesh position={[0, 0.025, 0]}>
-          <boxGeometry args={[0.5, 0.05, 0.46]} />
-          <meshStandardMaterial color={GHOST} transparent opacity={0.28} depthWrite={false} roughness={0.9} metalness={0} />
-        </mesh>
-        <RoundedBox args={[0.42, 0.26, 0.4]} radius={0.04} smoothness={3} position={[0, 0.18, 0]}>
-          <meshStandardMaterial color={GHOST} transparent opacity={0.28} depthWrite={false} roughness={0.9} metalness={0} />
-        </RoundedBox>
-        <RoundedBox args={[0.16, 0.42, 0.32]} radius={0.04} smoothness={3} position={[-0.15, 0.26, 0]}>
-          <meshStandardMaterial color={GHOST} transparent opacity={0.28} depthWrite={false} roughness={0.9} metalness={0} />
-        </RoundedBox>
-      </group>
-    );
-  }
-
+  const sig = STATUS_HEX[machine.machine_status];
   return (
     <group>
-      <mesh position={[0, 0.025, 0]} receiveShadow>
-        <boxGeometry args={[0.5, 0.05, 0.46]} />
-        <meshStandardMaterial color={G5} roughness={0.7} metalness={0.12} />
-      </mesh>
-      <RoundedBox args={[0.42, 0.26, 0.4]} radius={0.04} smoothness={3} position={[0, 0.18, 0]} castShadow>
-        <meshStandardMaterial color={bodyColor} roughness={0.3} metalness={0.4} emissive={bodyEmissive} emissiveIntensity={bodyEmissiveI} />
-      </RoundedBox>
-      <RoundedBox args={[0.14, 0.18, 0.3]} radius={0.03} smoothness={3} position={[0.16, 0.14, 0.04]} castShadow>
-        <meshStandardMaterial color={G0} roughness={0.2} metalness={0.55} />
-      </RoundedBox>
-      <RoundedBox args={[0.16, 0.42, 0.32]} radius={0.04} smoothness={3} position={[-0.15, 0.26, 0]} castShadow>
-        <meshStandardMaterial color={G1} roughness={0.24} metalness={0.5} />
-      </RoundedBox>
-      <mesh position={[0, 0.2, 0.205]}>
-        <boxGeometry args={[0.22, 0.15, 0.02]} />
-        <meshStandardMaterial color={SCREEN_BG} roughness={0.28} metalness={0.08} />
-      </mesh>
-      {[-0.03, 0.01, 0.05].map((y) => (
-        <mesh key={y} position={[0, 0.2 + y, 0.216]}>
-          <boxGeometry args={[0.16, 0.012, 0.006]} />
-          <meshStandardMaterial color={SCREEN_LINE} emissive={SCREEN_LINE} emissiveIntensity={on ? 0.9 : 0.06} />
+      {highlightColor ? (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
+          <torusGeometry args={[0.52, 0.05, 12, 40]} />
+          <meshStandardMaterial color={highlightColor} emissive={highlightColor} emissiveIntensity={2.2} toneMapped={false} />
         </mesh>
-      ))}
-      <mesh position={[-0.15, 0.5, 0]}>
-        <cylinderGeometry args={[0.012, 0.012, 0.1, 10]} />
-        <meshStandardMaterial color={G4} roughness={0.4} metalness={0.4} />
-      </mesh>
-      <mesh position={[-0.15, 0.6, 0]}>
-        <cylinderGeometry args={[0.05, 0.05, 0.13, 16]} />
-        <meshStandardMaterial color={sig} emissive={sig} emissiveIntensity={1.6} roughness={0.3} metalness={0.1} />
+      ) : null}
+
+      <group scale={0.16}>
+        <Machine data={toDatum(machine)} position={[0, 0, 0]} active={active} />
+      </group>
+
+      {/* 상태 비콘 */}
+      <mesh position={[0, 0.92, 0]}>
+        <sphereGeometry args={[0.06, 16, 16]} />
+        <meshStandardMaterial color={sig} emissive={sig} emissiveIntensity={1.6} toneMapped={false} />
       </mesh>
     </group>
   );
@@ -413,39 +385,44 @@ function Zone({
             >
               {lane.step}
             </Text>
+            {/* 구역 줌인 시 Step 카드 */}
+            {focused ? (
+              <Html position={[-ZONE_W / 2 - 0.55, 0.5, 0]} center distanceFactor={10} zIndexRange={[14, 0]}>
+                <div
+                  style={{ pointerEvents: 'none' }}
+                  className="whitespace-nowrap rounded-lg border border-white/70 bg-white/90 px-2 py-1 text-center shadow-md backdrop-blur"
+                >
+                  <div className="text-[11px] font-extrabold leading-none text-secondary-navy">
+                    Step {lane.step}
+                  </div>
+                  <div className="mt-0.5 text-[9px] font-medium text-gray-400">
+                    {STEP_INFO[lane.step]}
+                  </div>
+                </div>
+              </Html>
+            ) : null}
             {lane.list.map((m, ci) => {
               const sel = selectedMachineId === m.machine_id;
               const isCause = causeId === m.machine_id;
               const isImpact = impactIds.has(m.machine_id);
               const onRoute = routeIds?.has(m.machine_id) ?? false;
 
-              let bodyColor = G2;
-              let bodyEmissive = '#000000';
-              let bodyEmissiveI = 0;
+              let highlightColor: string | null = null;
               let tag: { text: string; cls: string } | null = null;
               if (isCause) {
-                bodyColor = '#ffdede';
-                bodyEmissive = CAUSE;
-                bodyEmissiveI = 0.42;
+                highlightColor = CAUSE;
                 tag = { text: '위험 장비', cls: 'bg-rose-500' };
               } else if (isImpact) {
-                bodyColor = '#ffe9c9';
-                bodyEmissive = IMPACT;
-                bodyEmissiveI = 0.34;
+                highlightColor = IMPACT;
                 tag = { text: '영향 예상', cls: 'bg-amber-500' };
               } else if (sel) {
-                bodyColor = '#ffffff';
-                bodyEmissive = '#ffffff';
-                bodyEmissiveI = 0.2;
+                highlightColor = '#0ea5e9';
               } else if (onRoute) {
-                bodyColor = '#dbe4ff';
-                bodyEmissive = ROUTE;
-                bodyEmissiveI = 0.3;
+                highlightColor = ROUTE;
               }
+              const active = sel || onRoute || isCause || isImpact;
               // 흐름 볼 때는 선택 기계도 경로 높이(0.34)로 — 흐름이 몸통을 관통하지 않게
               const targetY = sel && !routeUnitId ? 0.62 : isCause || isImpact || onRoute || sel ? 0.34 : 0;
-              // UNIT 흐름 볼 때 경로 외 기기는 흐리게(inactive)
-              const inactive = !!routeUnitId && !onRoute && !sel;
 
               return (
                 <LiftMachine
@@ -455,12 +432,7 @@ function Zone({
                   focused={focused}
                   onClick={() => (focused ? onMachineClick(m) : onZoneClick())}
                 >
-                  <MiniMachine
-                    status={m.machine_status}
-                    bodyColor={bodyColor}
-                    bodyEmissive={bodyEmissive}
-                    bodyEmissiveI={bodyEmissiveI}
-                    inactive={inactive}
+                  <MiniMachine machine={m} highlightColor={highlightColor} active={active}
                   />
                   {tag ? (
                     <Html position={[0, 1, 0]} center distanceFactor={9}>
@@ -484,6 +456,9 @@ function Zone({
         {focused ? <FocusOverlays d={d} routeUnitId={routeUnitId} showProblem={!!problem} /> : null}
       </group>
 
+      {/* 구역 벽 (공장 룸) */}
+      <ZoneWalls />
+
       <Html position={[0, focused ? 2.7 : 2.15, 0]} center distanceFactor={13}>
         <div
           className={`pointer-events-none whitespace-nowrap rounded-md border px-2 py-1 text-center backdrop-blur-sm transition ${
@@ -503,21 +478,67 @@ function Zone({
   );
 }
 
-function Conveyor({ x }: { x: number }) {
+// 벽 높이/색
+const WALL_H = 1.4;
+const WALL_T = 0.16;
+const DOOR_W = 1.7;
+
+/** 구역 외곽 벽 (정면/후면 전체 + 좌/우 벽은 복도 쪽 출입구) */
+function WallSeg({ position, size }: { position: [number, number, number]; size: [number, number, number] }) {
+  return (
+    <group position={position}>
+      <mesh>
+        <boxGeometry args={size} />
+        <meshStandardMaterial color="#d4dae3" roughness={0.85} metalness={0.08} />
+      </mesh>
+      <mesh position={[0, size[1] / 2 + 0.02, 0]}>
+        <boxGeometry args={[size[0] + 0.03, 0.05, size[2] + 0.03]} />
+        <meshStandardMaterial color="#aebccd" emissive="#aebccd" emissiveIntensity={0.3} toneMapped={false} />
+      </mesh>
+    </group>
+  );
+}
+
+function ZoneWalls() {
+  const halfX = ZONE_W / 2 + 0.12;
+  const halfZ = ZONE_D / 2 + 0.12;
+  const sideSeg = (ZONE_D + 0.24 - DOOR_W) / 2; // 좌/우 벽 한 토막 길이(출입구 제외)
+  const segOff = DOOR_W / 2 + sideSeg / 2;
+  return (
+    <group>
+      {/* 후면 / 정면(Z 벽, 전체) */}
+      <WallSeg position={[0, WALL_H / 2, -halfZ]} size={[ZONE_W + 0.24, WALL_H, WALL_T]} />
+      <WallSeg position={[0, WALL_H / 2, halfZ]} size={[ZONE_W + 0.24, WALL_H, WALL_T]} />
+      {/* 좌/우(X 벽) — 복도 쪽 출입구를 위해 2토막 */}
+      {[-halfX, halfX].map((x) => (
+        <group key={x}>
+          <WallSeg position={[x, WALL_H / 2, -segOff]} size={[WALL_T, WALL_H, sideSeg]} />
+          <WallSeg position={[x, WALL_H / 2, segOff]} size={[WALL_T, WALL_H, sideSeg]} />
+        </group>
+      ))}
+    </group>
+  );
+}
+
+/** 구역 사이 복도 — 사람이 지나가는 통로 (밝은 바닥 + 중앙 점선) */
+function Corridor({ x }: { x: number }) {
+  const dashCount = 5;
   return (
     <group position={[x, 0, 0]}>
-      <RoundedBox args={[GAP + 0.2, 0.1, ZONE_D - 0.6]} radius={0.04} smoothness={3} position={[0, 0.05, 0]}>
-        <meshStandardMaterial color="#828892" roughness={0.45} metalness={0.35} />
-      </RoundedBox>
-      {[-1, 1].map((s) => (
-        <RoundedBox key={s} args={[GAP + 0.2, 0.12, 0.08]} radius={0.03} smoothness={2} position={[0, 0.1, s * ((ZONE_D - 0.6) / 2)]}>
-          <meshStandardMaterial color="#5f646d" roughness={0.4} metalness={0.4} />
-        </RoundedBox>
-      ))}
-      {[-0.24, 0.18].map((dx) => (
-        <mesh key={dx} rotation={[-Math.PI / 2, 0, -Math.PI / 2]} position={[dx, 0.11, 0]}>
-          <coneGeometry args={[0.16, 0.28, 3]} />
-          <meshStandardMaterial color="#d7dadf" roughness={0.6} metalness={0.1} />
+      {/* 통로 바닥(살짝 밝게) */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0]} receiveShadow>
+        <planeGeometry args={[GAP + 0.1, ZONE_D + 0.6]} />
+        <meshStandardMaterial color="#f3f6fa" roughness={0.95} metalness={0.02} />
+      </mesh>
+      {/* 중앙 점선(보행 통로 표시) */}
+      {Array.from({ length: dashCount }).map((_, i) => (
+        <mesh
+          key={i}
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[0, 0.02, (i - (dashCount - 1) / 2) * ((ZONE_D + 0.4) / dashCount)]}
+        >
+          <planeGeometry args={[0.1, 0.34]} />
+          <meshStandardMaterial color="#c4ccd6" />
         </mesh>
       ))}
     </group>
@@ -595,6 +616,12 @@ export function FactoryMonitor3D({
           <Lightformer intensity={0.5} position={[9, 3, -4]} scale={[8, 8, 1]} color="#ffffff" />
         </Environment>
 
+        {/* 공장 바닥 */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.005, 0]} receiveShadow>
+          <planeGeometry args={[totalW + 14, ZONE_D + 10]} />
+          <meshStandardMaterial color="#e9edf2" roughness={0.96} metalness={0.03} />
+        </mesh>
+
         {districts.map((d, i) => (
           <Zone
             key={d.district_id}
@@ -612,7 +639,7 @@ export function FactoryMonitor3D({
         ))}
 
         {districts.slice(0, -1).map((d, i) => (
-          <Conveyor key={`cv-${d.district_id}`} x={zoneX(i) + ZONE_W / 2 + GAP / 2} />
+          <Corridor key={`cv-${d.district_id}`} x={zoneX(i) + ZONE_W / 2 + GAP / 2} />
         ))}
 
         <ContactShadows position={[0, 0, 0]} scale={totalW + 6} blur={2.4} opacity={0.3} far={9} color="#1f2937" />
