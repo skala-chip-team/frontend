@@ -176,6 +176,17 @@ function machineLoads(sched: AfterSchedule | null | undefined): Map<string, numb
   return loads;
 }
 
+/** 장비 부하율 편차(%p) = 최대-최소 */
+function loadDeviation(loads: Map<string, number>): number {
+  const vals = [...loads.values()];
+  return vals.length ? Math.max(...vals) - Math.min(...vals) : 0;
+}
+
+/** 시간 포맷 (정수면 'N시간', 아니면 'N.N시간') */
+function fmtHr(hours: number): string {
+  return Number.isInteger(hours) ? `${hours}시간` : `${hours.toFixed(1)}시간`;
+}
+
 function utilDevLabel(devPp: number): string {
   if (devPp <= 5) return '매우 균등';
   if (devPp <= 15) return '균등';
@@ -376,20 +387,59 @@ export function buildStrategies(detail: RescheduleGroupDetail): AdaptedStrategy[
     if (i === bestWait) bests.push('wait');
     if (i === bestBalance) bests.push('balance');
 
-    // 헤드라인 효과 = 생산량(완료 유닛)
-    const effect = mc
-      ? {
+    // 헤드라인 효과 — 전략별 대표 지표 (납기 우선=누적지연 / 부하 균형=부하율 편차 / 대기 최소화=평균 대기)
+    const effect = (() => {
+      // 장비 부하율 균형 → 부하율 편차(전/후)
+      if (opt.strategy === 'utilization_balance') {
+        const b = Math.round(loadDeviation(beforeLoads));
+        const a = Math.round(loadDeviation(afterLoads));
+        const d = b - a;
+        return {
+          metric: '장비 부하율 편차',
+          before: `${b}%p`,
+          after: `${a}%p`,
+          delta: d > 0 ? `${d}%p 감소` : d < 0 ? `${-d}%p 증가` : '변화 없음',
+        };
+      }
+      // 대기시간 최소화(라인 회복) → 평균 대기 시간(전/후)
+      if (opt.strategy === 'line_recovery_first' && mc) {
+        const b = Math.round(mc.avgQueueWaitMin.before);
+        const a = Math.round(mc.avgQueueWaitMin.after);
+        const d = b - a;
+        return {
+          metric: '평균 대기 시간',
+          before: `${b}분`,
+          after: `${a}분`,
+          delta: d > 0 ? `${d}분 감소` : d < 0 ? `${-d}분 증가` : '변화 없음',
+        };
+      }
+      // 유닛 납기 우선 → 누적 지연 시간(전/후)
+      if (opt.strategy === 'due_date_first' && mc) {
+        const c = mc.cumulativeDelayHr;
+        const d = Math.round((c.before - c.after) * 10) / 10;
+        return {
+          metric: '누적 지연 시간',
+          before: fmtHr(c.before),
+          after: fmtHr(c.after),
+          delta: d > 0 ? `${fmtHr(d)} 단축` : d < 0 ? `${fmtHr(-d)} 증가` : '변화 없음',
+        };
+      }
+      // 그 외/fallback → 생산량, 없으면 예상 지연
+      if (mc) {
+        return {
           metric: '생산량(완료 유닛)',
           before: `${mc.completedUnits.before}개`,
           after: `${mc.completedUnits.after}개`,
           delta: `${mc.completedUnits.delta >= 0 ? '+' : ''}${mc.completedUnits.delta}개`,
-        }
-      : {
-          metric: '예상 지연',
-          before: '—',
-          after: opt.estimatedDelayHrAfter != null ? `${opt.estimatedDelayHrAfter}시간` : '—',
-          delta: '',
         };
+      }
+      return {
+        metric: '예상 지연',
+        before: '—',
+        after: opt.estimatedDelayHrAfter != null ? `${opt.estimatedDelayHrAfter}시간` : '—',
+        delta: '',
+      };
+    })();
 
     const selectable = opt.analysisStatus === 'success' && opt.afterSchedule != null;
 

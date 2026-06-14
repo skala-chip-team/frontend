@@ -34,9 +34,12 @@ export function formatDelayHours(hours: number): string {
 /** ISO 시각 → '방금 전 / N분 전 / N시간 전 / N일 전'. 잘못된 값이면 빈 문자열 */
 export function formatRelativeTime(iso: string | null | undefined): string {
   if (!iso) return '';
-  const t = new Date(iso).getTime();
+  // 서버 시각은 UTC wall-clock 인데 'Z'(오프셋)가 없어 브라우저가 로컬시간으로 오해한다
+  // (KST면 9시간 어긋남). 오프셋 표기가 없으면 UTC('Z')로 보정해 파싱한다.
+  const hasZone = /[zZ]$|[+-]\d\d:?\d\d$/.test(iso);
+  const t = new Date(hasZone ? iso : `${iso}Z`).getTime();
   if (Number.isNaN(t)) return '';
-  const diffMin = Math.floor((Date.now() - t) / 60000);
+  const diffMin = Math.max(0, Math.floor((Date.now() - t) / 60000));
   if (diffMin < 1) return '방금 전';
   if (diffMin < 60) return `${diffMin}분 전`;
   const diffHr = Math.floor(diffMin / 60);
