@@ -42,7 +42,8 @@ export function OrderTable({ orders, selectedId, today, onSelect }: OrderTablePr
             const status = orderStatus(order.units);
             const { done, total, percent } = orderProgress(order.units);
             const priority = priorityMeta(order.order_priority);
-            const imminent = today ? isDueToday(order.due_date, today) : false;
+            // 임박 기준: 시뮬 현재일(today)이 있으면 그 날짜로 판정, 없으면 서버 플래그로 폴백
+            const imminent = today ? isDueToday(order.due_date, today) : (order.due_imminent ?? false);
             const selected = selectedId === order.order_id;
             return (
               <tr

@@ -4,8 +4,9 @@ import { AlarmClock, ChevronRight } from 'lucide-react';
 import { OrderDetailPanel, OrderTable } from '@components/common';
 import { orders as allOrders } from '@/mocks';
 import { districtLabels, useDistrictStore } from '@/stores';
+import { useOrderDetail, useOrders, useSimStatus } from '@/hooks';
 import { formatPlanDate, isDueToday, orderStatus, sortOrders } from '@/utils';
-import type { OrderStatus } from '@/types';
+import type { Order, OrderStatus } from '@/types';
 
 const STATUS_FILTERS: Array<{ key: OrderStatus | 'all'; label: string }> = [
   { key: 'all', label: '전체' },
@@ -14,37 +15,57 @@ const STATUS_FILTERS: Array<{ key: OrderStatus | 'all'; label: string }> = [
   { key: '완료', label: '완료' },
 ];
 
-// 기준 '오늘' — mock 주문의 계획일(plan_date). 실제 API 연동 시 서버 기준일로 대체.
+// mock fallback 기준 '오늘' — mock 주문의 계획일(plan_date). 서버 연동 시엔 서버 dueImminent 사용.
 const TODAY = allOrders[0]?.plan_date ?? '';
 
 export default function OrderPage() {
   const selectedDistrict = useDistrictStore((state) => state.selectedDistrict);
   const isAll = selectedDistrict === 'all';
+  const districtId = isAll ? undefined : selectedDistrict;
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
 
-  const districtOrders = useMemo(
+  // 서버 주문 목록 (GET /api/orders) — 실패/로딩이면 mock fallback
+  const { data, isLoading, isError } = useOrders(districtId);
+  const { data: detail } = useOrderDetail(selectedId);
+  const { data: sim } = useSimStatus();
+  const isMock = !data;
+
+  // mock: 구역 필터를 직접 적용 (서버는 districtId 쿼리로 이미 필터됨)
+  const mockDistrictOrders = useMemo(
     () => allOrders.filter((order) => isAll || order.district_id === selectedDistrict),
     [isAll, selectedDistrict]
   );
 
-  const imminentCount = useMemo(
-    () => districtOrders.filter((order) => isDueToday(order.due_date, TODAY)).length,
-    [districtOrders]
-  );
+  const sourceOrders = data ? data.orders : mockDistrictOrders;
 
+  // 납기 임박 기준 '오늘' = 시뮬레이션 현재일(sim_now_iso) — 대시보드와 동일 소스.
+  // 시뮬 정지 시: mock은 계획일(TODAY), API는 서버 dueImminent(imminentCount)로 폴백.
+  const simDate = sim?.sim_now_iso?.slice(0, 10) ?? null;
+  const imminentBasis = simDate ?? (isMock ? TODAY : null);
+  const imminentCount = imminentBasis
+    ? sourceOrders.filter((order) => isDueToday(order.due_date, imminentBasis)).length
+    : (data?.imminentCount ?? 0);
+
+  // 상태 필터(화면) + 정렬
   const visibleOrders = useMemo(
     () =>
       sortOrders(
-        districtOrders.filter(
+        sourceOrders.filter(
           (order) => statusFilter === 'all' || orderStatus(order.units) === statusFilter
         )
       ),
-    [districtOrders, statusFilter]
+    [sourceOrders, statusFilter]
   );
 
-  const selectedOrder = allOrders.find((order) => order.order_id === selectedId) ?? null;
+  // 선택 주문: 상세(진짜 유닛) 우선 → 목록 → mock 순 fallback
+  const selectedOrder: Order | null = selectedId
+    ? (detail ??
+      sourceOrders.find((order) => order.order_id === selectedId) ??
+      allOrders.find((order) => order.order_id === selectedId) ??
+      null)
+    : null;
 
   return (
     <section className="min-h-full bg-surface-50 px-6 pb-6 pt-4 lg:px-8 lg:pb-8">
@@ -57,6 +78,17 @@ export default function OrderPage() {
               <ChevronRight className="h-6 w-6 text-gray-300" aria-hidden />
               <span className="text-secondary-navy">{districtLabels[selectedDistrict]}</span>
             </>
+          ) : null}
+          {isLoading || isMock ? (
+            <span className="ml-auto rounded-full border border-gray-200 bg-white px-3 py-1 text-label-3 font-semibold shadow-sm">
+              {isLoading ? (
+                <span className="text-gray-500">주문 데이터 불러오는 중…</span>
+              ) : isError ? (
+                <span className="text-rose-500">API 연결 실패 · 데모 데이터</span>
+              ) : (
+                <span className="text-amber-600">데모 데이터</span>
+              )}
+            </span>
           ) : null}
         </div>
 
@@ -73,7 +105,9 @@ export default function OrderPage() {
               </span>
             </div>
             <span className="ml-auto text-label-2 text-gray-500">
-              오늘({formatPlanDate(TODAY)}) 납기 주문입니다.
+              {imminentBasis
+                ? `오늘(${formatPlanDate(imminentBasis)}) 납기 주문입니다.`
+                : '납기가 임박한 주문입니다.'}
             </span>
           </div>
         ) : null}
@@ -109,7 +143,7 @@ export default function OrderPage() {
             key={`${selectedDistrict}-${statusFilter}`}
             orders={visibleOrders}
             selectedId={selectedId}
-            today={TODAY}
+            today={imminentBasis ?? undefined}
             onSelect={(order) => setSelectedId(order.order_id)}
           />
         )}
