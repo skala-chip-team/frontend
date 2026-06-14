@@ -1,12 +1,20 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { AlarmClock, ChevronRight } from 'lucide-react';
 
-import { OrderDetailPanel, OrderTable } from '@components/common';
+import {
+  OrderDetailPanel,
+  OrderTable,
+  Pagination,
+  type OrderSort,
+  type OrderSortKey,
+} from '@components/common';
 import { orders as allOrders } from '@/mocks';
 import { districtLabels, useDistrictStore } from '@/stores';
 import { useOrderDetail, useOrders, useSimStatus } from '@/hooks';
-import { formatPlanDate, isDueToday, orderStatus, sortOrders } from '@/utils';
+import { formatPlanDate, isDueToday, orderStatus } from '@/utils';
 import type { Order, OrderStatus } from '@/types';
+
+const PAGE_SIZE = 8;
 
 const STATUS_FILTERS: Array<{ key: OrderStatus | 'all'; label: string }> = [
   { key: 'all', label: '전체' },
@@ -25,6 +33,12 @@ export default function OrderPage() {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
+  const [sort, setSort] = useState<OrderSort>({ key: 'priority', dir: 'asc' });
+  const [page, setPage] = useState(1);
+
+  // 컬럼 헤더 클릭: 같은 컬럼이면 방향 토글, 다른 컬럼이면 오름차순부터
+  const handleSort = (key: OrderSortKey) =>
+    setSort((s) => (s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }));
 
   // 서버 주문 목록 (GET /api/orders) — 실패/로딩이면 mock fallback
   const { data, isLoading, isError } = useOrders(districtId);
@@ -48,16 +62,35 @@ export default function OrderPage() {
     ? sourceOrders.filter((order) => isDueToday(order.due_date, imminentBasis)).length
     : (data?.imminentCount ?? 0);
 
-  // 상태 필터(화면) + 정렬
-  const visibleOrders = useMemo(
-    () =>
-      sortOrders(
-        sourceOrders.filter(
-          (order) => statusFilter === 'all' || orderStatus(order.units) === statusFilter
-        )
-      ),
-    [sourceOrders, statusFilter]
-  );
+  // 상태 필터(화면) + 정렬(우선순위/계획일/납기, asc·desc)
+  const visibleOrders = useMemo(() => {
+    const filtered = sourceOrders.filter(
+      (order) => statusFilter === 'all' || orderStatus(order.units) === statusFilter
+    );
+    const compare = (a: Order, b: Order) => {
+      let r: number;
+      if (sort.key === 'priority') {
+        r = a.order_priority - b.order_priority || a.due_date.localeCompare(b.due_date);
+      } else if (sort.key === 'plan') {
+        r = a.plan_date.localeCompare(b.plan_date) || a.due_date.localeCompare(b.due_date);
+      } else {
+        r = a.due_date.localeCompare(b.due_date);
+      }
+      return sort.dir === 'asc' ? r : -r;
+    };
+    return [...filtered].sort(compare);
+  }, [sourceOrders, statusFilter, sort]);
+
+  // 페이지네이션 — 필터/구역/정렬 변경 시 1페이지로 리셋(렌더 중 상태 보정)
+  const pageCount = Math.max(1, Math.ceil(visibleOrders.length / PAGE_SIZE));
+  const resetKey = `${selectedDistrict}|${statusFilter}|${sort.key}|${sort.dir}`;
+  const [lastResetKey, setLastResetKey] = useState(resetKey);
+  if (lastResetKey !== resetKey) {
+    setLastResetKey(resetKey);
+    setPage(1);
+  }
+  const safePage = Math.min(page, pageCount);
+  const pageOrders = visibleOrders.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   // 선택 주문: 상세(진짜 유닛) 우선 → 목록 → mock 순 fallback
   const selectedOrder: Order | null = selectedId
@@ -139,13 +172,18 @@ export default function OrderPage() {
         {visibleOrders.length === 0 ? (
           <Message>해당 조건의 주문이 없습니다.</Message>
         ) : (
-          <OrderTable
-            key={`${selectedDistrict}-${statusFilter}`}
-            orders={visibleOrders}
-            selectedId={selectedId}
-            today={imminentBasis ?? undefined}
-            onSelect={(order) => setSelectedId(order.order_id)}
-          />
+          <>
+            <OrderTable
+              key={`${selectedDistrict}-${statusFilter}-${sort.key}-${sort.dir}-${safePage}`}
+              orders={pageOrders}
+              selectedId={selectedId}
+              today={imminentBasis ?? undefined}
+              sort={sort}
+              onSort={handleSort}
+              onSelect={(order) => setSelectedId(order.order_id)}
+            />
+            <Pagination page={safePage} totalPages={pageCount} onChange={setPage} className="pt-1" />
+          </>
         )}
       </div>
 
