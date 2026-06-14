@@ -22,3 +22,8 @@ export {
   isDueToday,
 } from './order';
 export type { PriorityMeta, StepState } from './order';
+export {
+  mapUnitStatus,
+  orderListItemToOrder,
+  orderDetailToOrder,
+} from './orderTransform';
