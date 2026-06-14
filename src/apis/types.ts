@@ -390,3 +390,59 @@ export interface DistrictOverviewDto {
   rescheduleGroupCount: number;
   latestReschedule: OverviewLatestReschedule | null;
 }
+
+// ── 주문(Order) 도메인 — GET /api/orders, GET /api/orders/{orderId} ──
+
+/** 주문 목록/상세 공통 헤더 필드 */
+export interface OrderBaseDto {
+  orderId: string;
+  districtId: string;
+  districtName: string | null;
+  planDate: string; // 'YYYY-MM-DD'
+  dueDate: string; // ISO datetime
+  plannedOutputQty: number;
+  priority: number;
+  priorityLabel: string;
+  status: string;
+  totalUnits: number;
+  completedUnits: number;
+  progressRatio: number;
+  dueImminent: boolean;
+  urgent: boolean;
+}
+
+/** GET /api/orders data.orders 항목 (units 없음) */
+export type OrderListItemDto = OrderBaseDto;
+
+/** GET /api/orders data */
+export interface OrderListDto {
+  totalCount: number;
+  imminentCount: number;
+  orders: OrderListItemDto[];
+}
+
+/** 주문 상세 unit의 공정 step */
+export interface OrderStepDto {
+  stepId: string;
+  processStep: string; // 'STEP_A' 등
+  stepOrder: number;
+  stepStatus: string;
+}
+
+/** GET /api/orders/{orderId} data.units 항목 */
+export interface OrderUnitDto {
+  unitId: string;
+  unitSizeQty: number;
+  unitStatus: string;
+  actualStartTime: string | null;
+  actualCompleteTime: string | null;
+  currentStepId: string | null;
+  currentMachineId: string | null;
+  estimatedCompleteTime: string | null;
+  steps: OrderStepDto[];
+}
+
+/** GET /api/orders/{orderId} data */
+export interface OrderDetailDto extends OrderBaseDto {
+  units: OrderUnitDto[];
+}

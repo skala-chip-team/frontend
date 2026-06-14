@@ -19,6 +19,7 @@ export {
   selectRescheduleStrategy,
 } from './reschedule';
 export type { RescheduleGroupQuery } from './reschedule';
+export { getOrders, getOrderDetail } from './orders';
 export type {
   ActiveSchedule,
   AfterSchedule,
@@ -41,6 +42,12 @@ export type {
   MachineDetail,
   MetricDelta,
   MetricsComparison,
+  OrderBaseDto,
+  OrderDetailDto,
+  OrderListDto,
+  OrderListItemDto,
+  OrderStepDto,
+  OrderUnitDto,
   QueueReorderItem,
   RescheduleAffectedUnit,
   RescheduleGroupDetail,
