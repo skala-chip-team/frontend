@@ -6,3 +6,5 @@ export { useAnimatedNumber } from './useAnimatedNumber';
 export { useUsers } from './useUsers';
 export { useSaveWorker, useDeleteUser } from './useUserActions';
 export { useDistrictOverviews } from './useDistrictOverviews';
+export { useOrders, useOrderDetail } from './useOrders';
+export type { OrdersResult } from './useOrders';

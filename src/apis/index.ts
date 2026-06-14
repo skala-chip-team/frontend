@@ -12,6 +12,7 @@ export { getSimStatus } from './sim';
 export { login, signup } from './auth';
 export { getUsers, changeUserRole, assignUserDistricts, deleteUser } from './users';
 export { getRescheduleGroups, getPendingRescheduleGroups, getRescheduleGroupDetail } from './reschedule';
+export { getOrders, getOrderDetail } from './orders';
 export type {
   ActiveSchedule,
   AfterSchedule,
@@ -28,6 +29,12 @@ export type {
   LoginRequest,
   LoginResponse,
   MachineDetail,
+  OrderBaseDto,
+  OrderDetailDto,
+  OrderListDto,
+  OrderListItemDto,
+  OrderStepDto,
+  OrderUnitDto,
   QueueReorderItem,
   RescheduleAffectedUnit,
   RescheduleGroupDetail,

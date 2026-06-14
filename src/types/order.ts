@@ -31,5 +31,6 @@ export interface Order {
   planned_output_qty: number; // 100 고정 (4 Unit × 25)
   order_priority: number; // 1(높음) ~ 5(낮음)
   is_burst: boolean; // burst(긴급) 주문 여부
+  due_imminent?: boolean; // 서버 제공 납기 임박 플래그(있으면 우선 사용). mock은 미설정
   units: OrderUnit[]; // 소속 유닛 (4개)
 }
