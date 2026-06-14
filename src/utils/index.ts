@@ -1,5 +1,20 @@
-export { riskChipColor, statusChipColor, statusLabel, formatDelayHours } from './reschedule';
-export { getApiErrorMessage } from './apiError';
+export {
+  riskChipColor,
+  statusChipColor,
+  statusLabel,
+  riskLevelLabel,
+  processStepLabel,
+  formatDelayHours,
+  formatRelativeTime,
+} from './reschedule';
+export {
+  buildStrategies,
+  toRescheduleGroupFromDetail,
+  toCardData,
+  toRiskLevel,
+} from './rescheduleAdapter';
+export type { AdaptedStrategy } from './rescheduleAdapter';
+export { getApiErrorMessage, getApiErrorStatus } from './apiError';
 export { buildDistrictDashboard } from './dashboardTransform';
 export {
   userToWorker,

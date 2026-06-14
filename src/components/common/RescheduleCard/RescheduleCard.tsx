@@ -2,7 +2,15 @@ import { useState } from 'react';
 
 import { ChevronRight } from 'lucide-react';
 
-import { formatDelayHours, riskChipColor, statusChipColor, statusLabel } from '@/utils';
+import {
+  formatDelayHours,
+  formatRelativeTime,
+  processStepLabel,
+  riskChipColor,
+  riskLevelLabel,
+  statusChipColor,
+  statusLabel,
+} from '@/utils';
 import type { AffectedUnit, GroupStatus, RiskLevel } from '@/types';
 
 import { Chip } from '../Chip';
@@ -13,9 +21,10 @@ export interface RescheduleCardData {
   process_step: string; // ex. 'Step 4'
   max_risk_score: number;
   risk_level: RiskLevel;
-  risk_factor: string; // ex. '납기 위험'
+  risk_factor: string; // ex. '납기 위험' — 제목으로 사용
   affected_units: AffectedUnit[];
   group_status: GroupStatus;
+  created_at?: string; // 탐지 시각(ISO) — 상대시간 표시용
 }
 
 interface RescheduleCardProps {
@@ -33,34 +42,42 @@ export function RescheduleCard({ data, onOpenDetail }: RescheduleCardProps) {
       onClick={onOpenDetail}
       className="group flex cursor-pointer flex-col gap-4 rounded-2xl border border-gray-200/80 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)] transition hover:border-gray-300 hover:shadow-[0_12px_32px_rgba(15,23,42,0.08)]"
     >
-      {/* 상단: (좌) 구역·step 칩 / (우) 상세 이동 화살표 */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Chip variant="outline" size="sm">
-            {data.districtLabel}
-          </Chip>
-          <Chip variant="outline" size="sm">
-            {data.process_step}
-          </Chip>
-        </div>
-
-        <ChevronRight className="h-5 w-5 shrink-0 text-gray-300 transition group-hover:translate-x-0.5 group-hover:text-gray-500" />
-      </div>
-
-      {/* Risk Level + 그룹 ID·위험 원인 / 상태 */}
-      <div className="flex items-center justify-between gap-4">
+      {/* 헤더: 위험레벨 + 구역·공정(제목) / 상태 + 화살표 */}
+      <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <Chip variant="solid" color={riskChipColor(data.risk_level)} size="lg" className="font-bold">
-            {data.risk_level.toUpperCase()}
+            {riskLevelLabel(data.risk_level)}
           </Chip>
-          <div className="text-subtitle-1 font-bold text-secondary-navy">
-            {data.group_id} {data.risk_factor}
+          <div className="flex flex-col gap-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-subtitle-1 font-bold text-secondary-navy">
+                {data.districtLabel} · {processStepLabel(data.process_step)}
+              </span>
+              <Chip
+                variant="subtle"
+                color={riskChipColor(data.risk_level)}
+                size="xs"
+                className="font-bold tabular-nums"
+              >
+                위험 {data.max_risk_score}
+              </Chip>
+              <Chip variant="subtle" color="gray" size="xs" className="tabular-nums">
+                영향 {data.affected_units.length}유닛
+              </Chip>
+            </div>
+            <span className="text-label-3 text-gray-400">
+              {data.risk_factor || '지연 위험'}
+              {data.created_at ? ` · ${formatRelativeTime(data.created_at)} 탐지` : ''}
+            </span>
           </div>
         </div>
 
-        <Chip variant="subtle" color={statusChipColor(data.group_status)} size="xl">
-          {statusLabel(data.group_status)}
-        </Chip>
+        <div className="flex items-center gap-2">
+          <Chip variant="subtle" color={statusChipColor(data.group_status)} size="xl">
+            {statusLabel(data.group_status)}
+          </Chip>
+          <ChevronRight className="h-5 w-5 shrink-0 text-gray-300 transition group-hover:translate-x-0.5 group-hover:text-gray-500" />
+        </div>
       </div>
 
       {/* 영향 UNIT — 기본은 개수만, 클릭 시 펼쳐서 표시 */}
