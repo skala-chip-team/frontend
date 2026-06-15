@@ -66,8 +66,15 @@ function dateKey(iso: string): string | null {
 /** 간트 막대 + 실제(actual) 시각을 입힌 표시용 막대 */
 interface TimedBar {
   bar: GanttBar;
-  start: string; // 실제 시작(없으면 estimatedStart)
-  actualEnd: string | null; // 실제 종료. 진행중/미완료면 null (계획 소요시간으로 폭 계산)
+  machineId: string; // 배치 기준 장비: 실제(work-status) 우선, 없으면 계획(gantt)
+  start: string; // 선택/필터용: 실제 시작(없으면 estimatedStart)
+  actualStart: string | null; // 실제 시작(raw). 미시작이면 null
+  actualEnd: string | null; // 실제 종료(raw). 진행중/미완료면 null
+}
+
+/** 종료 시각(시) 클램프: 시작 이하이거나 24 초과면 그날 끝(24)으로 */
+function clampEnd(start: number, end: number): number {
+  return end <= start || end > 24 ? 24 : end;
 }
 
 /**
@@ -77,11 +84,11 @@ interface TimedBar {
 function latestDayBars(bars: TimedBar[]): TimedBar[] {
   let latest: string | null = null;
   for (const b of bars) {
-    const key = dateKey(b.start);
+    const key = dateKey(b.bar.estimatedStart);
     if (key !== null && (latest === null || key > latest)) latest = key;
   }
   if (latest === null) return [];
-  return bars.filter((b) => dateKey(b.start) === latest);
+  return bars.filter((b) => dateKey(b.bar.estimatedStart) === latest);
 }
 
 /**
@@ -98,6 +105,47 @@ function clipOverlaps(units: ScheduledUnit[]): void {
       prev.end_time = Math.max(prev.start_time + 0.05, cur.start_time);
     }
   }
+}
+
+/** schedule_id 기반 결정적 tone (탭/폴링 무관하게 같은 유닛은 같은 색) */
+function toneOf(scheduleId: string): ScheduleTone {
+  let h = 0;
+  for (let i = 0; i < scheduleId.length; i += 1) h = (h * 31 + scheduleId.charCodeAt(i)) >>> 0;
+  return TONES[h % TONES.length];
+}
+
+/** TimedBar → 화면용 ScheduledUnit (계획/실적 시각 모두 포함) */
+function barToUnit(b: TimedBar): ScheduledUnit {
+  const startTime = toHour(b.start);
+  let endTime: number;
+  if (b.actualEnd) {
+    endTime = toHour(b.actualEnd);
+  } else {
+    const estDurHr =
+      (new Date(b.bar.estimatedEnd).getTime() - new Date(b.bar.estimatedStart).getTime()) / 3_600_000;
+    endTime = startTime + (Number.isFinite(estDurHr) && estDurHr > 0 ? estDurHr : 1);
+  }
+  if (endTime <= startTime || endTime > 24) endTime = 24;
+
+  const planStart = toHour(b.bar.estimatedStart);
+  const planEnd = clampEnd(planStart, toHour(b.bar.estimatedEnd));
+  const actualStart = b.actualStart ? toHour(b.actualStart) : null;
+  const actualEnd =
+    actualStart != null && b.actualEnd ? clampEnd(actualStart, toHour(b.actualEnd)) : null;
+
+  return {
+    schedule_id: b.bar.scheduleId,
+    unit_id: b.bar.unitId,
+    priority: b.bar.priority,
+    status: toUnitStatus(b.bar.unitStatus),
+    start_time: startTime,
+    end_time: endTime,
+    plan_start: planStart,
+    plan_end: planEnd,
+    actual_start: actualStart,
+    actual_end: actualEnd,
+    tone: toneOf(b.bar.scheduleId),
+  };
 }
 
 function buildSummaryCards(summary: DistrictSummary): SummaryCard[] {
@@ -171,11 +219,15 @@ export function buildDistrictDashboard(
   }
 
   // 간트 막대에 실제 시각을 입힌다. 시작은 실제값(없으면 계획), 종료는 실제값만(없으면 null).
+  // 장비도 실제(work-status) 우선: 계획 장비와 실제 투입 장비가 다를 수 있어(재배정),
+  // 화면엔 실제로 작업한 장비 행에 막대를 그린다.
   const withActual = (bar: GanttBar): TimedBar => {
     const ws = actualBySchedule.get(bar.scheduleId);
     return {
       bar,
+      machineId: ws?.machineId ?? bar.machineId,
       start: ws?.startTime ?? bar.estimatedStart,
+      actualStart: ws?.startTime ?? null,
       actualEnd: ws?.endTime ?? null,
     };
   };
@@ -188,41 +240,24 @@ export function buildDistrictDashboard(
     // 시뮬레이션 날짜가 있으면 그날 스케줄을, 없으면 active→최근일 폴백 (모두 실제 시작 시각 기준)
     let barsToShow: TimedBar[];
     if (simDate) {
-      barsToShow = timedBars.filter((b) => dateKey(b.start) === simDate);
+      // 계획 시작일 기준으로 고정 — work-status(실제 시각)가 채워져도 표시 대상이 흔들리지 않게.
+      // (그날 schedule master 내용에만 의존 → 다시 불러오기 전까지 계획 막대 고정)
+      barsToShow = timedBars.filter((b) => dateKey(b.bar.estimatedStart) === simDate);
     } else {
       const activeBars = timedBars.filter((b) => b.bar.active);
       barsToShow = activeBars.length > 0 ? activeBars : latestDayBars(timedBars);
     }
 
     const districtMachines: DistrictMachine[] = stepMachines.map((machine) => {
+      // units = 실제 투입 장비 기준 배치('현재 상태' 탭·3D 보드용). 미시작은 계획 장비로 폴백.
       const units: ScheduledUnit[] = barsToShow
+        .filter((b) => b.machineId === machine.machineId)
+        .map(barToUnit);
+
+      // plan_units = 계획 장비(gantt machineId) 기준 배치('계획' 탭용).
+      const planUnits: ScheduledUnit[] = barsToShow
         .filter((b) => b.bar.machineId === machine.machineId)
-        .map((b, idx) => {
-          const startTime = toHour(b.start);
-          let endTime: number;
-          if (b.actualEnd) {
-            // 완료: 실제 종료시각 사용
-            endTime = toHour(b.actualEnd);
-          } else {
-            // 진행중/미완료: 실제 종료가 없으니 계획 소요시간(분)을 실제 시작에 더한다.
-            // (계획 종료시각을 그대로 쓰면 시작과 시간대가 달라 막대가 거대해짐)
-            const estDurHr =
-              (new Date(b.bar.estimatedEnd).getTime() - new Date(b.bar.estimatedStart).getTime()) /
-              3_600_000;
-            endTime = startTime + (Number.isFinite(estDurHr) && estDurHr > 0 ? estDurHr : 1);
-          }
-          // 자정을 넘는 막대(end<=start)는 그날 끝(24시)까지로 표시, 24시 초과도 클램프
-          if (endTime <= startTime || endTime > 24) endTime = 24;
-          return {
-            schedule_id: b.bar.scheduleId,
-            unit_id: b.bar.unitId,
-            priority: b.bar.priority,
-            status: toUnitStatus(b.bar.unitStatus),
-            start_time: startTime,
-            end_time: endTime,
-            tone: TONES[idx % TONES.length],
-          };
-        });
+        .map(barToUnit);
 
       // 실제 작업시간은 같은 장비에서도 인접 unit이 살짝 겹친다(기록상 다음 작업 시작 < 이전 작업 종료).
       // 시작 시각 순으로 정렬한 뒤, 이전 막대 끝을 다음 막대 시작까지로 잘라 겹침을 없앤다.
@@ -236,6 +271,7 @@ export function buildDistrictDashboard(
         load_rate: machine.loadRate,
         active_unit_id: machine.activeSchedule?.unitId ?? null,
         units,
+        plan_units: planUnits,
       };
     });
 

@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
 
-import { MachineScheduleGanttRow, type MachineScheduleRowData } from './MachineScheduleGanttRow';
+import {
+  MachineScheduleGanttRow,
+  type GanttViewMode,
+  type MachineScheduleRowData,
+} from './MachineScheduleGanttRow';
 
 type MachineScheduleGanttBoardProps = {
   startHour: number;
@@ -48,6 +52,7 @@ export function MachineScheduleGanttBoard({
   };
 
   const [liveHour, setLiveHour] = useState(getCurrentHour);
+  const [mode, setMode] = useState<GanttViewMode>('actual');
 
   useEffect(() => {
     // 시뮬레이션 시각으로 고정하면 실시간 갱신 불필요
@@ -77,6 +82,24 @@ export function MachineScheduleGanttBoard({
       <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[1.5rem]">
         <div className="absolute right-[-12%] top-[-18%] h-32 w-32 rounded-full bg-primary-500/5 blur-3xl" />
         <div className="absolute bottom-[-20%] left-[-10%] h-28 w-28 rounded-full bg-secondary-orange/6 blur-3xl" />
+      </div>
+
+      {/* 계획 / 실적 전환 탭 */}
+      <div className="relative z-10 mb-1 flex w-fit items-center gap-0.5 rounded-lg bg-surface-100 p-0.5">
+        {(['plan', 'actual'] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => setMode(m)}
+            className={`rounded-md px-3 py-1 text-label-3 font-semibold transition ${
+              mode === m
+                ? 'bg-white text-secondary-navy shadow-sm'
+                : 'text-gray-400 hover:text-gray-600'
+            }`}
+          >
+            {m === 'plan' ? '계획' : '현재 상태'}
+          </button>
+        ))}
       </div>
 
       <div className="relative min-h-0 flex-1 overflow-auto pt-6">
@@ -125,6 +148,8 @@ export function MachineScheduleGanttBoard({
               schedule={schedule}
               startHour={startHour}
               endHour={endHour}
+              currentHour={currentHour}
+              mode={mode}
             />
           ))}
         </div>
