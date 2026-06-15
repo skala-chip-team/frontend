@@ -66,6 +66,7 @@ function dateKey(iso: string): string | null {
 /** 간트 막대 + 실제(actual) 시각을 입힌 표시용 막대 */
 interface TimedBar {
   bar: GanttBar;
+  machineId: string; // 배치 기준 장비: 실제(work-status) 우선, 없으면 계획(gantt)
   start: string; // 선택/필터용: 실제 시작(없으면 estimatedStart)
   actualStart: string | null; // 실제 시작(raw). 미시작이면 null
   actualEnd: string | null; // 실제 종료(raw). 진행중/미완료면 null
@@ -177,10 +178,13 @@ export function buildDistrictDashboard(
   }
 
   // 간트 막대에 실제 시각을 입힌다. 시작은 실제값(없으면 계획), 종료는 실제값만(없으면 null).
+  // 장비도 실제(work-status) 우선: 계획 장비와 실제 투입 장비가 다를 수 있어(재배정),
+  // 화면엔 실제로 작업한 장비 행에 막대를 그린다.
   const withActual = (bar: GanttBar): TimedBar => {
     const ws = actualBySchedule.get(bar.scheduleId);
     return {
       bar,
+      machineId: ws?.machineId ?? bar.machineId,
       start: ws?.startTime ?? bar.estimatedStart,
       actualStart: ws?.startTime ?? null,
       actualEnd: ws?.endTime ?? null,
@@ -203,7 +207,7 @@ export function buildDistrictDashboard(
 
     const districtMachines: DistrictMachine[] = stepMachines.map((machine) => {
       const units: ScheduledUnit[] = barsToShow
-        .filter((b) => b.bar.machineId === machine.machineId)
+        .filter((b) => b.machineId === machine.machineId)
         .map((b, idx) => {
           const startTime = toHour(b.start);
           let endTime: number;
