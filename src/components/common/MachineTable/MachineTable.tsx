@@ -1,4 +1,4 @@
-import { Pencil, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 
 import { districtLabels, type DistrictId } from '@/stores';
 import type { MachineConfig, MachineConfigStatus } from '@/types';
@@ -29,12 +29,11 @@ function stepLabel(processStep: string): string {
 
 interface MachineTableProps {
   machines: MachineConfig[];
-  onEdit: (machine: MachineConfig) => void;
   onDelete: (machine: MachineConfig) => void;
 }
 
-/** 장비 설정 테이블 — ID / 타입 / 구역 / STEP / 상태 + 수정·삭제 액션 */
-export function MachineTable({ machines, onEdit, onDelete }: MachineTableProps) {
+/** 장비 설정 테이블 — ID / 타입 / 구역 / STEP / 상태 + 삭제 액션 */
+export function MachineTable({ machines, onDelete }: MachineTableProps) {
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
       <table className="w-full text-left text-label-2">
@@ -52,7 +51,6 @@ export function MachineTable({ machines, onEdit, onDelete }: MachineTableProps) 
           {machines.map((machine, index) => (
             <tr
               key={machine.machine_id}
-              onClick={() => onEdit(machine)}
               style={{
                 animationName: 'rowFadeUp',
                 animationDuration: '0.4s',
@@ -60,7 +58,7 @@ export function MachineTable({ machines, onEdit, onDelete }: MachineTableProps) 
                 animationFillMode: 'both',
                 animationDelay: `${index * 0.04}s`,
               }}
-              className="cursor-pointer border-b border-gray-100 transition last:border-none hover:bg-surface-100/70"
+              className="border-b border-gray-100 transition last:border-none hover:bg-surface-100/70"
             >
               <td className="px-5 py-3 font-semibold text-secondary-navy">{machine.machine_id}</td>
               <td className="px-5 py-3">
@@ -80,24 +78,10 @@ export function MachineTable({ machines, onEdit, onDelete }: MachineTableProps) 
                 </Chip>
               </td>
               <td className="px-5 py-3">
-                <div className="flex items-center justify-end gap-1.5">
+                <div className="flex items-center justify-end">
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEdit(machine);
-                    }}
-                    aria-label={`${machine.machine_id} 수정`}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:border-gray-300 hover:bg-surface-100 hover:text-secondary-navy"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete(machine);
-                    }}
+                    onClick={() => onDelete(machine)}
                     aria-label={`${machine.machine_id} 삭제`}
                     className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
                   >

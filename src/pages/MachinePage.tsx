@@ -22,14 +22,12 @@ const STEP_FILTERS: Array<{ key: string; label: string }> = [
 export default function MachinePage() {
   const { data: machines, isLoading, isError } = useMachines();
   const { data: steps } = useProcessSteps();
-  const { create, update, remove } = useMachineActions();
+  const { create, remove } = useMachineActions();
 
   const [districtFilter, setDistrictFilter] = useState('all');
   const [stepFilter, setStepFilter] = useState('all');
 
-  // 추가/수정 모달: editing=null & open → 추가, editing=machine → 수정
   const [formOpen, setFormOpen] = useState(false);
-  const [editing, setEditing] = useState<MachineConfig | null>(null);
   const [deleting, setDeleting] = useState<MachineConfig | null>(null);
 
   const visible = useMemo(
@@ -40,26 +38,8 @@ export default function MachinePage() {
     [machines, districtFilter, stepFilter]
   );
 
-  const openAdd = () => {
-    setEditing(null);
-    setFormOpen(true);
-  };
-  const openEdit = (machine: MachineConfig) => {
-    setEditing(machine);
-    setFormOpen(true);
-  };
-
-  const saving = create.isPending || update.isPending;
-
-  const handleSubmit = (input: MachineConfigInput) => {
-    if (editing) {
-      update.mutate(
-        { machineId: editing.machine_id, input },
-        { onSuccess: () => setFormOpen(false) }
-      );
-    } else {
-      create.mutate(input, { onSuccess: () => setFormOpen(false) });
-    }
+  const handleAdd = (input: MachineConfigInput) => {
+    create.mutate(input, { onSuccess: () => setFormOpen(false) });
   };
 
   const handleDelete = () => {
@@ -72,29 +52,29 @@ export default function MachinePage() {
     if (isError) return <Message>장비 목록을 불러오지 못했습니다.</Message>;
     return (
       <>
-        {/* 필터 + 총 대수 */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-4">
+        {/* 필터(구역 → STEP 세로 배치) + 총 대수 */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-3">
             <FilterGroup
               label="구역"
               options={DISTRICT_FILTERS}
               value={districtFilter}
               onChange={setDistrictFilter}
             />
-            <FilterGroup
-              label="STEP"
-              options={STEP_FILTERS}
-              value={stepFilter}
-              onChange={setStepFilter}
-            />
+            <span className="text-label-2 font-semibold text-gray-400">총 {visible.length}대</span>
           </div>
-          <span className="text-label-2 font-semibold text-gray-400">총 {visible.length}대</span>
+          <FilterGroup
+            label="STEP"
+            options={STEP_FILTERS}
+            value={stepFilter}
+            onChange={setStepFilter}
+          />
         </div>
 
         {visible.length === 0 ? (
           <Message>해당 조건의 장비가 없습니다.</Message>
         ) : (
-          <MachineTable machines={visible} onEdit={openEdit} onDelete={setDeleting} />
+          <MachineTable machines={visible} onDelete={setDeleting} />
         )}
       </>
     );
@@ -108,7 +88,7 @@ export default function MachinePage() {
           <h1 className="text-heading-2 text-secondary-navy">장비 설정</h1>
           <button
             type="button"
-            onClick={openAdd}
+            onClick={() => setFormOpen(true)}
             className="flex items-center gap-1.5 rounded-lg bg-primary-500 px-4 py-2.5 text-label-1 font-semibold text-white shadow-[0_8px_20px_rgba(234,0,44,0.18)] transition hover:bg-primary-600"
           >
             <Plus className="h-4 w-4" />
@@ -121,11 +101,10 @@ export default function MachinePage() {
 
       <MachineFormModal
         open={formOpen}
-        machine={editing}
         steps={steps ?? []}
-        saving={saving}
+        saving={create.isPending}
         onClose={() => setFormOpen(false)}
-        onSubmit={handleSubmit}
+        onSubmit={handleAdd}
       />
 
       <ConfirmModal
@@ -153,7 +132,7 @@ function FilterGroup({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-label-3 font-semibold text-gray-400">{label}</span>
+      <span className="w-8 shrink-0 text-label-3 font-semibold text-gray-400">{label}</span>
       <div className="flex flex-wrap items-center gap-1.5">
         {options.map((opt) => {
           const active = value === opt.key;
