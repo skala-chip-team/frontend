@@ -4,11 +4,3 @@ export interface AvatarProps {
   fallback: string;
   size?: number;
 }
-
-export interface Notification {
-  id: string;
-  title: string;
-  description: string;
-  time: string;
-  unread: boolean;
-}
