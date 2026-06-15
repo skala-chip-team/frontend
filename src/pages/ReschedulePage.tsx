@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Loader2 } from 'lucide-react';
 
 import { Pagination, RescheduleCard } from '@components/common';
-import { districtLabels, useDistrictStore } from '@/stores';
-
-import { rescheduleGroups } from '@/mocks';
+import { useRescheduleGroups } from '@/hooks';
+import { districtLabels, useDistrictStore, type DistrictId } from '@/stores';
+import { toCardData } from '@/utils';
+import { getApiErrorMessage } from '@/utils';
 
 const PAGE_SIZE = 5;
 
@@ -14,6 +15,12 @@ export default function ReschedulePage() {
   const navigate = useNavigate();
   const selectedDistrict = useDistrictStore((state) => state.selectedDistrict);
   const isAll = selectedDistrict === 'all';
+
+  // 목록은 pending(미처리) 기준 — 승인 완료된 건은 제외. 구역 선택 시 districtId 필터
+  const { data, isLoading, isError, error } = useRescheduleGroups({
+    districtId: selectedDistrict,
+    status: 'pending',
+  });
 
   const [page, setPage] = useState(1);
   const [prevDistrict, setPrevDistrict] = useState(selectedDistrict);
@@ -24,17 +31,17 @@ export default function ReschedulePage() {
     setPage(1);
   }
 
-  const items = useMemo(
-    () =>
-      isAll
-        ? rescheduleGroups
-        : rescheduleGroups.filter((g) => (g.district_id as string) === selectedDistrict),
-    [isAll, selectedDistrict]
-  );
-
+  // 시뮬 진행으로 위험이 해소된 stale 그룹(영향 유닛 0)은 숨김 → 살아있는 위험만
+  const items = useMemo(() => (data ?? []).filter((g) => g.affectedUnits.length > 0), [data]);
   const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
-  const pageItems = items.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const pageItems = useMemo(
+    () => items.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [items, currentPage]
+  );
+
+  const districtLabel = (districtId: string) =>
+    districtLabels[districtId as DistrictId] ?? `구역 ${districtId}`;
 
   return (
     <section className="min-h-full bg-surface-50 px-6 pb-6 pt-4 lg:px-8 lg:pb-8">
@@ -50,7 +57,16 @@ export default function ReschedulePage() {
           ) : null}
         </div>
 
-        {items.length === 0 ? (
+        {isLoading ? (
+          <div className="flex h-40 items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-200 bg-white text-body-2 text-gray-400">
+            <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+            재조정안을 불러오는 중…
+          </div>
+        ) : isError ? (
+          <div className="flex h-40 items-center justify-center rounded-2xl border border-dashed border-red-200 bg-red-50 text-body-2 text-red-500">
+            {getApiErrorMessage(error, '재조정안을 불러오지 못했습니다.')}
+          </div>
+        ) : items.length === 0 ? (
           <div className="flex h-40 items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white text-body-2 text-gray-400">
             재조정안이 없습니다.
           </div>
@@ -59,23 +75,19 @@ export default function ReschedulePage() {
             <div className="flex flex-col gap-3">
               {pageItems.map((group) => (
                 <RescheduleCard
-                  key={group.group_id}
-                  onOpenDetail={() => navigate(`/reschedule/${group.group_id}`)}
-                  data={{
-                    group_id: group.group_id,
-                    districtLabel: `구역${group.district_id}`,
-                    process_step: group.process_step,
-                    max_risk_score: group.max_risk_score,
-                    risk_level: group.risk_level,
-                    risk_factor: group.risk_factor,
-                    affected_units: group.affected_units,
-                    group_status: group.group_status,
-                  }}
+                  key={group.groupId}
+                  onOpenDetail={() => navigate(`/reschedule/${group.groupId}`)}
+                  data={toCardData(group, districtLabel(group.districtId))}
                 />
               ))}
             </div>
 
-            <Pagination page={currentPage} totalPages={totalPages} onChange={setPage} className="mt-2" />
+            <Pagination
+              page={currentPage}
+              totalPages={totalPages}
+              onChange={setPage}
+              className="mt-2"
+            />
           </>
         )}
       </div>
