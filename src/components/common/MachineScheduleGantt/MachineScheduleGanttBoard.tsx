@@ -97,7 +97,7 @@ export function MachineScheduleGanttBoard({
                 : 'text-gray-400 hover:text-gray-600'
             }`}
           >
-            {m === 'plan' ? '계획' : '실적'}
+            {m === 'plan' ? '계획' : '현재 상태'}
           </button>
         ))}
       </div>

@@ -109,7 +109,7 @@ export function MachineScheduleGanttRow({
         start,
         end,
         cls: actualToneClassMap[u.tone ?? 'primary'],
-        tip: `${u.unit_id} · P${u.priority} · 실적 ${fmtHour(start)}–${inProgress ? '진행중' : fmtHour(end)}`,
+        tip: `${u.unit_id} · P${u.priority} · 현재 상태 ${fmtHour(start)}–${inProgress ? '진행중' : fmtHour(end)}`,
       };
     })
     .filter((b): b is NonNullable<typeof b> => b != null);
