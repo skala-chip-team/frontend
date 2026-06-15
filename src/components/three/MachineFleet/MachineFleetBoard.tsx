@@ -34,8 +34,8 @@ const VIEW_DIRECTION = ((): Triplet => {
 // 장비 개수에 따른 기본 줌 거리.
 // 개수를 3개 단위 버킷(1~3, 4~6, …)으로 묶어 같은 버킷이면 같은 줌을 쓴다.
 // 버킷 대표 개수 = 2, 5, 8 … → 1~3개는 "2대일 때" 줌으로 보인다.
-const ZOOM_BASE_DISTANCE = 7.5;
-const ZOOM_PER_MACHINE = 4.5;
+const ZOOM_BASE_DISTANCE = 3.0;
+const ZOOM_PER_MACHINE = 2.0;
 const ZOOM_BUCKET_SIZE = 3;
 
 function zoomDistanceForCount(machineCount: number) {
@@ -124,9 +124,7 @@ export default function MachineFleetBoard({
       setSelectedCode(null);
       setCameraSnap(true); // 새 뷰로 카메라 즉시 스냅
       setSlide({ phase: 'prep', dir }); // 반대쪽 화면 밖으로 순간이동(transition 없음)
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => setSlide({ phase: 'enter', dir }))
-      );
+      requestAnimationFrame(() => requestAnimationFrame(() => setSlide({ phase: 'enter', dir })));
       window.setTimeout(() => {
         setSlide({ phase: 'idle', dir });
         setCameraSnap(false);
@@ -187,7 +185,9 @@ export default function MachineFleetBoard({
         <div className="absolute inset-0 overflow-hidden">
           <div
             className={`h-full w-full ${
-              slide.phase === 'prep' ? 'transition-none' : 'transition-transform duration-300 ease-out'
+              slide.phase === 'prep'
+                ? 'transition-none'
+                : 'transition-transform duration-300 ease-out'
             }`}
             style={{ transform: `translateX(${translateX})` }}
           >

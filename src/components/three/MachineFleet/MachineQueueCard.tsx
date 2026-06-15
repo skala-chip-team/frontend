@@ -18,23 +18,23 @@ export function MachineQueueCard({ queue, className = '' }: MachineQueueCardProp
 
   return (
     <div
-      className={`w-[208px] rounded-[1.5rem] border border-gray-200/85 bg-white/96 p-4 shadow-[0_18px_40px_rgba(15,23,42,0.16)] backdrop-blur ${className}`}
+      className={`w-[188px] rounded-[1.25rem] border border-gray-200/85 bg-white/96 p-3.5 shadow-[0_18px_40px_rgba(15,23,42,0.16)] backdrop-blur ${className}`}
     >
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">대기열</p>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-400">대기열</p>
 
-      <div className="mt-3 flex gap-2">
-        <div className="flex-1 rounded-xl bg-surface-100 px-3 py-2.5">
+      <div className="mt-2.5 flex gap-2">
+        <div className="flex-1 rounded-xl bg-surface-100 px-2.5 py-2">
           <p className="text-[10px] font-medium text-gray-400">대기 UNIT</p>
-          <p className="mt-1 text-[20px] font-bold leading-none text-secondary-navy">
+          <p className="mt-1 text-[18px] font-bold leading-none text-secondary-navy">
             {waitingUnits.length}
-            <span className="ml-0.5 text-[12px] font-semibold text-gray-400">개</span>
+            <span className="ml-0.5 text-[11px] font-semibold text-gray-400">개</span>
           </p>
         </div>
-        <div className="flex-1 rounded-xl bg-surface-100 px-3 py-2.5">
+        <div className="flex-1 rounded-xl bg-surface-100 px-2.5 py-2">
           <p className="text-[10px] font-medium text-gray-400">평균 대기</p>
-          <p className="mt-1 text-[20px] font-bold leading-none text-secondary-navy">
+          <p className="mt-1 text-[18px] font-bold leading-none text-secondary-navy">
             {avgWaitTimeMin}
-            <span className="ml-0.5 text-[12px] font-semibold text-gray-400">분</span>
+            <span className="ml-0.5 text-[11px] font-semibold text-gray-400">분</span>
           </p>
         </div>
       </div>
