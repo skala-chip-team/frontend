@@ -237,25 +237,32 @@ export function buildDistrictDashboard(
   const steps: ProcessStep[] = orderedSteps.map((step) => {
     const stepMachines = machines.machines.filter((m) => m.stepId === step.stepId);
     const timedBars = step.schedules.map(withActual);
-    // 시뮬레이션 날짜가 있으면 그날 스케줄을, 없으면 active→최근일 폴백 (모두 실제 시작 시각 기준)
-    let barsToShow: TimedBar[];
+
+    // 탭별로 표시 대상 날짜 기준이 다르다:
+    // - 계획: 계획 시작일(estimatedStart) == simDate  (work-status 변화에 흔들리지 않게 고정)
+    // - 현재 상태: 실제 시작일(work-status) == simDate (그날 실제로 작업한 것만)
+    let planBars: TimedBar[];
+    let actualBars: TimedBar[];
     if (simDate) {
-      // 계획 시작일 기준으로 고정 — work-status(실제 시각)가 채워져도 표시 대상이 흔들리지 않게.
-      // (그날 schedule master 내용에만 의존 → 다시 불러오기 전까지 계획 막대 고정)
-      barsToShow = timedBars.filter((b) => dateKey(b.bar.estimatedStart) === simDate);
+      planBars = timedBars.filter((b) => dateKey(b.bar.estimatedStart) === simDate);
+      actualBars = timedBars.filter(
+        (b) => b.actualStart != null && dateKey(b.actualStart) === simDate
+      );
     } else {
       const activeBars = timedBars.filter((b) => b.bar.active);
-      barsToShow = activeBars.length > 0 ? activeBars : latestDayBars(timedBars);
+      const fallback = activeBars.length > 0 ? activeBars : latestDayBars(timedBars);
+      planBars = fallback;
+      actualBars = fallback;
     }
 
     const districtMachines: DistrictMachine[] = stepMachines.map((machine) => {
-      // units = 실제 투입 장비 기준 배치('현재 상태' 탭·3D 보드용). 미시작은 계획 장비로 폴백.
-      const units: ScheduledUnit[] = barsToShow
+      // units = 실제 투입 장비 기준 배치('현재 상태' 탭·3D 보드용). 실제 시작일==simDate 만.
+      const units: ScheduledUnit[] = actualBars
         .filter((b) => b.machineId === machine.machineId)
         .map(barToUnit);
 
       // plan_units = 계획 장비(gantt machineId) 기준 배치('계획' 탭용).
-      const planUnits: ScheduledUnit[] = barsToShow
+      const planUnits: ScheduledUnit[] = planBars
         .filter((b) => b.bar.machineId === machine.machineId)
         .map(barToUnit);
 
