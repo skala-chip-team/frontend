@@ -1,26 +1,14 @@
-import { useState } from 'react';
+import { startTransition, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import {
-  Home,
-  Activity,
-  Lightbulb,
-  ClipboardList,
-  Boxes,
-  Users,
-  ChevronsRight,
-  Settings,
-  HelpCircle,
-} from 'lucide-react';
+import { Home, Lightbulb, ClipboardList, Users, ChevronsRight, Settings } from 'lucide-react';
 import { useAuthStore } from '@/stores';
 
 import type { MenuItem, OptionProps, TitleSectionProps, ToggleCloseProps } from './types';
 
 const MAIN_MENU: MenuItem[] = [
   { icon: Home, title: '대시보드', path: '/dashboard' },
-  { icon: Activity, title: '장비 모니터링' },
   { icon: ClipboardList, title: '주문 관리', path: '/orders' },
   { icon: Lightbulb, title: '재조정 제안 관리', path: '/reschedule' },
-  { icon: Boxes, title: 'UNIT 관리' },
   // 작업자 관리는 ADMIN 전용 (path로 식별해 필터)
   { icon: Users, title: '작업자 관리', path: '/workers' },
 ];
@@ -28,17 +16,32 @@ const MAIN_MENU: MenuItem[] = [
 /** ADMIN만 접근 가능한 메뉴 경로 */
 const ADMIN_ONLY_PATHS = new Set(['/workers']);
 
-const ACCOUNT_MENU: MenuItem[] = [
-  { icon: Settings, title: '설정' },
-  { icon: HelpCircle, title: '도움말 및 지원' },
-];
+const ACCOUNT_MENU: MenuItem[] = [{ icon: Settings, title: '설정' }];
+
+/** 현재 경로에 해당하는 메뉴 타이틀(없으면 null). 하위 경로도 startsWith로 매칭. */
+function matchTitleByPath(pathname: string): string | null {
+  const match = [...MAIN_MENU, ...ACCOUNT_MENU].find(
+    (item) => item.path && pathname.startsWith(item.path)
+  );
+  return match?.title ?? null;
+}
 
 export function Sidebar() {
   const [open, setOpen] = useState(true);
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  // 라우트가 없는 메뉴(장비 모니터링 등)는 클릭 시 임시 선택 상태만 유지
-  const [selectedTitle, setSelectedTitle] = useState('대시보드');
+  // 선택 상태의 단일 소스. 라우트가 있는 메뉴는 URL과 동기화되고,
+  // 라우트가 없는 메뉴(장비 모니터링 등)는 클릭 시 이 값만 갱신된다.
+  const [selectedTitle, setSelectedTitle] = useState(() => matchTitleByPath(pathname) ?? '대시보드');
+
+  // 외부 경로 변경(딥링크·뒤로가기 등)이 생기면 렌더 중 선택 상태를 URL에 맞춘다.
+  // (effect 대신 직전 pathname과 비교하는 React 권장 패턴)
+  const [seenPathname, setSeenPathname] = useState(pathname);
+  if (pathname !== seenPathname) {
+    setSeenPathname(pathname);
+    const title = matchTitleByPath(pathname);
+    if (title) setSelectedTitle(title);
+  }
 
   // ADMIN만 작업자 관리 메뉴 노출
   const role = useAuthStore((state) => state.user?.role);
@@ -47,15 +50,14 @@ export function Sidebar() {
     (item) => !item.path || !ADMIN_ONLY_PATHS.has(item.path) || isAdmin
   );
 
-  const isItemSelected = (item: MenuItem) =>
-    item.path ? pathname.startsWith(item.path) : selectedTitle === item.title;
+  const isItemSelected = (item: MenuItem) => selectedTitle === item.title;
 
   const handleSelect = (item: MenuItem) => {
-    if (item.path) {
-      navigate(item.path);
-    } else {
-      setSelectedTitle(item.title);
-    }
+    // 클릭한 메뉴를 즉시 단일 선택으로(긴급 업데이트 → 사이드바 하이라이트 즉시 반영).
+    setSelectedTitle(item.title);
+    // 라우트 이동은 transition으로 표시해 비긴급 처리. 무거운 페이지(대시보드 3D 등)
+    // 렌더가 사이드바의 즉시 반응을 막지 않도록 — 메뉴가 먼저 움직이고 페이지가 뒤따라 로딩된다.
+    if (item.path) startTransition(() => navigate(item.path!));
   };
 
   return (
@@ -108,7 +110,7 @@ function Option({ icon: Icon, title, isSelected, onClick, open, notifs }: Option
     <button
       type="button"
       onClick={onClick}
-      className={`relative flex h-11 w-full items-center rounded-md transition-all duration-200 ${
+      className={`relative flex h-11 w-full items-center rounded-md ${
         isSelected
           ? 'border-l-2 border-primary-600 bg-primary-50 text-primary-600 shadow-sm'
           : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
