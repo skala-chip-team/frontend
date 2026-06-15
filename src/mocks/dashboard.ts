@@ -27,7 +27,14 @@ const m = (
   machine_status: MachineStatus,
   avg_utilization_rate: number,
   units: ScheduledUnit[]
-): DistrictMachine => ({ machine_id, machine_type, machine_status, avg_utilization_rate, units });
+): DistrictMachine => ({
+  machine_id,
+  machine_type,
+  machine_status,
+  avg_utilization_rate,
+  load_rate: Math.min(99, avg_utilization_rate + 8),
+  units,
+});
 
 const step = (
   step_id: string,
@@ -61,6 +68,8 @@ export const districtDashboards: Record<'A' | 'B' | 'C', DistrictDashboardData> 
   // 구역A — 장비 많음
   A: {
     summaryCards: summary('18', '6', '68', '37', '82'),
+    daily_output_qty: 9_360,
+    daily_target_output_qty: 12_000,
     steps: [
       step('A-step1', 'Step 1', 14, [
         m('A-201', 'Diffusion Line A', '가동중', 72, [
@@ -114,6 +123,8 @@ export const districtDashboards: Record<'A' | 'B' | 'C', DistrictDashboardData> 
   // 구역B — 중간 규모
   B: {
     summaryCards: summary('11', '3', '74', '21', '57'),
+    daily_output_qty: 6_120,
+    daily_target_output_qty: 8_000,
     steps: [
       step('B-step1', 'Step 1', 11, [
         m('B-210', 'Coating Line A', '가동중', 80, [
@@ -154,6 +165,8 @@ export const districtDashboards: Record<'A' | 'B' | 'C', DistrictDashboardData> 
   // 구역C — 소규모
   C: {
     summaryCards: summary('7', '2', '61', '13', '38'),
+    daily_output_qty: 3_480,
+    daily_target_output_qty: 5_000,
     steps: [
       step('C-step1', 'Step 1', 8, [
         m('C-101', 'Grind Line A', '가동중', 78, [

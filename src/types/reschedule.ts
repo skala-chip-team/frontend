@@ -1,5 +1,5 @@
 // 재조정안 관련 타입. 필드명은 docs/data.dbml 컬럼명을 따른다.
-export type RiskLevel = 'High' | 'Medium' | 'Low';
+export type RiskLevel = 'Critical' | 'High' | 'Medium' | 'Low';
 export type GroupStatus = 'pending' | 'approved' | 'expired';
 export type RescheduleDistrict = 'A' | 'B' | 'C';
 

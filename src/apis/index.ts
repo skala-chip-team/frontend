@@ -11,7 +11,14 @@ export {
 export { getSimStatus } from './sim';
 export { login, signup } from './auth';
 export { getUsers, changeUserRole, assignUserDistricts, deleteUser } from './users';
-export { getRescheduleGroups, getPendingRescheduleGroups, getRescheduleGroupDetail } from './reschedule';
+export {
+  getRescheduleGroups,
+  getPendingRescheduleGroups,
+  getRescheduleGroupDetail,
+  generateReschedule,
+  selectRescheduleStrategy,
+} from './reschedule';
+export type { RescheduleGroupQuery } from './reschedule';
 export { getOrders, getOrderDetail } from './orders';
 export type {
   ActiveSchedule,
@@ -20,15 +27,21 @@ export type {
   AfterScheduleUnit,
   ApiResponse,
   ApiRiskLevel,
+  DeadlineImpact,
   DelayRisk,
+  DetailedReport,
   DistrictGantt,
   DistrictMachines,
   DistrictStepQueue,
   DistrictSummary,
   GanttBar,
+  KeyConcern,
+  KeyImprovement,
   LoginRequest,
   LoginResponse,
   MachineDetail,
+  MetricDelta,
+  MetricsComparison,
   OrderBaseDto,
   OrderDetailDto,
   OrderListDto,

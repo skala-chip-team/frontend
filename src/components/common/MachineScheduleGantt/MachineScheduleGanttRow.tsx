@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 
 type ScheduleItemTone = 'primary' | 'navy' | 'orange' | 'slate';
 
-/** 간트 표시 모드: 계획(schedule master) / 실적(work-status) */
+/** 간트 표시 모드: 계획(schedule master) / 현재 상태(work-status) */
 type GanttViewMode = 'plan' | 'actual';
 
 // 필드명은 docs/data.dbml 컬럼명을 따른다. (tone 은 UI 전용)
@@ -13,7 +13,7 @@ type MachineScheduleItem = {
   priority: number; // schedule_master.priority (1 높음 ~ 5 낮음)
   start_time: number; // (호환) 병합 시각
   end_time: number;
-  // 계획/실적 시각 (시 단위 소수)
+  // 계획/현재 상태 시각 (시 단위 소수)
   plan_start?: number;
   plan_end?: number;
   actual_start?: number | null;
@@ -32,9 +32,9 @@ type MachineScheduleGanttRowProps = {
   schedule: MachineScheduleRowData;
   startHour: number;
   endHour: number;
-  /** 현재 시각(시 단위) — 진행중 실적 막대를 여기까지 그린다 */
+  /** 현재 시각(시 단위) — 진행중 막대를 여기까지 그린다 */
   currentHour: number;
-  /** 표시 모드(계획/실적) */
+  /** 표시 모드(계획/현재 상태) */
   mode: GanttViewMode;
 };
 
@@ -42,7 +42,7 @@ type MachineScheduleGanttRowProps = {
 const BAR_GAP = 0.3;
 const MIN_BAR_WIDTH = 0.6;
 
-// 계획 = 옅은 점선 고스트, 실적 = tone 색 채움
+// 계획 = 옅은 점선 고스트, 현재 상태 = tone 색 채움
 const PLAN_CLASS = 'border border-dashed border-gray-300 bg-gray-100/80 text-gray-600';
 const actualToneClassMap: Record<ScheduleItemTone, string> = {
   primary: 'bg-primary-500/80 border border-primary-300 text-white',
@@ -97,9 +97,9 @@ export function MachineScheduleGanttRow({
           tip: `${u.unit_id} · P${u.priority} · 계획 ${fmtHour(start)}–${fmtHour(end)}`,
         };
       }
-      // actual
+      // 현재 상태(work-status)
       const start = u.actual_start ?? null;
-      if (start == null) return null; // 미시작 → 실적 막대 없음
+      if (start == null) return null; // 미시작 → 막대 없음
       const inProgress = (u.actual_end ?? null) == null;
       let end = u.actual_end ?? currentHour; // 진행중이면 현재 시각까지
       if (end < start) end = start; // 시계 오차 방어
