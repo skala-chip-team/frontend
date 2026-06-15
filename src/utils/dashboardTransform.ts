@@ -66,8 +66,14 @@ function dateKey(iso: string): string | null {
 /** 간트 막대 + 실제(actual) 시각을 입힌 표시용 막대 */
 interface TimedBar {
   bar: GanttBar;
-  start: string; // 실제 시작(없으면 estimatedStart)
-  actualEnd: string | null; // 실제 종료. 진행중/미완료면 null (계획 소요시간으로 폭 계산)
+  start: string; // 선택/필터용: 실제 시작(없으면 estimatedStart)
+  actualStart: string | null; // 실제 시작(raw). 미시작이면 null
+  actualEnd: string | null; // 실제 종료(raw). 진행중/미완료면 null
+}
+
+/** 종료 시각(시) 클램프: 시작 이하이거나 24 초과면 그날 끝(24)으로 */
+function clampEnd(start: number, end: number): number {
+  return end <= start || end > 24 ? 24 : end;
 }
 
 /**
@@ -176,6 +182,7 @@ export function buildDistrictDashboard(
     return {
       bar,
       start: ws?.startTime ?? bar.estimatedStart,
+      actualStart: ws?.startTime ?? null,
       actualEnd: ws?.endTime ?? null,
     };
   };
@@ -213,6 +220,14 @@ export function buildDistrictDashboard(
           }
           // 자정을 넘는 막대(end<=start)는 그날 끝(24시)까지로 표시, 24시 초과도 클램프
           if (endTime <= startTime || endTime > 24) endTime = 24;
+
+          // 간트 2-레인용 계획/실적 시각 (병합값과 별개로 원본 그대로)
+          const planStart = toHour(b.bar.estimatedStart);
+          const planEnd = clampEnd(planStart, toHour(b.bar.estimatedEnd));
+          const actualStart = b.actualStart ? toHour(b.actualStart) : null;
+          const actualEnd =
+            actualStart != null && b.actualEnd ? clampEnd(actualStart, toHour(b.actualEnd)) : null;
+
           return {
             schedule_id: b.bar.scheduleId,
             unit_id: b.bar.unitId,
@@ -220,6 +235,10 @@ export function buildDistrictDashboard(
             status: toUnitStatus(b.bar.unitStatus),
             start_time: startTime,
             end_time: endTime,
+            plan_start: planStart,
+            plan_end: planEnd,
+            actual_start: actualStart,
+            actual_end: actualEnd,
             tone: TONES[idx % TONES.length],
           };
         });
