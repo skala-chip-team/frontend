@@ -86,7 +86,7 @@ export function MachineScheduleGanttRow({
 
       <div className="flex flex-col gap-0.5">
         {/* 계획 레인 */}
-        <div className="relative h-3.5">
+        <div className="relative h-5">
           {schedule.units.map((u) => {
             const ps = u.plan_start ?? u.start_time;
             const pe = u.plan_end ?? u.end_time;
@@ -94,18 +94,22 @@ export function MachineScheduleGanttRow({
             return (
               <div
                 key={`plan-${u.schedule_id}`}
-                className={`absolute top-1/2 h-3 -translate-y-1/2 rounded ${PLAN_CLASS}`}
+                className={`absolute top-1/2 flex h-4 -translate-y-1/2 items-center overflow-hidden rounded px-1.5 ${PLAN_CLASS}`}
                 style={{ left: `${left}%`, width: `${width}%` }}
                 onMouseEnter={(e) => showTip(e, `${u.unit_id} · P${u.priority} · 계획 ${fmtHour(ps)}–${fmtHour(pe)}`)}
                 onMouseMove={moveTip}
                 onMouseLeave={hideTip}
-              />
+              >
+                <span className="truncate text-[10px] font-medium leading-none text-gray-500">
+                  {u.unit_id}
+                </span>
+              </div>
             );
           })}
         </div>
 
         {/* 실적 레인 */}
-        <div className="relative h-3.5">
+        <div className="relative h-5">
           {schedule.units.map((u) => {
             const as = u.actual_start ?? null;
             if (as == null) return null; // 미시작 → 실적 막대 없음
@@ -118,7 +122,7 @@ export function MachineScheduleGanttRow({
             return (
               <div
                 key={`actual-${u.schedule_id}`}
-                className={`absolute top-1/2 h-3 -translate-y-1/2 rounded ${tone}`}
+                className={`absolute top-1/2 flex h-4 -translate-y-1/2 items-center overflow-hidden rounded px-1.5 ${tone}`}
                 style={{ left: `${left}%`, width: `${width}%` }}
                 onMouseEnter={(e) =>
                   showTip(
@@ -128,7 +132,11 @@ export function MachineScheduleGanttRow({
                 }
                 onMouseMove={moveTip}
                 onMouseLeave={hideTip}
-              />
+              >
+                <span className="truncate text-[10px] font-semibold leading-none text-white">
+                  {u.unit_id}
+                </span>
+              </div>
             );
           })}
         </div>

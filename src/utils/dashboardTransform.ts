@@ -84,11 +84,11 @@ function clampEnd(start: number, end: number): number {
 function latestDayBars(bars: TimedBar[]): TimedBar[] {
   let latest: string | null = null;
   for (const b of bars) {
-    const key = dateKey(b.start);
+    const key = dateKey(b.bar.estimatedStart);
     if (key !== null && (latest === null || key > latest)) latest = key;
   }
   if (latest === null) return [];
-  return bars.filter((b) => dateKey(b.start) === latest);
+  return bars.filter((b) => dateKey(b.bar.estimatedStart) === latest);
 }
 
 /**
@@ -199,7 +199,9 @@ export function buildDistrictDashboard(
     // 시뮬레이션 날짜가 있으면 그날 스케줄을, 없으면 active→최근일 폴백 (모두 실제 시작 시각 기준)
     let barsToShow: TimedBar[];
     if (simDate) {
-      barsToShow = timedBars.filter((b) => dateKey(b.start) === simDate);
+      // 계획 시작일 기준으로 고정 — work-status(실제 시각)가 채워져도 표시 대상이 흔들리지 않게.
+      // (그날 schedule master 내용에만 의존 → 다시 불러오기 전까지 계획 막대 고정)
+      barsToShow = timedBars.filter((b) => dateKey(b.bar.estimatedStart) === simDate);
     } else {
       const activeBars = timedBars.filter((b) => b.bar.active);
       barsToShow = activeBars.length > 0 ? activeBars : latestDayBars(timedBars);
