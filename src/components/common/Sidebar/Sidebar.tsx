@@ -151,8 +151,8 @@ function TitleSection({ open }: TitleSectionProps) {
 
 function Logo() {
   return (
-    <div className="grid size-10 shrink-0 place-content-center rounded-lg border border-gray-100 bg-white shadow-[0_4px_12px_rgba(15,23,42,0.12)]">
-      <img src={skLogo} alt="3S Scheduler" className="size-7 object-contain" />
+    <div className="grid size-10 shrink-0 place-content-center overflow-hidden rounded-lg border border-gray-100 bg-white shadow-[0_4px_12px_rgba(15,23,42,0.12)]">
+      <img src={skLogo} alt="3S Scheduler" className="size-full scale-[1.9] object-contain" />
     </div>
   );
 }
