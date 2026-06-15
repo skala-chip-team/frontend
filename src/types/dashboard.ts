@@ -20,6 +20,7 @@ export interface DistrictMachine {
   machine_type: string; // machine_master.machine_type
   machine_status: MachineStatus; // machine_master.machine_status
   avg_utilization_rate: number; // 가동률(%)
+  load_rate: number; // 부하율(%) — machines API의 loadRate
   active_unit_id?: string | null; // 현재 투입 UNIT (machines API의 activeSchedule.unitId)
   units: ScheduledUnit[];
 }
@@ -42,4 +43,6 @@ export interface SummaryCard {
 export interface DistrictDashboardData {
   summaryCards: SummaryCard[];
   steps: ProcessStep[];
+  daily_output_qty: number; // 오늘 생산 실적(summary.dailyOutputQty)
+  daily_target_output_qty: number; // 오늘 생산 목표(summary.dailyTargetOutputQty)
 }

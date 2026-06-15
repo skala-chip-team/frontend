@@ -61,11 +61,11 @@ export function MachineDetailPanel({ machine, open, onClose }: MachineDetailPane
 
   return (
     <div
-      className={`absolute bottom-0 right-0 top-0 z-20 flex w-[340px] max-w-[85%] p-3 transition-transform duration-500 ease-out ${
+      className={`absolute bottom-0 right-0 top-0 z-20 flex w-[316px] max-w-[85%] p-3 transition-transform duration-500 ease-out ${
         open ? 'translate-x-0' : 'pointer-events-none translate-x-full'
       }`}
     >
-      <div className="flex h-full w-full flex-col rounded-[1.5rem] border border-gray-200/85 bg-white/96 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.16)] backdrop-blur">
+      <div className="flex h-full w-full flex-col rounded-[1.5rem] border border-gray-200/85 bg-white/96 p-4 shadow-[0_18px_40px_rgba(15,23,42,0.16)] backdrop-blur">
         {/* 헤더 — 장비 이름이 가장 큰 글씨 */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -94,13 +94,22 @@ export function MachineDetailPanel({ machine, open, onClose }: MachineDetailPane
           </button>
         </div>
 
-        {/* 가동률 — 숫자만 */}
-        <div className="mt-5 flex items-center justify-between rounded-2xl bg-surface-100 px-4 py-3">
-          <span className="text-[13px] font-medium text-gray-500">가동률</span>
-          <span className="text-[26px] font-bold leading-none text-secondary-navy">
-            {machine?.avg_utilization_rate ?? 0}
-            <span className="ml-0.5 text-[14px] font-semibold text-gray-400">%</span>
-          </span>
+        {/* 가동률 + 부하율 */}
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <div className="rounded-2xl bg-surface-100 px-4 py-3">
+            <p className="text-[12px] font-medium text-gray-500">가동률</p>
+            <p className="mt-1 text-[22px] font-bold leading-none text-secondary-navy">
+              {machine?.avg_utilization_rate ?? 0}
+              <span className="ml-0.5 text-[13px] font-semibold text-gray-400">%</span>
+            </p>
+          </div>
+          <div className="rounded-2xl bg-surface-100 px-4 py-3">
+            <p className="text-[12px] font-medium text-gray-500">부하율</p>
+            <p className="mt-1 text-[22px] font-bold leading-none text-secondary-navy">
+              {machine?.load_rate ?? 0}
+              <span className="ml-0.5 text-[13px] font-semibold text-gray-400">%</span>
+            </p>
+          </div>
         </div>
 
         {/* 현재 진행 중인 UNIT */}

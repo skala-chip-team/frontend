@@ -3,14 +3,16 @@ import { useRef, useState, type ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
 
 import {
+  Board3DSkeleton,
   DashboardInfoCard,
   MachineScheduleGanttBoard,
   OverviewDashboard,
+  ProductionAchievementBar,
   StepSelector,
 } from '@components/common';
 import { MachineFleetBoard } from '@components/three';
 import { districtLabels, useDistrictStore } from '@/stores';
-import { useDistrictDashboard, useSimStatus } from '@/hooks';
+import { useDeferredMount, useDistrictDashboard, useSimStatus } from '@/hooks';
 import type { DistrictDashboardData } from '@/types';
 
 const STEP_LOCK_MS = 720;
@@ -32,6 +34,8 @@ function DistrictDashboard({
 }) {
   const steps = data.steps;
   const stepOptions = steps.map((step) => ({ id: step.step_id, label: step.process_step }));
+  // 무거운 3D 보드는 라우트 진입 후 페인트가 끝나면 마운트(사이드바 등 즉시 반응 보장)
+  const mount3D = useDeferredMount();
 
   const [selectedStepId, setSelectedStepId] = useState(steps[0].step_id);
   const [slideDirection, setSlideDirection] = useState<1 | -1>(1);
@@ -62,6 +66,12 @@ function DistrictDashboard({
 
   return (
     <div className="flex w-full flex-col gap-3">
+      {/* 오늘 생산 달성률 — 카드 묶음 위 가로 슬림 바 (summary 실적/목표 연동) */}
+      <ProductionAchievementBar
+        current={data.daily_output_qty}
+        target={data.daily_target_output_qty}
+      />
+
       <div className="flex flex-wrap gap-3">
         {data.summaryCards.map((card) => (
           <DashboardInfoCard
@@ -78,22 +88,26 @@ function DistrictDashboard({
       <StepSelector steps={stepOptions} selectedId={selectedStepId} onSelect={handleSelectStep} />
 
       <div className="h-[560px] w-full lg:h-[700px]">
-        <MachineFleetBoard
-          machines={activeStep.machines}
-          queue={fleetQueue}
-          slideDirection={slideDirection}
-          bottomPanel={
-            // 장비 4대까지 스크롤 없이 보이고, 5대부터 내부 세로 스크롤
-            <div className="h-[16.5rem]">
-              <MachineScheduleGanttBoard
-                startHour={0}
-                endHour={24}
-                schedules={activeStep.machines}
-                currentHour={currentHour}
-              />
-            </div>
-          }
-        />
+        {mount3D ? (
+          <MachineFleetBoard
+            machines={activeStep.machines}
+            queue={fleetQueue}
+            slideDirection={slideDirection}
+            bottomPanel={
+              // 장비 4대까지 스크롤 없이 보이고, 5대부터 내부 세로 스크롤
+              <div className="h-[16.5rem]">
+                <MachineScheduleGanttBoard
+                  startHour={0}
+                  endHour={24}
+                  schedules={activeStep.machines}
+                  currentHour={currentHour}
+                />
+              </div>
+            }
+          />
+        ) : (
+          <Board3DSkeleton />
+        )}
       </div>
     </div>
   );

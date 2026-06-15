@@ -91,7 +91,7 @@ const buildDefaultAnswer = (
   activeStrategyIndex: number
 ) =>
   [
-    `현재 화면에서는 ${group.group_id}의 ${group.risk_factor} 대응으로 ${formatStrategyTitle(activeStrategy, activeStrategyIndex)}을 보고 있어요.`,
+    `현재 화면에서는 ${group.risk_factor || '지연 위험'} 대응으로 ${formatStrategyTitle(activeStrategy, activeStrategyIndex)}을 보고 있어요.`,
     `위험 UNIT 변화, 장비 가동률, 큐 우선순위 변경, 납기 완화 효과 중 궁금한 항목을 질문해주시면 바로 정리해드릴게요.`,
   ].join(' ');
 

@@ -1,12 +1,15 @@
 import { useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-import { ArrowLeft, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, X } from 'lucide-react';
 
 import { districtOverviews } from '@/mocks';
-import type { DistrictOverview, OverviewMachine, OverviewMachineStatus } from '@/mocks/districtOverview';
-import { useDistrictOverviews, useSimStatus } from '@/hooks';
+import type { OverviewMachine, OverviewMachineStatus } from '@/mocks/districtOverview';
+import { useDeferredMount, useDistrictOverviews, useSimStatus } from '@/hooks';
 
+import { Board3DSkeleton } from '../Board3DSkeleton';
 import { Chip } from '../Chip';
+import { CircularProgress } from '../CircularProgress';
 import { FactoryMonitor3D } from './FactoryMonitor3D';
 
 const STATUS_TEXT: Record<OverviewMachineStatus, string> = {
@@ -22,25 +25,11 @@ const STATUS_DOT: Record<OverviewMachineStatus, string> = {
   장애: 'bg-rose-500',
 };
 
-type DistrictState = '정상' | '주의' | '위험';
-
-function stateOf(d: DistrictOverview): DistrictState {
-  const down = d.summary.down_machine_count;
-  if (down >= 10) return '위험';
-  if (down >= 5) return '주의';
-  return '정상';
-}
-
-const STATE_STYLE: Record<DistrictState, { dot: string; text: string }> = {
-  정상: { dot: 'bg-emerald-500', text: 'text-emerald-600' },
-  주의: { dot: 'bg-amber-500', text: 'text-amber-600' },
-  위험: { dot: 'bg-rose-500', text: 'text-rose-600' },
-};
-
-function riskChip(level: string): 'red' | 'orange' | 'emerald' {
-  if (level === 'Critical' || level === 'High') return 'red';
-  if (level === 'Medium') return 'orange';
-  return 'emerald';
+// TODO(API): 장비 부하율 데이터 연동 전 임시값(machine_id 기반 결정값 55~95%, 가동률과 구분).
+function loadRateOf(m: OverviewMachine): number {
+  let h = 0;
+  for (let i = 0; i < m.machine_id.length; i += 1) h = (h * 31 + m.machine_id.charCodeAt(i)) >>> 0;
+  return 55 + (h % 41);
 }
 
 function Card({
@@ -80,7 +69,29 @@ function Kpi({ label, value, danger = false }: { label: string; value: ReactNode
   );
 }
 
+/** max_risk_score(0~1) → 위험 등급 칩 */
+function riskOf(score: number): { label: string; color: 'red' | 'orange' | 'emerald' } {
+  if (score >= 0.7) return { label: 'HIGH', color: 'red' };
+  if (score >= 0.4) return { label: 'MEDIUM', color: 'orange' };
+  return { label: 'LOW', color: 'emerald' };
+}
+
+/** 원인 카테고리 코드 → 한글 (재조정 관리 표기와 일치) */
+const CAUSE_LABEL: Record<string, string> = {
+  Machine_Fault: '장비 고장 위험',
+  Queue_Bottleneck: '병목 심화',
+  Machine_Capacity: '가동률 저하',
+  Material_Shortage: '자재 부족',
+  Due_Date_Risk: '납기 위험',
+  Delay_Propagation: '납기 위험',
+};
+function causeLabel(code: string | null | undefined): string {
+  if (!code) return '원인 미상';
+  return CAUSE_LABEL[code] ?? code.replace(/_/g, ' ');
+}
+
 export function OverviewDashboard() {
+  const navigate = useNavigate();
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [machine, setMachine] = useState<OverviewMachine | null>(null);
   const [unit, setUnit] = useState<string | null>(null);
@@ -88,6 +99,8 @@ export function OverviewDashboard() {
 
   const { data: sim } = useSimStatus();
   const { data, isLoading, isError } = useDistrictOverviews(sim?.is_running ?? false);
+  // 무거운 3D 캔버스는 라우트 진입 후 페인트가 끝나면 마운트(사이드바 즉시 반응 보장)
+  const mount3D = useDeferredMount();
   const isMockFallback = !data || data.length === 0;
   const districts = isMockFallback ? districtOverviews : data;
   const districtLetter = (id: string) =>
@@ -96,7 +109,6 @@ export function OverviewDashboard() {
   const sel = focusedId ? (districts.find((d) => d.district_id === focusedId) ?? null) : null;
   const lr = sel?.latest_reschedule ?? null;
   const maxQ = sel ? Math.max(...sel.queue_by_step.map((q) => q.waiting), 1) : 1;
-  const st = sel ? stateOf(sel) : null;
   const machineDown = machine ? machine.machine_status === '장애' || machine.machine_status === '정지' : false;
   const isCauseMachine = !!(
     machine && lr?.propagation.some((p) => p.role === 'cause' && p.machine_id === machine.machine_id)
@@ -136,18 +148,30 @@ export function OverviewDashboard() {
     setUnit(null);
     setReveal(null);
   };
+  // 바깥(빈 공간) 클릭: 장비 상세 → 구역 / 구역 상세 → 전체
+  const onBackground = () => {
+    if (machine) closeMachine();
+    else if (focusedId) exitAll();
+  };
 
   return (
     <div className="relative min-h-[760px]">
-      <FactoryMonitor3D
-        districts={districts}
-        focusedId={focusedId}
-        selectedMachineId={machine?.machine_id ?? null}
-        routeUnitId={unit}
-        revealCauseId={reveal}
-        onZoneClick={focusZone}
-        onMachineClick={selectMachine}
-      />
+      {mount3D ? (
+        <FactoryMonitor3D
+          districts={districts}
+          focusedId={focusedId}
+          selectedMachineId={machine?.machine_id ?? null}
+          routeUnitId={unit}
+          revealCauseId={reveal}
+          onZoneClick={focusZone}
+          onMachineClick={selectMachine}
+          onBackground={onBackground}
+        />
+      ) : (
+        <div className="absolute inset-0">
+          <Board3DSkeleton />
+        </div>
+      )}
 
       {/* 연결 상태 배지 */}
       {isLoading || isMockFallback ? (
@@ -162,8 +186,8 @@ export function OverviewDashboard() {
         </div>
       ) : null}
 
-      <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-between gap-4 p-4">
-        {sel && st ? (
+      <div className="pointer-events-none absolute inset-0 z-30 p-4">
+        {sel ? (
           <>
             {/* 상단: 구역 KPI 바 */}
             <Card bodyClassName="px-4 py-3">
@@ -179,10 +203,6 @@ export function OverviewDashboard() {
                 <div className="flex items-center gap-2 pr-2">
                   <span className="text-body-1 font-extrabold text-secondary-navy">
                     구역 {districtLetter(sel.district_id)}
-                  </span>
-                  <span className={`ml-1 flex items-center gap-1 text-label-3 font-bold ${STATE_STYLE[st].text}`}>
-                    <span className={`h-2 w-2 rounded-full ${STATE_STYLE[st].dot}`} />
-                    {st}
                   </span>
                 </div>
                 <div className="flex flex-1 flex-wrap items-center gap-x-6 gap-y-3">
@@ -206,12 +226,13 @@ export function OverviewDashboard() {
               </div>
             </Card>
 
-            {/* 하단: 장비 선택 시 → 장비 상세 / 아니면 → 구역 인사이트 */}
-            {machine ? (
-              <div className="flex justify-center">
+            {/* 우측 정보 컬럼: (상) 장비 상세/최신 재조정안 (하) 대기 큐 */}
+            <div className="absolute bottom-4 right-4 top-[100px] flex w-[400px] max-w-[46%] flex-col gap-3">
+              {machine ? (
                 <Card
-                  className="w-full max-w-xl"
+                  className="shrink-0"
                   title="장비 상세"
+                  bodyClassName="p-4"
                   action={
                     <button
                       type="button"
@@ -273,22 +294,31 @@ export function OverviewDashboard() {
                     </button>
                   ) : null}
 
-                  <dl className="mt-3 grid grid-cols-3 gap-3">
-                    <div className="rounded-xl bg-surface-100/70 px-3 py-2.5">
-                      <dt className="text-[10px] text-gray-400">가동률</dt>
-                      <dd className="text-body-1 font-extrabold text-secondary-navy">{machine.utilization}%</dd>
-                    </div>
-                    <div className="rounded-xl bg-surface-100/70 px-3 py-2.5">
-                      <dt className="text-[10px] text-gray-400">투입 UNIT</dt>
-                      <dd className="text-body-2 font-bold text-secondary-navy">{machine.active_unit ?? '없음'}</dd>
-                    </div>
-                    <div className="rounded-xl bg-surface-100/70 px-3 py-2.5">
-                      <dt className="text-[10px] text-gray-400">소속 구역</dt>
-                      <dd className="text-body-2 font-bold text-secondary-navy">
-                        구역 {districtLetter(sel.district_id)}
-                      </dd>
-                    </div>
-                  </dl>
+                  {/* 부하율(원 차트, 메인) + 가동률·투입 UNIT·소속 구역 */}
+                  <div className="mt-3 flex items-center gap-4 rounded-xl bg-surface-100/70 px-4 py-3">
+                    <CircularProgress value={loadRateOf(machine)} size={96} strokeWidth={11} className="shrink-0">
+                      <span className="text-body-1 font-extrabold leading-none text-secondary-navy">
+                        {loadRateOf(machine)}%
+                      </span>
+                      <span className="mt-0.5 text-[10px] font-medium text-gray-400">부하율</span>
+                    </CircularProgress>
+                    <dl className="flex flex-1 flex-col gap-2">
+                      <div className="flex items-center justify-between">
+                        <dt className="text-[11px] text-gray-400">가동률</dt>
+                        <dd className="text-body-2 font-bold text-secondary-navy">{machine.utilization}%</dd>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <dt className="text-[11px] text-gray-400">투입 UNIT</dt>
+                        <dd className="text-label-2 font-bold text-secondary-navy">{machine.active_unit ?? '없음'}</dd>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <dt className="text-[11px] text-gray-400">소속 구역</dt>
+                        <dd className="text-label-2 font-bold text-secondary-navy">
+                          구역 {districtLetter(sel.district_id)}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
 
                   {/* UNIT 공정 순서 시각화 토글 */}
                   {machine.active_unit ? (
@@ -297,8 +327,8 @@ export function OverviewDashboard() {
                       onClick={() => setUnit((u) => (u === machine.active_unit ? null : machine.active_unit))}
                       className={`mt-3 w-full rounded-lg px-3 py-2 text-label-2 font-semibold transition ${
                         unit === machine.active_unit
-                          ? 'bg-blue-600 text-white hover:bg-blue-700'
-                          : 'border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'
+                          ? 'bg-primary-500 text-white hover:bg-primary-600'
+                          : 'border border-primary-200 bg-primary-50 text-primary-600 hover:bg-primary-100'
                       }`}
                     >
                       {unit === machine.active_unit
@@ -307,103 +337,89 @@ export function OverviewDashboard() {
                     </button>
                   ) : null}
                 </Card>
-              </div>
-            ) : (
-              <div className="grid grid-cols-12 gap-4">
-                {/* 최신 재조정안 */}
-                <Card title="최신 재조정안" className="col-span-12 lg:col-span-7" bodyClassName="p-4">
+              ) : (
+                <Card className="min-h-0 flex-1" title="최신 재조정안" bodyClassName="flex min-h-0 flex-col p-4">
                   {lr ? (
-                    <div className="flex max-h-[210px] flex-col gap-2.5 overflow-y-auto text-label-3">
-                      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5">
-                        <dt className="text-gray-400">Group ID</dt>
-                        <dd className="text-right font-semibold text-secondary-navy">{lr.group_id}</dd>
-                        <dt className="text-gray-400">Process Step</dt>
-                        <dd className="text-right">
-                          <Chip variant="outline" size="xs">
-                            {lr.process_step}
-                          </Chip>
-                        </dd>
-                        <dt className="text-gray-400">Max Risk Score</dt>
-                        <dd className="text-right text-body-2 font-extrabold text-rose-600">{lr.max_risk_score.toFixed(2)}</dd>
-                      </dl>
-                      <div>
-                        <p className="mb-1 font-semibold text-gray-400">관련 Delay Risks</p>
-                        <table className="w-full text-[10px]">
-                          <thead className="text-gray-400">
-                            <tr>
-                              <th className="py-1 pr-2 text-left font-semibold">Risk ID</th>
-                              <th className="py-1 pr-2 text-left font-semibold">Level</th>
-                              <th className="py-1 pr-2 text-left font-semibold">Detect</th>
-                              <th className="py-1 pr-2 text-right font-semibold">Delay</th>
-                              <th className="py-1 pr-2 text-right font-semibold">Prob.</th>
-                              <th className="py-1 text-left font-semibold">Factor</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {lr.delay_risks.map((r) => (
-                              <tr key={r.risk_id} className="border-t border-gray-100">
-                                <td className="py-1 pr-2 font-medium text-gray-500">{r.risk_id}</td>
-                                <td className="py-1 pr-2">
-                                  <Chip variant="subtle" color={riskChip(r.risk_level)} size="xs">
-                                    {r.risk_level}
-                                  </Chip>
-                                </td>
-                                <td className="py-1 pr-2 text-gray-500">{r.detection_time}</td>
-                                <td className="py-1 pr-2 text-right font-semibold text-primary-600">+{r.estimated_delay_hr}h</td>
-                                <td className="py-1 pr-2 text-right text-gray-500">{Math.round(r.delay_probability * 100)}%</td>
-                                <td className="py-1 text-gray-500">{r.risk_factor}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                    <>
+                      <div className="flex items-center gap-2">
+                        <Chip variant="outline" size="sm">
+                          구역 {districtLetter(sel.district_id)}
+                        </Chip>
+                        <Chip variant="outline" size="sm">
+                          {lr.process_step}
+                        </Chip>
                       </div>
-                      <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 border-t border-gray-100 pt-2 text-[11px]">
-                        <span className="text-gray-400">발생시간</span>
-                        <span className="text-right font-semibold text-secondary-navy">{lr.occurred_at}</span>
-                        <span className="text-gray-400">영향 Unit</span>
-                        <span className="text-right font-semibold text-secondary-navy">{lr.affected_units.join(', ')}</span>
-                        <span className="text-gray-400">원인 Category</span>
-                        <span className="text-right font-semibold text-secondary-navy">{lr.cause}</span>
+                      <div className="mt-3 flex items-start gap-2.5">
+                        <Chip variant="solid" color={riskOf(lr.max_risk_score).color} size="lg" className="shrink-0 font-bold">
+                          {riskOf(lr.max_risk_score).label}
+                        </Chip>
+                        <p className="text-subtitle-2 font-bold leading-snug text-secondary-navy line-clamp-2">
+                          {causeLabel(lr.cause)}
+                        </p>
                       </div>
-                    </div>
+                      <div className="mt-3 grid grid-cols-3 gap-2">
+                        <div className="rounded-xl bg-surface-100/70 px-3 py-2.5">
+                          <p className="text-[10px] text-gray-400">발생 시간</p>
+                          <p className="text-label-2 font-bold text-secondary-navy">{lr.occurred_at}</p>
+                        </div>
+                        <div className="rounded-xl bg-surface-100/70 px-3 py-2.5">
+                          <p className="text-[10px] text-gray-400">최대 위험도</p>
+                          <p className="text-label-2 font-extrabold text-rose-600">{lr.max_risk_score.toFixed(2)}</p>
+                        </div>
+                        <div className="rounded-xl bg-surface-100/70 px-3 py-2.5">
+                          <p className="text-[10px] text-gray-400">영향 UNIT</p>
+                          <p className="text-label-2 font-bold text-secondary-navy">{lr.affected_units.length}개</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/reschedule/${lr.group_id}`)}
+                        className="mt-auto flex items-center justify-center gap-1.5 rounded-lg bg-primary-500 px-4 py-2.5 text-label-1 font-semibold text-white shadow-[0_8px_20px_rgba(234,0,44,0.18)] transition hover:bg-primary-600"
+                      >
+                        재조정하기
+                        <ArrowRight className="h-4 w-4" />
+                      </button>
+                    </>
                   ) : (
-                    <p className="py-6 text-center text-label-3 text-gray-400">진행 중인 재조정안이 없습니다.</p>
+                    <p className="flex-1 py-10 text-center text-label-3 text-gray-400">진행 중인 재조정안이 없습니다.</p>
                   )}
                 </Card>
+              )}
 
-                {/* 대기 큐 */}
-                <Card
-                  title="대기 큐"
-                  className="col-span-12 lg:col-span-5"
-                  action={<span className="text-[11px] text-gray-400">3D에서 장비를 클릭하면 상세</span>}
-                  bodyClassName="p-4"
-                >
-                  {sel.top_queue ? (
-                    <div className="mb-3 flex items-center justify-between rounded-xl bg-rose-50/80 px-3 py-2">
-                      <div>
-                        <p className="text-[10px] text-rose-500">최대 대기</p>
-                        <p className="text-body-2 font-extrabold text-rose-600">{sel.top_queue.step}</p>
-                      </div>
-                      <p className="text-body-1 font-extrabold text-rose-600">{sel.top_queue.waiting_unit_count} EA</p>
+              {/* 대기 큐 — 장비 상세 열려 있으면 숨김 */}
+              {!machine ? (
+              <Card
+                title="대기 큐"
+                className="shrink-0"
+                action={<span className="text-[11px] text-gray-400">3D에서 장비를 클릭하면 상세</span>}
+                bodyClassName="p-4"
+              >
+                {sel.top_queue ? (
+                  <div className="mb-3 flex items-center justify-between rounded-xl bg-rose-50/80 px-3 py-2">
+                    <div>
+                      <p className="text-[10px] text-rose-500">최대 대기</p>
+                      <p className="text-body-2 font-extrabold text-rose-600">{sel.top_queue.step}</p>
                     </div>
-                  ) : null}
-                  <ul className="flex max-h-[130px] flex-col gap-2 overflow-y-auto">
-                    {sel.queue_by_step.map((q, i) => (
-                      <li key={q.step} className="flex items-center gap-2">
-                        <span className="w-16 shrink-0 text-label-3 font-medium text-gray-500">{q.step}</span>
-                        <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-gray-100">
-                          <div
-                            className={`h-full rounded-full ${i === 0 ? 'bg-rose-500' : 'bg-secondary-navy/40'}`}
-                            style={{ width: `${(q.waiting / maxQ) * 100}%` }}
-                          />
-                        </div>
-                        <span className="w-7 shrink-0 text-right text-label-3 font-bold text-secondary-navy">{q.waiting}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </Card>
-              </div>
-            )}
+                    <p className="text-body-1 font-extrabold text-rose-600">{sel.top_queue.waiting_unit_count} EA</p>
+                  </div>
+                ) : null}
+                <ul className="flex max-h-[120px] flex-col gap-2 overflow-y-auto">
+                  {sel.queue_by_step.map((q, i) => (
+                    <li key={q.step} className="flex items-center gap-2">
+                      <span className="w-16 shrink-0 text-label-3 font-medium text-gray-500">{q.step}</span>
+                      <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-gray-100">
+                        <div
+                          className={`h-full rounded-full ${i === 0 ? 'bg-rose-500' : 'bg-secondary-navy/40'}`}
+                          style={{ width: `${(q.waiting / maxQ) * 100}%` }}
+                        />
+                      </div>
+                      <span className="w-7 shrink-0 text-right text-label-3 font-bold text-secondary-navy">{q.waiting}</span>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+              ) : null}
+            </div>
           </>
         ) : (
           <>

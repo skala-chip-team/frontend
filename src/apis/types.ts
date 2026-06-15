@@ -69,6 +69,8 @@ export interface RescheduleGroupSummary {
   groupStatus: string; // pending / approved / expired
   createdAt: string;
   affectedUnits: RescheduleAffectedUnit[];
+  // 그룹 내 최고 등급 위험의 risk_factor(영문 코드). 대표 위험 없으면 null (PR #31~)
+  riskFactor?: string | null;
 }
 
 /** 상세 delayRisks[] 항목 (delay_risk) */
@@ -122,9 +124,56 @@ export interface QueueReorderItem {
   priority_score: number;
 }
 
+/** 적용 전/후 비교 단일 지표 (생산량·누적지연 등) */
+export interface MetricDelta {
+  before: number;
+  after: number;
+  delta: number;
+}
+
+/** options[].metricsComparison — 적용 전/후 비교 (각 지표 { before, after, delta }) */
+export interface MetricsComparison {
+  completedUnits: MetricDelta; // ★ 생산량 차이
+  cumulativeDelayHr: MetricDelta; // ★ 누적지연 개선
+  avgQueueWaitMin: MetricDelta;
+  deadlineViolationCount: MetricDelta;
+  overallLoad: MetricDelta;
+}
+
+/** options[].keyImprovements[] — 추천 근거(개선점) */
+export interface KeyImprovement {
+  description: string;
+  magnitude: string;
+}
+
+/** options[].keyConcerns[] — 추천 근거(우려점) */
+export interface KeyConcern {
+  description: string;
+  magnitude: string;
+  mitigation: string;
+}
+
+/** options[].detailedReport — AI 상세 리포트 */
+export interface DetailedReport {
+  executiveSummary: string;
+  riskBackground: string;
+  metricAnalysis: string;
+  tradeoffs: string;
+  decisionBasis: string;
+}
+
+/** options[].deadlineImpact — 납기 영향 */
+export interface DeadlineImpact {
+  rescuedCount: number;
+  stillAtRiskCount: number;
+  newlyAtRiskCount: number;
+  newlyViolatedCount: number;
+}
+
 /** options[] — 전략별 재조정안 카드. fallback/실패 시 metrics·afterSchedule가 null일 수 있음 */
 export interface RescheduleOption {
-  strategy: string; // due_date_first | bottleneck_minimization | utilization_balance
+  // due_date_first | utilization_balance | line_recovery_first. fallback 시 null 가능
+  strategy: string | null;
   analysisStatus: string; // success | fallback
   fallbackReason: string | null;
   recommended: boolean;
@@ -137,6 +186,14 @@ export interface RescheduleOption {
   deadlineViolationCount: number | null;
   afterSchedule: AfterSchedule | null;
   queueReorder: QueueReorderItem[];
+  // 적용 전/후 비교 — fallback 시 null 가능
+  metricsComparison: MetricsComparison | null;
+  // 추천 근거
+  recommendationReasoning: string | null;
+  keyImprovements: KeyImprovement[];
+  keyConcerns: KeyConcern[];
+  detailedReport: DetailedReport | null;
+  deadlineImpact: DeadlineImpact | null;
 }
 
 /** GET /api/reschedule/groups/{groupId} 응답 data */
@@ -151,6 +208,8 @@ export interface RescheduleGroupDetail {
   actedAt: string;
   delayRisks: DelayRisk[];
   riskAnalysis: RiskAnalysis | null;
+  // 적용 전 스케줄 (null 가능). afterSchedule와 동일 구조
+  beforeSchedule: AfterSchedule | null;
   options: RescheduleOption[];
 }
 
@@ -175,6 +234,7 @@ export interface DistrictSummary {
   totalWaitingUnitCount: number;
   avgWaitTimeMin: number;
   dailyOutputQty: number;
+  dailyTargetOutputQty: number; // 일일 목표 생산량
 }
 
 /** GET /api/monitoring/districts/{districtId}/machines */
@@ -193,6 +253,7 @@ export interface MachineDetail {
   stepId: string;
   processStep: string;
   utilizationRate: number;
+  loadRate: number; // 부하율(%)
   activeSchedule: ActiveSchedule | null;
 }
 
@@ -330,4 +391,60 @@ export interface DistrictOverviewDto {
   stepQueues: OverviewStepQueueDto[];
   rescheduleGroupCount: number;
   latestReschedule: OverviewLatestReschedule | null;
+}
+
+// ── 주문(Order) 도메인 — GET /api/orders, GET /api/orders/{orderId} ──
+
+/** 주문 목록/상세 공통 헤더 필드 */
+export interface OrderBaseDto {
+  orderId: string;
+  districtId: string;
+  districtName: string | null;
+  planDate: string; // 'YYYY-MM-DD'
+  dueDate: string; // ISO datetime
+  plannedOutputQty: number;
+  priority: number;
+  priorityLabel: string;
+  status: string;
+  totalUnits: number;
+  completedUnits: number;
+  progressRatio: number;
+  dueImminent: boolean;
+  urgent: boolean;
+}
+
+/** GET /api/orders data.orders 항목 (units 없음) */
+export type OrderListItemDto = OrderBaseDto;
+
+/** GET /api/orders data */
+export interface OrderListDto {
+  totalCount: number;
+  imminentCount: number;
+  orders: OrderListItemDto[];
+}
+
+/** 주문 상세 unit의 공정 step */
+export interface OrderStepDto {
+  stepId: string;
+  processStep: string; // 'STEP_A' 등
+  stepOrder: number;
+  stepStatus: string;
+}
+
+/** GET /api/orders/{orderId} data.units 항목 */
+export interface OrderUnitDto {
+  unitId: string;
+  unitSizeQty: number;
+  unitStatus: string;
+  actualStartTime: string | null;
+  actualCompleteTime: string | null;
+  currentStepId: string | null;
+  currentMachineId: string | null;
+  estimatedCompleteTime: string | null;
+  steps: OrderStepDto[];
+}
+
+/** GET /api/orders/{orderId} data */
+export interface OrderDetailDto extends OrderBaseDto {
+  units: OrderUnitDto[];
 }

@@ -1,4 +1,4 @@
-import { AlarmClock, Zap } from 'lucide-react';
+import { AlarmClock, ChevronDown, ChevronUp, ChevronsUpDown, Zap } from 'lucide-react';
 
 import {
   districtShort,
@@ -14,15 +14,60 @@ import type { Order } from '@/types';
 
 import { Chip } from '../Chip';
 
+export type OrderSortKey = 'priority' | 'plan' | 'due';
+export type OrderSortDir = 'asc' | 'desc';
+export interface OrderSort {
+  key: OrderSortKey;
+  dir: OrderSortDir;
+}
+
 interface OrderTableProps {
   orders: Order[];
   selectedId?: string | null;
   today?: string; // 'YYYY-MM-DD' — 오늘 납기(임박) 행 강조용
+  sort?: OrderSort;
+  onSort?: (key: OrderSortKey) => void;
   onSelect: (order: Order) => void;
 }
 
+/** 정렬 가능한 헤더 셀 — 라벨 + 방향 화살표(클릭 토글) */
+function SortableTh({
+  label,
+  col,
+  sort,
+  onSort,
+  align = 'left',
+}: {
+  label: string;
+  col: OrderSortKey;
+  sort?: OrderSort;
+  onSort?: (key: OrderSortKey) => void;
+  align?: 'left' | 'right';
+}) {
+  const active = sort?.key === col;
+  const Icon = active ? (sort?.dir === 'asc' ? ChevronUp : ChevronDown) : ChevronsUpDown;
+  return (
+    <th className={`px-5 py-3 font-semibold ${align === 'right' ? 'text-right' : ''}`}>
+      <button
+        type="button"
+        onClick={() => onSort?.(col)}
+        aria-label={`${label} 정렬`}
+        className={`inline-flex items-center gap-1 rounded transition hover:text-secondary-navy ${
+          align === 'right' ? 'flex-row-reverse' : ''
+        } ${active ? 'text-secondary-navy' : ''}`}
+      >
+        {label}
+        <Icon
+          className={`h-3.5 w-3.5 ${active ? 'text-primary-500' : 'text-gray-300'}`}
+          aria-hidden
+        />
+      </button>
+    </th>
+  );
+}
+
 /** 주문 테이블 — 주문ID / 구역 / 진행 상태 / 우선순위 / 수량 / 계획일 / 납기. 행은 스태거 등장. */
-export function OrderTable({ orders, selectedId, today, onSelect }: OrderTableProps) {
+export function OrderTable({ orders, selectedId, today, sort, onSort, onSelect }: OrderTableProps) {
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
       <table className="w-full text-left text-label-2">
@@ -31,10 +76,10 @@ export function OrderTable({ orders, selectedId, today, onSelect }: OrderTablePr
             <th className="px-5 py-3 font-semibold">주문 ID</th>
             <th className="px-5 py-3 font-semibold">구역</th>
             <th className="px-5 py-3 font-semibold">진행 상태</th>
-            <th className="px-5 py-3 font-semibold">우선순위</th>
+            <SortableTh label="우선순위" col="priority" sort={sort} onSort={onSort} />
             <th className="px-5 py-3 text-right font-semibold">수량</th>
-            <th className="px-5 py-3 font-semibold">계획일</th>
-            <th className="px-5 py-3 font-semibold">납기</th>
+            <SortableTh label="계획일" col="plan" sort={sort} onSort={onSort} />
+            <SortableTh label="납기" col="due" sort={sort} onSort={onSort} />
           </tr>
         </thead>
         <tbody>
@@ -42,7 +87,8 @@ export function OrderTable({ orders, selectedId, today, onSelect }: OrderTablePr
             const status = orderStatus(order.units);
             const { done, total, percent } = orderProgress(order.units);
             const priority = priorityMeta(order.order_priority);
-            const imminent = today ? isDueToday(order.due_date, today) : false;
+            // 임박 기준: 시뮬 현재일(today)이 있으면 그 날짜로 판정, 없으면 서버 플래그로 폴백
+            const imminent = today ? isDueToday(order.due_date, today) : (order.due_imminent ?? false);
             const selected = selectedId === order.order_id;
             return (
               <tr

@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowRight,
@@ -6,7 +6,9 @@ import {
   ChevronLeft,
   CircleCheck,
   Gauge,
+  Loader2,
   Minus,
+  RefreshCw,
   ShieldAlert,
   Star,
   Timer,
@@ -27,9 +29,20 @@ import {
   StrategyRadar,
 } from '@components/common';
 import { RescheduleFaqChat } from '@/components/reschedule';
-import { rescheduleGroups, rescheduleStrategies, riskReasonsByFactor } from '@/mocks';
-import { districtLabels, useDistrictStore } from '@/stores';
-import { formatDelayHours, riskChipColor, statusChipColor, statusLabel } from '@/utils';
+import { useGenerateReschedule, useRescheduleDetail, useSelectStrategy } from '@/hooks';
+import { districtLabels, useToastStore, type DistrictId } from '@/stores';
+import {
+  buildStrategies,
+  formatDelayHours,
+  getApiErrorMessage,
+  getApiErrorStatus,
+  processStepLabel,
+  riskChipColor,
+  riskLevelLabel,
+  statusChipColor,
+  statusLabel,
+  toRescheduleGroupFromDetail,
+} from '@/utils';
 import type { RescheduleStrategy, StrategyBest, StrategyKey, UnitRiskChange } from '@/types';
 
 // 전략별 강조색 — 레이더 폴리곤·진행 바·선택 칩에 공통 사용
@@ -315,18 +328,42 @@ function CandidateCard({
   );
 }
 
+/** 로딩/에러/없음 등 상태 화면 — 뒤로가기 + 중앙 메시지 */
+function StateShell({ onBack, children }: { onBack: () => void; children: ReactNode }) {
+  return (
+    <section className="min-h-full bg-surface-50 px-6 pb-6 pt-4 lg:px-8 lg:pb-8">
+      <div className="mx-auto flex w-full max-w-[1680px] flex-col gap-4">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="목록으로"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition hover:border-gray-300 hover:text-secondary-navy"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span className="text-heading-2 text-gray-400">재조정안 관리</span>
+        </div>
+        <div className="flex h-40 items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-200 bg-white text-body-2 text-gray-500">
+          {children}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function RescheduleDetailPage() {
   const navigate = useNavigate();
   const { groupId } = useParams();
-  const selectedDistrict = useDistrictStore((state) => state.selectedDistrict);
-  const group = rescheduleGroups.find((item) => item.group_id === groupId) ?? null;
+  const addToast = useToastStore((state) => state.addToast);
 
-  const recommendedKey =
-    rescheduleStrategies.find((strategy) => strategy.recommended)?.key ??
-    rescheduleStrategies[0].key;
-  const [selectedStrategy, setSelectedStrategy] = useState<StrategyKey>(recommendedKey);
+  const { data: detail, isLoading, isError, error } = useRescheduleDetail(groupId);
+  const generate = useGenerateReschedule(groupId);
+  const select = useSelectStrategy(groupId);
+
+  const [selectedKey, setSelectedKey] = useState<StrategyKey | null>(null);
   const [phase, setPhase] = useState<ComparePhase>('after'); // 처음에는 조정 후만 표시
-  const [riskModalOpen, setRiskModalOpen] = useState(false); // 원인 설명 + 영향 UNIT 모달
+  const [riskModalOpen, setRiskModalOpen] = useState(false); // 원인 분석 + 영향 UNIT 모달
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [approveModalOpen, setApproveModalOpen] = useState(false);
   const [changeTab, setChangeTab] = useState<'queue' | 'schedule'>('queue');
@@ -347,47 +384,181 @@ export default function RescheduleDetailPage() {
     };
   }, []);
 
+  // API 응답 → 화면 모델
+  const strategies = useMemo(() => (detail ? buildStrategies(detail) : []), [detail]);
+  const group = useMemo(() => (detail ? toRescheduleGroupFromDetail(detail) : null), [detail]);
+
   // 전략 전환 — 안내 툴팁 재노출
   const selectStrategy = (key: StrategyKey) => {
-    setSelectedStrategy(key);
+    setSelectedKey(key);
     flashPhaseHint();
   };
-
-  const activeIndex = Math.max(
-    0,
-    rescheduleStrategies.findIndex((strategy) => strategy.key === selectedStrategy)
-  );
-  const activeStrategy = rescheduleStrategies[activeIndex];
-  const { compare } = activeStrategy;
-  const accent = STRATEGY_ACCENTS[activeStrategy.key];
   const strategyLabel = (index: number) => String.fromCharCode(65 + index); // 0→A, 1→B, 2→C
+
+  const runGenerate = () =>
+    generate.mutate(undefined, {
+      onSuccess: () => addToast({ tone: 'info', title: '재조정안이 생성되었습니다' }),
+      onError: (e) => {
+        // 409 = 대기열에 재조정 가능한 위험 없음(대상 unit이 이미 처리됨) → 재시도 무의미
+        // 502 = 에이전트 일시 오류 → 재시도 권장
+        if (getApiErrorStatus(e) === 409) {
+          addToast({
+            tone: 'info',
+            title: '재조정 가능한 위험이 없습니다',
+            description: getApiErrorMessage(e, '대상 unit이 이미 처리되어 지금은 재조정할 수 없습니다.'),
+          });
+        } else {
+          addToast({
+            tone: 'critical',
+            title: '재생성 실패',
+            description: getApiErrorMessage(e, '일시적인 오류입니다. 잠시 후 다시 시도해 주세요.'),
+          });
+        }
+      },
+    });
+
+  // ── 상태 화면 ──
+  if (isLoading) {
+    return (
+      <StateShell onBack={() => navigate('/reschedule')}>
+        <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+        재조정안을 불러오는 중…
+      </StateShell>
+    );
+  }
+  if (isError) {
+    return (
+      <StateShell onBack={() => navigate('/reschedule')}>
+        {getApiErrorMessage(error, '재조정안을 불러오지 못했습니다.')}
+      </StateShell>
+    );
+  }
+  if (!detail || !group) {
+    return (
+      <StateShell onBack={() => navigate('/reschedule')}>
+        해당 재조정안을 찾을 수 없습니다.
+      </StateShell>
+    );
+  }
+
   const recommendedIndex = Math.max(
     0,
-    rescheduleStrategies.findIndex((strategy) => strategy.key === recommendedKey)
+    strategies.findIndex((strategy) => strategy.recommended)
   );
-  const recommendedStrategy = rescheduleStrategies[recommendedIndex];
+  const activeIndex = (() => {
+    const i = strategies.findIndex((strategy) => strategy.key === selectedKey);
+    return i >= 0 ? i : recommendedIndex;
+  })();
+  const activeStrategy = strategies[activeIndex];
+  const recommendedStrategy = strategies[recommendedIndex] ?? activeStrategy;
+
+  // 재조정안이 아직 없음(빈 options) → 재생성 유도
+  if (strategies.length === 0 || !activeStrategy) {
+    return (
+      <section className="min-h-full bg-surface-50 px-6 pb-6 pt-4 lg:px-8 lg:pb-8">
+        <div className="mx-auto flex w-full max-w-[1680px] flex-col gap-4">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => navigate('/reschedule')}
+              aria-label="목록으로"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition hover:border-gray-300 hover:text-secondary-navy"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <div className="flex items-center gap-2 text-heading-2">
+              <span className="text-gray-400">재조정안 관리</span>
+              <span className="text-gray-300">›</span>
+              <span className="text-secondary-navy">{group.risk_factor || '지연 위험'}</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-gray-200 bg-white px-6 py-12 text-center">
+            <div className="flex items-center gap-3">
+              <Chip variant="solid" color={riskChipColor(group.risk_level)} size="lg" className="font-bold">
+                {riskLevelLabel(group.risk_level)}
+              </Chip>
+              <span className="text-subtitle-1 font-bold text-secondary-navy">
+                {group.risk_factor || '지연 위험'}
+              </span>
+            </div>
+            <p className="text-body-2 text-gray-500">
+              아직 생성된 재조정안이 없습니다. 재생성을 실행하면 AI가 전략별 재조정안을 만듭니다.
+            </p>
+            <button
+              type="button"
+              onClick={runGenerate}
+              disabled={generate.isPending}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary-500 px-5 py-2.5 text-label-1 font-semibold text-white shadow-[0_8px_20px_rgba(234,0,44,0.18)] transition hover:bg-primary-600 disabled:opacity-60"
+            >
+              {generate.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : (
+                <RefreshCw className="h-4 w-4" aria-hidden />
+              )}
+              {generate.isPending ? '재생성 중… (최대 2분)' : '재조정안 생성'}
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  const { compare } = activeStrategy;
+  const accent = STRATEGY_ACCENTS[activeStrategy.key] ?? STRATEGY_ACCENTS.due_date_first;
 
   const isBest = (key: StrategyBest) => compare.bests.includes(key);
 
-  // 위험 unit 변화량 (기존 위험 → 구제/잔존, 신규는 별도)
-  const rescuedCount = compare.units.filter((unit) => !unit.is_new && unit.relieved).length;
-  const remainCount = compare.units.filter((unit) => !unit.is_new && !unit.relieved).length;
-  const newRiskCount = compare.units.filter((unit) => unit.is_new).length;
+  // 위험 unit 변화량 — deadlineImpact(있으면) 우선, 없으면 unit 비교에서 도출
+  const di = activeStrategy.deadlineImpact;
+  const rescuedCount = di
+    ? di.rescuedCount
+    : compare.units.filter((unit) => !unit.is_new && unit.relieved).length;
+  const remainCount = di
+    ? di.stillAtRiskCount
+    : compare.units.filter((unit) => !unit.is_new && !unit.relieved).length;
+  const newRiskCount = di
+    ? di.newlyAtRiskCount + di.newlyViolatedCount
+    : compare.units.filter((unit) => unit.is_new).length;
   const waitDiff = compare.wait_before_min - compare.wait_after_min; // 양수=단축
 
-  const radarSeries = rescheduleStrategies.map((strategy) => ({
+  const radarSeries = strategies.map((strategy) => ({
     key: strategy.key,
     name: strategy.name,
-    color: STRATEGY_ACCENTS[strategy.key].hex,
+    color: (STRATEGY_ACCENTS[strategy.key] ?? STRATEGY_ACCENTS.due_date_first).hex,
     values: strategy.compare.radar,
   }));
-  // 축별로 선택 전략이 세 전략 중 1등(공동 1등 포함)인지
+  // 축별로 선택 전략이 전 전략 중 1등(공동 1등 포함)인지
   const bestAxes = RADAR_AXES.map((_, axisIndex) => {
-    const max = Math.max(...rescheduleStrategies.map((s) => s.compare.radar[axisIndex]));
+    const max = Math.max(...strategies.map((s) => s.compare.radar[axisIndex]));
     return compare.radar[axisIndex] >= max;
   });
 
-  const reasons = group ? (riskReasonsByFactor[group.risk_factor] ?? []) : [];
+  // 원인 분석 — riskAnalysis(evidence 해석 + 인과사슬). 미호출이면 빈 배열
+  const ra = detail.riskAnalysis;
+  const reasons: string[] = [];
+  if (ra?.root_cause?.evidence) {
+    reasons.push(...ra.root_cause.evidence.map((e) => e.interpretation).filter(Boolean));
+  }
+  if (ra?.causal_chain) reasons.push(ra.causal_chain);
+
+  const canSelect = activeStrategy.selectable && !select.isPending;
+  const approveStrategy = () =>
+    select.mutate(activeStrategy.apiStrategy, {
+      onSuccess: () => {
+        setApproveModalOpen(false);
+        addToast({ tone: 'info', title: '재조정안 승인이 완료되었습니다' });
+        navigate('/dashboard');
+      },
+      onError: (e) => {
+        setApproveModalOpen(false);
+        addToast({
+          tone: 'critical',
+          title: '승인 실패',
+          description: getApiErrorMessage(e, '잠시 후 다시 시도해 주세요.'),
+        });
+      },
+    });
 
   return (
     <section className="min-h-full bg-surface-50 px-6 pb-6 pt-4 lg:px-8 lg:pb-8">
@@ -410,22 +581,15 @@ export default function RescheduleDetailPage() {
             >
               재조정안 관리
             </button>
-            {selectedDistrict !== 'all' ? (
-              <>
-                <span className="text-gray-300">›</span>
-                <span className="text-gray-400">{districtLabels[selectedDistrict]}</span>
-              </>
-            ) : null}
             <span className="text-gray-300">›</span>
-            <span className="text-secondary-navy">{groupId}</span>
+            <span className="text-secondary-navy">
+              {districtLabels[detail.districtId as DistrictId] ?? `구역 ${detail.districtId}`} ·{' '}
+              {processStepLabel(group.process_step)}
+            </span>
           </div>
         </div>
 
-        {group === null ? (
-          <div className="flex h-40 items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white text-body-2 text-gray-400">
-            해당 재조정안을 찾을 수 없습니다.
-          </div>
-        ) : (
+        {(
           <>
             {/* 현재 위험 상황 */}
             <section className="mt-2 flex flex-col gap-4">
@@ -437,9 +601,11 @@ export default function RescheduleDetailPage() {
                 {/* 메타 행 — 구역/스텝 + 영향 UNIT/상태 */}
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex flex-wrap items-center gap-2.5">
-                    <Chip variant="outline" size="sm">{`구역${group.district_id}`}</Chip>
                     <Chip variant="outline" size="sm">
-                      {group.process_step}
+                      {districtLabels[detail.districtId as DistrictId] ?? `구역 ${detail.districtId}`}
+                    </Chip>
+                    <Chip variant="outline" size="sm">
+                      {processStepLabel(group.process_step)}
                     </Chip>
                   </div>
                   <div className="flex items-center gap-2.5">
@@ -462,10 +628,10 @@ export default function RescheduleDetailPage() {
                       size="lg"
                       className="font-bold"
                     >
-                      {group.risk_level.toUpperCase()}
+                      {riskLevelLabel(group.risk_level)}
                     </Chip>
                     <div className="text-[1.25rem] font-bold leading-tight text-secondary-navy">
-                      {group.group_id} {group.risk_factor}
+                      {group.risk_factor || '지연 위험'}
                     </div>
                   </div>
                   <button
@@ -496,6 +662,19 @@ export default function RescheduleDetailPage() {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
+                    onClick={runGenerate}
+                    disabled={generate.isPending}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-label-1 font-semibold text-secondary-navy transition hover:bg-surface-100 disabled:opacity-60"
+                  >
+                    {generate.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    ) : (
+                      <RefreshCw className="h-4 w-4" aria-hidden />
+                    )}
+                    {generate.isPending ? '재생성 중…' : '재생성'}
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setReportModalOpen(true)}
                     className="rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-label-1 font-semibold text-secondary-navy transition hover:bg-surface-100"
                   >
@@ -504,8 +683,11 @@ export default function RescheduleDetailPage() {
                   <button
                     type="button"
                     onClick={() => setApproveModalOpen(true)}
-                    className="rounded-lg bg-primary-500 px-4 py-2.5 text-label-1 font-semibold text-white shadow-[0_8px_20px_rgba(234,0,44,0.18)] transition hover:bg-primary-600"
+                    disabled={!canSelect}
+                    title={activeStrategy.selectable ? undefined : 'fallback로 생성된 안은 선택할 수 없습니다. 재생성하세요.'}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary-500 px-4 py-2.5 text-label-1 font-semibold text-white shadow-[0_8px_20px_rgba(234,0,44,0.18)] transition hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
                   >
+                    {select.isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
                     재조정안{strategyLabel(activeIndex)} 승인
                   </button>
                 </div>
@@ -513,12 +695,12 @@ export default function RescheduleDetailPage() {
 
               {/* 후보안 카드 — 클릭 시 아래 상세가 해당 전략으로 전환 */}
               <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                {rescheduleStrategies.map((strategy) => (
+                {strategies.map((strategy) => (
                   <CandidateCard
                     key={strategy.key}
                     strategy={strategy}
-                    active={strategy.key === selectedStrategy}
-                    accentHex={STRATEGY_ACCENTS[strategy.key].hex}
+                    active={strategy.key === activeStrategy.key}
+                    accentHex={(STRATEGY_ACCENTS[strategy.key] ?? STRATEGY_ACCENTS.due_date_first).hex}
                     onSelect={() => selectStrategy(strategy.key)}
                   />
                 ))}
@@ -588,7 +770,7 @@ export default function RescheduleDetailPage() {
                       descriptions={RADAR_AXES.map((axis) => axis.desc)}
                       bestAxes={bestAxes}
                       series={radarSeries}
-                      selectedKey={selectedStrategy}
+                      selectedKey={activeStrategy.key}
                       onSelect={(key) => selectStrategy(key as StrategyKey)}
                       className="w-full"
                     />
@@ -700,13 +882,36 @@ export default function RescheduleDetailPage() {
                   </div>
                 </div>
 
-                {/* 추천 이유 — 추천 전략일 때만 */}
-                {activeStrategy.recommended && activeStrategy.candidate.recommendReason ? (
+                {/* fallback 안내 — 선택 불가 시 재생성 유도 */}
+                {!activeStrategy.selectable ? (
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-amber-50 px-4 py-3">
+                    <p className="text-label-1 leading-relaxed text-amber-700">
+                      <b>fallback로 생성된 안</b>이라 일부 지표·스케줄이 없어 선택할 수 없습니다.
+                      {activeStrategy.fallbackReason ? ` (${activeStrategy.fallbackReason})` : ''} 재생성을
+                      권장합니다.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={runGenerate}
+                      disabled={generate.isPending}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3.5 py-2 text-label-2 font-semibold text-amber-700 transition hover:bg-amber-100 disabled:opacity-60"
+                    >
+                      {generate.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                      ) : (
+                        <RefreshCw className="h-4 w-4" aria-hidden />
+                      )}
+                      재생성
+                    </button>
+                  </div>
+                ) : null}
+
+                {/* 추천 근거 — recommendationReasoning */}
+                {activeStrategy.recommendationReasoning ? (
                   <div className="mt-4 flex items-start gap-2 rounded-xl bg-primary-50 px-4 py-3">
                     <p className="text-label-1 leading-relaxed text-secondary-navy">
-                      <b className="text-primary-600">추천 이유 : </b>
-                      {activeStrategy.candidate.recommendReason}기 때문에 현재 상황에 가장 잘 맞는
-                      전략이에요.
+                      <b className="text-primary-600">추천 근거 : </b>
+                      {activeStrategy.recommendationReasoning}
                     </p>
                   </div>
                 ) : null}
@@ -775,7 +980,7 @@ export default function RescheduleDetailPage() {
             <Modal
               open={riskModalOpen}
               onClose={() => setRiskModalOpen(false)}
-              title={`${group.group_id} ${group.risk_factor}`}
+              title={group.risk_factor || '지연 위험'}
             >
               <div className="flex flex-col gap-5">
                 {/* 원인 설명 */}
@@ -846,10 +1051,31 @@ export default function RescheduleDetailPage() {
               <div className="flex flex-col gap-3 text-body-2 leading-relaxed text-gray-600">
                 <p className="rounded-xl bg-surface-100 px-4 py-3 font-semibold text-secondary-navy">
                   재조정안{strategyLabel(activeIndex)} ({activeStrategy.name}) 적용 시{' '}
-                  {group.group_id}의 재조정 효과 분석
+                  {group.risk_factor || '지연 위험'} 재조정 효과 분석
                 </p>
-                <p>{activeStrategy.detail.summary}</p>
-                <p className="text-gray-400">상세 AI 분석 리포트는 추후 추가됩니다.</p>
+                {activeStrategy.detailedReport ? (
+                  (
+                    [
+                      ['핵심 요약', activeStrategy.detailedReport.executiveSummary],
+                      ['위험 배경', activeStrategy.detailedReport.riskBackground],
+                      ['지표 분석', activeStrategy.detailedReport.metricAnalysis],
+                      ['트레이드오프', activeStrategy.detailedReport.tradeoffs],
+                      ['결정 근거', activeStrategy.detailedReport.decisionBasis],
+                    ] as const
+                  )
+                    .filter(([, body]) => Boolean(body))
+                    .map(([heading, body]) => (
+                      <div key={heading}>
+                        <h4 className="mb-1 text-label-1 font-bold text-secondary-navy">{heading}</h4>
+                        <p>{body}</p>
+                      </div>
+                    ))
+                ) : (
+                  <>
+                    <p>{activeStrategy.detail.summary}</p>
+                    <p className="text-gray-400">상세 리포트가 아직 생성되지 않았습니다.</p>
+                  </>
+                )}
               </div>
             </Modal>
 
@@ -859,12 +1085,9 @@ export default function RescheduleDetailPage() {
               title={`재조정안${strategyLabel(activeIndex)}를 승인하시겠습니까?`}
               description={`승인 시 현재 시점에서 가능한 재조정안인지 검증한 후 곧바로 스케줄 변경이 적용됩니다.`}
               cancelLabel="취소"
-              confirmLabel="승인"
+              confirmLabel={select.isPending ? '승인 중…' : '승인'}
               onClose={() => setApproveModalOpen(false)}
-              onConfirm={() => {
-                setApproveModalOpen(false);
-                navigate('/dashboard');
-              }}
+              onConfirm={approveStrategy}
             />
           </>
         )}

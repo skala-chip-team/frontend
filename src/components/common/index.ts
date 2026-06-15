@@ -7,6 +7,8 @@ export type { ChipVariant, ChipColor, ChipSize } from './Chip';
 export { Modal } from './Modal';
 export { ConfirmModal } from './ConfirmModal';
 export { CircularProgress } from './CircularProgress';
+export { Board3DSkeleton } from './Board3DSkeleton';
+export type { Board3DSkeletonProps } from './Board3DSkeleton';
 export { DistrictSelect } from './DistrictSelect';
 export type { DistrictOption } from './DistrictSelect';
 export { StepSelector } from './StepSelector';
@@ -26,6 +28,8 @@ export { RescheduleCard } from './RescheduleCard';
 export type { RescheduleCardData } from './RescheduleCard';
 export { DashboardInfoCard } from './DashboardInfoCard';
 export type { DashboardInfoCardProps, DashboardInfoCardTrend } from './DashboardInfoCard';
+export { ProductionAchievementBar } from './ProductionAchievementBar';
+export type { ProductionAchievementBarProps } from './ProductionAchievementBar';
 export { MachineScheduleGanttBoard, MachineScheduleGanttRow } from './MachineScheduleGantt';
 export type {
   MachineScheduleGanttBoardProps,
