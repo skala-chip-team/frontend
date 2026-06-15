@@ -7,6 +7,7 @@ import { districtOverviews } from '@/mocks';
 import type { OverviewMachine, OverviewMachineStatus } from '@/mocks/districtOverview';
 import { useDeferredMount, useDistrictOverviews, useSimStatus } from '@/hooks';
 
+import { Board3DSkeleton } from '../Board3DSkeleton';
 import { Chip } from '../Chip';
 import { CircularProgress } from '../CircularProgress';
 import { FactoryMonitor3D } from './FactoryMonitor3D';
@@ -97,6 +98,8 @@ export function OverviewDashboard() {
 
   const { data: sim } = useSimStatus();
   const { data, isLoading, isError } = useDistrictOverviews(sim?.is_running ?? false);
+  // 무거운 3D 캔버스는 라우트 진입 후 페인트가 끝나면 마운트(사이드바 즉시 반응 보장)
+  const mount3D = useDeferredMount();
   const isMockFallback = !data || data.length === 0;
   const districts = isMockFallback ? districtOverviews : data;
   const districtLetter = (id: string) =>
@@ -152,16 +155,22 @@ export function OverviewDashboard() {
 
   return (
     <div className="relative min-h-[760px]">
-      <FactoryMonitor3D
-        districts={districts}
-        focusedId={focusedId}
-        selectedMachineId={machine?.machine_id ?? null}
-        routeUnitId={unit}
-        revealCauseId={reveal}
-        onZoneClick={focusZone}
-        onMachineClick={selectMachine}
-        onBackground={onBackground}
-      />
+      {mount3D ? (
+        <FactoryMonitor3D
+          districts={districts}
+          focusedId={focusedId}
+          selectedMachineId={machine?.machine_id ?? null}
+          routeUnitId={unit}
+          revealCauseId={reveal}
+          onZoneClick={focusZone}
+          onMachineClick={selectMachine}
+          onBackground={onBackground}
+        />
+      ) : (
+        <div className="absolute inset-0">
+          <Board3DSkeleton />
+        </div>
+      )}
 
       {/* 연결 상태 배지 */}
       {isLoading || isMockFallback ? (
