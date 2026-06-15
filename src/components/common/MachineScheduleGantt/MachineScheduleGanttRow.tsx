@@ -3,6 +3,9 @@ import { createPortal } from 'react-dom';
 
 type ScheduleItemTone = 'primary' | 'navy' | 'orange' | 'slate';
 
+/** 간트 표시 모드: 계획(schedule master) / 실적(work-status) */
+type GanttViewMode = 'plan' | 'actual';
+
 // 필드명은 docs/data.dbml 컬럼명을 따른다. (tone 은 UI 전용)
 type MachineScheduleItem = {
   schedule_id: string; // schedule_master.schedule_id
@@ -10,7 +13,7 @@ type MachineScheduleItem = {
   priority: number; // schedule_master.priority (1 높음 ~ 5 낮음)
   start_time: number; // (호환) 병합 시각
   end_time: number;
-  // 계획/실적 2-레인용 (시 단위 소수)
+  // 계획/실적 시각 (시 단위 소수)
   plan_start?: number;
   plan_end?: number;
   actual_start?: number | null;
@@ -31,20 +34,21 @@ type MachineScheduleGanttRowProps = {
   endHour: number;
   /** 현재 시각(시 단위) — 진행중 실적 막대를 여기까지 그린다 */
   currentHour: number;
+  /** 표시 모드(계획/실적) */
+  mode: GanttViewMode;
 };
 
 // 막대 사이 간격(%)과 최소 폭(%). 전체 시간폭 대비 비율.
-// 레인이 얇아 글씨를 넣지 않으므로 최소 폭을 작게 둬 좁은 막대가 옆을 침범하지 않게 한다.
 const BAR_GAP = 0.3;
 const MIN_BAR_WIDTH = 0.6;
 
 // 계획 = 옅은 점선 고스트, 실적 = tone 색 채움
-const PLAN_CLASS = 'border border-dashed border-gray-300 bg-gray-100/70';
+const PLAN_CLASS = 'border border-dashed border-gray-300 bg-gray-100/80 text-gray-600';
 const actualToneClassMap: Record<ScheduleItemTone, string> = {
-  primary: 'bg-primary-500/75 border border-primary-300',
-  navy: 'bg-secondary-navy/70 border border-slate-400',
-  orange: 'bg-secondary-orange/80 border border-orange-300',
-  slate: 'bg-gray-400/80 border border-gray-300',
+  primary: 'bg-primary-500/80 border border-primary-300 text-white',
+  navy: 'bg-secondary-navy/75 border border-slate-400 text-white',
+  orange: 'bg-secondary-orange/85 border border-orange-300 text-white',
+  slate: 'bg-gray-400/85 border border-gray-300 text-white',
 };
 
 /** 시(소수) → 'HH:MM' */
@@ -59,10 +63,11 @@ export function MachineScheduleGanttRow({
   startHour,
   endHour,
   currentHour,
+  mode,
 }: MachineScheduleGanttRowProps) {
   const totalHours = endHour - startHour;
 
-  // 막대가 좁아 글씨가 안 들어가므로, hover 시 풀네임·시간을 툴팁으로 보여준다.
+  // 좁은 막대는 글씨가 잘리므로 hover 시 풀네임·시간을 툴팁으로 보여준다.
   // (간트 스크롤 컨테이너 overflow에 잘리지 않도록 body로 portal)
   const [tip, setTip] = useState<{ x: number; y: number; label: string } | null>(null);
   const moveTip = (e: MouseEvent<HTMLDivElement>) =>
@@ -78,68 +83,62 @@ export function MachineScheduleGanttRow({
     return { left, width };
   };
 
+  // 모드별 막대 데이터 산출
+  const bars = schedule.units
+    .map((u) => {
+      if (mode === 'plan') {
+        const start = u.plan_start ?? u.start_time;
+        const end = u.plan_end ?? u.end_time;
+        return {
+          u,
+          start,
+          end,
+          cls: PLAN_CLASS,
+          tip: `${u.unit_id} · P${u.priority} · 계획 ${fmtHour(start)}–${fmtHour(end)}`,
+        };
+      }
+      // actual
+      const start = u.actual_start ?? null;
+      if (start == null) return null; // 미시작 → 실적 막대 없음
+      const inProgress = (u.actual_end ?? null) == null;
+      let end = u.actual_end ?? currentHour; // 진행중이면 현재 시각까지
+      if (end < start) end = start; // 시계 오차 방어
+      if (end > endHour) end = endHour;
+      return {
+        u,
+        start,
+        end,
+        cls: actualToneClassMap[u.tone ?? 'primary'],
+        tip: `${u.unit_id} · P${u.priority} · 실적 ${fmtHour(start)}–${inProgress ? '진행중' : fmtHour(end)}`,
+      };
+    })
+    .filter((b): b is NonNullable<typeof b> => b != null);
+
   return (
     <div className="grid grid-cols-[10rem_minmax(0,1fr)] items-center gap-4 py-1">
       <h3 className="sticky left-0 z-30 flex items-center self-stretch overflow-hidden bg-white pr-3 text-body-2 font-semibold text-gray-900">
         <span className="truncate">{schedule.machine_id}</span>
       </h3>
 
-      <div className="flex flex-col gap-0.5">
-        {/* 계획 레인 */}
-        <div className="relative h-5">
-          {schedule.units.map((u) => {
-            const ps = u.plan_start ?? u.start_time;
-            const pe = u.plan_end ?? u.end_time;
-            const { left, width } = geom(ps, pe);
-            return (
-              <div
-                key={`plan-${u.schedule_id}`}
-                className={`absolute top-1/2 flex h-4 -translate-y-1/2 items-center overflow-hidden rounded px-1.5 ${PLAN_CLASS}`}
-                style={{ left: `${left}%`, width: `${width}%` }}
-                onMouseEnter={(e) => showTip(e, `${u.unit_id} · P${u.priority} · 계획 ${fmtHour(ps)}–${fmtHour(pe)}`)}
-                onMouseMove={moveTip}
-                onMouseLeave={hideTip}
-              >
-                <span className="truncate text-[10px] font-medium leading-none text-gray-500">
-                  {u.unit_id}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* 실적 레인 */}
-        <div className="relative h-5">
-          {schedule.units.map((u) => {
-            const as = u.actual_start ?? null;
-            if (as == null) return null; // 미시작 → 실적 막대 없음
-            const inProgress = (u.actual_end ?? null) == null;
-            let ae = u.actual_end ?? currentHour; // 진행중이면 현재 시각까지
-            if (ae < as) ae = as; // 시계 오차 방어
-            if (ae > endHour) ae = endHour;
-            const { left, width } = geom(as, ae);
-            const tone = actualToneClassMap[u.tone ?? 'primary'];
-            return (
-              <div
-                key={`actual-${u.schedule_id}`}
-                className={`absolute top-1/2 flex h-4 -translate-y-1/2 items-center overflow-hidden rounded px-1.5 ${tone}`}
-                style={{ left: `${left}%`, width: `${width}%` }}
-                onMouseEnter={(e) =>
-                  showTip(
-                    e,
-                    `${u.unit_id} · P${u.priority} · 실적 ${fmtHour(as)}–${inProgress ? '진행중' : fmtHour(ae)}`
-                  )
-                }
-                onMouseMove={moveTip}
-                onMouseLeave={hideTip}
-              >
-                <span className="truncate text-[10px] font-semibold leading-none text-white">
-                  {u.unit_id}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+      <div className="relative h-8">
+        {bars.map(({ u, start, end, cls, tip: label }) => {
+          const { left, width } = geom(start, end);
+          return (
+            <div
+              key={u.schedule_id}
+              className={`absolute top-1/2 flex h-7 -translate-y-1/2 items-center gap-1.5 overflow-hidden rounded-lg px-2 ${cls}`}
+              style={{ left: `${left}%`, width: `${width}%` }}
+              onMouseEnter={(e) => showTip(e, label)}
+              onMouseMove={moveTip}
+              onMouseLeave={hideTip}
+            >
+              <span className="truncate text-[11px] font-semibold leading-none">{u.unit_id}</span>
+              <span className="ml-auto shrink-0 rounded bg-white/35 px-1 text-[9px] font-bold leading-tight">
+                P{u.priority}
+              </span>
+            </div>
+          );
+        })}
       </div>
 
       {tip
@@ -157,4 +156,9 @@ export function MachineScheduleGanttRow({
   );
 }
 
-export type { MachineScheduleItem, MachineScheduleRowData, MachineScheduleGanttRowProps };
+export type {
+  MachineScheduleItem,
+  MachineScheduleRowData,
+  MachineScheduleGanttRowProps,
+  GanttViewMode,
+};

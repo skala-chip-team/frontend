@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
 
-import { MachineScheduleGanttRow, type MachineScheduleRowData } from './MachineScheduleGanttRow';
+import {
+  MachineScheduleGanttRow,
+  type GanttViewMode,
+  type MachineScheduleRowData,
+} from './MachineScheduleGanttRow';
 
 type MachineScheduleGanttBoardProps = {
   startHour: number;
@@ -48,6 +52,7 @@ export function MachineScheduleGanttBoard({
   };
 
   const [liveHour, setLiveHour] = useState(getCurrentHour);
+  const [mode, setMode] = useState<GanttViewMode>('actual');
 
   useEffect(() => {
     // 시뮬레이션 시각으로 고정하면 실시간 갱신 불필요
@@ -79,6 +84,24 @@ export function MachineScheduleGanttBoard({
         <div className="absolute bottom-[-20%] left-[-10%] h-28 w-28 rounded-full bg-secondary-orange/6 blur-3xl" />
       </div>
 
+      {/* 계획 / 실적 전환 탭 */}
+      <div className="relative z-10 mb-1 flex w-fit items-center gap-0.5 rounded-lg bg-surface-100 p-0.5">
+        {(['plan', 'actual'] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => setMode(m)}
+            className={`rounded-md px-3 py-1 text-label-3 font-semibold transition ${
+              mode === m
+                ? 'bg-white text-secondary-navy shadow-sm'
+                : 'text-gray-400 hover:text-gray-600'
+            }`}
+          >
+            {m === 'plan' ? '계획' : '실적'}
+          </button>
+        ))}
+      </div>
+
       <div className="relative min-h-0 flex-1 overflow-auto pt-6">
         <div className="relative" style={{ minWidth: trackMinWidth }}>
         <div
@@ -91,17 +114,7 @@ export function MachineScheduleGanttBoard({
         </div>
 
         <div className="grid grid-cols-[10rem_minmax(0,1fr)] items-end gap-4 pb-1">
-          {/* 계획/실적 레인 범례 */}
-          <div className="sticky left-0 z-30 flex items-end gap-2.5 self-stretch bg-white pb-0.5 text-[9px] font-medium text-gray-400">
-            <span className="flex items-center gap-1">
-              <span className="h-2 w-3.5 rounded-sm border border-dashed border-gray-300 bg-gray-100/70" />
-              계획
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="h-2 w-3.5 rounded-sm bg-primary-500/75" />
-              실적
-            </span>
-          </div>
+          <div className="sticky left-0 z-30 self-stretch bg-white" />
 
           <div className="relative h-9">
             {hourTicks.map((hour, index) => {
@@ -136,6 +149,7 @@ export function MachineScheduleGanttBoard({
               startHour={startHour}
               endHour={endHour}
               currentHour={currentHour}
+              mode={mode}
             />
           ))}
         </div>
