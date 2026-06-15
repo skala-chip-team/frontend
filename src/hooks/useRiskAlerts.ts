@@ -53,6 +53,10 @@ export function useRiskAlerts() {
   const addToast = useToastStore((state) => state.addToast);
   const queryClient = useQueryClient();
   const seen = useRef<Set<string>>(loadSeen());
+  // 해소 알림용: 직전 폴링에서 pending(=활성 위험)이던 그룹 (id → 위치 라벨).
+  // pending 목록에서 사라지면 "해결됨"으로 본다(만료/처리/승인). 인메모리(세션 단위).
+  const active = useRef<Map<string, string>>(new Map());
+  const resolutionReady = useRef(false);
 
   const { data } = useQuery({
     queryKey: ['riskAlerts'],
@@ -66,8 +70,12 @@ export function useRiskAlerts() {
 
     const now = Date.now();
     let changed = false;
+    const currentIds = new Set(data.map((g) => g.groupId));
 
     data.forEach((group) => {
+      const where = `${districtLabels[group.districtId as DistrictId] ?? group.districtId} · ${processStepLabel(group.processStep)}`;
+      active.current.set(group.groupId, where); // 해소 추적용 등록(라벨 캐시)
+
       if (seen.current.has(group.groupId)) return;
       seen.current.add(group.groupId);
       changed = true;
@@ -79,7 +87,6 @@ export function useRiskAlerts() {
 
       const tone =
         group.riskLevel === 'Critical' ? 'critical' : group.riskLevel === 'High' ? 'high' : 'info';
-      const where = `${districtLabels[group.districtId as DistrictId] ?? group.districtId} · ${processStepLabel(group.processStep)}`;
 
       // 1) 위험 발생 알림 (항상)
       addToast({
@@ -115,5 +122,18 @@ export function useRiskAlerts() {
     });
 
     if (changed) saveSeen(seen.current);
+
+    // --- 해소 알림: pending 에서 사라진(해결/처리된) 그룹 ---
+    // 첫 폴링은 기준선만 잡고 알림하지 않는다(기존 active 가 전부 '해소'로 쏟아지는 것 방지).
+    if (resolutionReady.current) {
+      for (const [id, where] of active.current) {
+        if (!currentIds.has(id)) {
+          addToast({ tone: 'info', title: '위험이 해결되었습니다', description: where });
+          active.current.delete(id);
+        }
+      }
+    } else {
+      resolutionReady.current = true;
+    }
   }, [data, addToast, queryClient]);
 }

@@ -7,6 +7,23 @@ export interface ApiResponse<T> {
   data: T;
 }
 
+/** GET /api/monitoring/production-status — 생산 완료 현황(생산 완료 알림용) */
+export interface ProductionStatus {
+  completedTodayQty: number; // 금일 전체 구역 완성품 수(최종 공정 output 합)
+  latestCompletionAt: string | null; // 최근 완성 작업 시각(sim)
+  planDate: string; // sim 기준 오늘(일 경계 리셋 판별용)
+}
+
+/** GET /api/reschedule/prediction-status — 지연 예측 시스템 상태(대시보드용) */
+export interface PredictionStatus {
+  /** SUCCESS(성공) / SKIPPED_INSUFFICIENT(입력 부족) / FAILED(추론 실패) / NONE(시도 없음) */
+  status: 'SUCCESS' | 'SKIPPED_INSUFFICIENT' | 'FAILED' | 'NONE';
+  message: string | null; // 입력 부족/추론 실패 사유. 정상이면 null
+  insertedCount: number | null; // 마지막 예측에서 새로 기록된 위험 수(성공 시)
+  lastAttemptAt: string | null; // 마지막 예측 시도 시각(실제 시각)
+  latestRiskDetectionTime: string | null; // delay_risk 최신 탐지 시각(sim 시각)
+}
+
 /** GET /api/users 항목 (UserSummary) */
 export interface UserSummary {
   userId: string;

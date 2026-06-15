@@ -6,10 +6,19 @@ import type {
   DistrictOverviewDto,
   DistrictStepQueue,
   DistrictSummary,
+  ProductionStatus,
   WorkStatusItem,
 } from './types';
 
 const DISTRICTS_BASE = '/api/monitoring/districts';
+
+/** 생산 완료 현황 (생산 완료 알림용) */
+export async function getProductionStatus(): Promise<ProductionStatus> {
+  const { data } = await apiClient.get<ApiResponse<ProductionStatus>>(
+    '/api/monitoring/production-status'
+  );
+  return data.data;
+}
 
 /** 전체 구역 단일 스냅샷 (모든 구역이 같은 시점) */
 export async function getMonitoringOverview(): Promise<DistrictOverviewDto[]> {
