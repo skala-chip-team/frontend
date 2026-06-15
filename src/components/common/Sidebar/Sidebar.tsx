@@ -1,6 +1,6 @@
 import { startTransition, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, Lightbulb, ClipboardList, Users, ChevronsRight, Settings } from 'lucide-react';
+import { Home, Lightbulb, ClipboardList, Users, Cpu, ChevronsRight, Settings } from 'lucide-react';
 import { useAuthStore } from '@/stores';
 
 import type { MenuItem, OptionProps, TitleSectionProps, ToggleCloseProps } from './types';
@@ -9,12 +9,13 @@ const MAIN_MENU: MenuItem[] = [
   { icon: Home, title: '대시보드', path: '/dashboard' },
   { icon: ClipboardList, title: '주문 관리', path: '/orders' },
   { icon: Lightbulb, title: '재조정 제안 관리', path: '/reschedule' },
-  // 작업자 관리는 ADMIN 전용 (path로 식별해 필터)
+  // 작업자 관리·장비 설정은 ADMIN 전용 (path로 식별해 필터)
   { icon: Users, title: '작업자 관리', path: '/workers' },
+  { icon: Cpu, title: '장비 설정', path: '/machines' },
 ];
 
 /** ADMIN만 접근 가능한 메뉴 경로 */
-const ADMIN_ONLY_PATHS = new Set(['/workers']);
+const ADMIN_ONLY_PATHS = new Set(['/workers', '/machines']);
 
 const ACCOUNT_MENU: MenuItem[] = [{ icon: Settings, title: '설정' }];
 

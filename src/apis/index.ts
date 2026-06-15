@@ -20,6 +20,13 @@ export {
 } from './reschedule';
 export type { RescheduleGroupQuery } from './reschedule';
 export { getOrders, getOrderDetail } from './orders';
+export {
+  getMachines,
+  getProcessSteps,
+  createMachine,
+  updateMachine,
+  deleteMachine,
+} from './machines';
 export type {
   ActiveSchedule,
   AfterSchedule,
