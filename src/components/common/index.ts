@@ -26,6 +26,8 @@ export { RescheduleCard } from './RescheduleCard';
 export type { RescheduleCardData } from './RescheduleCard';
 export { DashboardInfoCard } from './DashboardInfoCard';
 export type { DashboardInfoCardProps, DashboardInfoCardTrend } from './DashboardInfoCard';
+export { ProductionAchievementBar } from './ProductionAchievementBar';
+export type { ProductionAchievementBarProps } from './ProductionAchievementBar';
 export { MachineScheduleGanttBoard, MachineScheduleGanttRow } from './MachineScheduleGantt';
 export type {
   MachineScheduleGanttBoardProps,

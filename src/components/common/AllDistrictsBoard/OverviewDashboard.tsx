@@ -4,10 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, X } from 'lucide-react';
 
 import { districtOverviews } from '@/mocks';
-import type { DistrictOverview, OverviewMachine, OverviewMachineStatus } from '@/mocks/districtOverview';
-import { useDistrictOverviews, useSimStatus } from '@/hooks';
+import type { OverviewMachine, OverviewMachineStatus } from '@/mocks/districtOverview';
+import { useDeferredMount, useDistrictOverviews, useSimStatus } from '@/hooks';
 
 import { Chip } from '../Chip';
+import { CircularProgress } from '../CircularProgress';
 import { FactoryMonitor3D } from './FactoryMonitor3D';
 
 const STATUS_TEXT: Record<OverviewMachineStatus, string> = {
@@ -23,21 +24,12 @@ const STATUS_DOT: Record<OverviewMachineStatus, string> = {
   장애: 'bg-rose-500',
 };
 
-type DistrictState = '정상' | '주의' | '위험';
-
-function stateOf(d: DistrictOverview): DistrictState {
-  const down = d.summary.down_machine_count;
-  if (down >= 10) return '위험';
-  if (down >= 5) return '주의';
-  return '정상';
+// TODO(API): 장비 부하율 데이터 연동 전 임시값(machine_id 기반 결정값 55~95%, 가동률과 구분).
+function loadRateOf(m: OverviewMachine): number {
+  let h = 0;
+  for (let i = 0; i < m.machine_id.length; i += 1) h = (h * 31 + m.machine_id.charCodeAt(i)) >>> 0;
+  return 55 + (h % 41);
 }
-
-const STATE_STYLE: Record<DistrictState, { dot: string; text: string }> = {
-  정상: { dot: 'bg-emerald-500', text: 'text-emerald-600' },
-  주의: { dot: 'bg-amber-500', text: 'text-amber-600' },
-  위험: { dot: 'bg-rose-500', text: 'text-rose-600' },
-};
-
 
 function Card({
   title,
@@ -83,6 +75,19 @@ function riskOf(score: number): { label: string; color: 'red' | 'orange' | 'emer
   return { label: 'LOW', color: 'emerald' };
 }
 
+/** 원인 카테고리 코드 → 한글 (재조정 관리 표기와 일치) */
+const CAUSE_LABEL: Record<string, string> = {
+  Machine_Fault: '장비 고장 위험',
+  Queue_Bottleneck: '병목 심화',
+  Machine_Capacity: '가동률 저하',
+  Material_Shortage: '자재 부족',
+  Due_Date_Risk: '납기 위험',
+  Delay_Propagation: '납기 위험',
+};
+function causeLabel(code: string): string {
+  return CAUSE_LABEL[code] ?? code.replace(/_/g, ' ');
+}
+
 export function OverviewDashboard() {
   const navigate = useNavigate();
   const [focusedId, setFocusedId] = useState<string | null>(null);
@@ -100,7 +105,6 @@ export function OverviewDashboard() {
   const sel = focusedId ? (districts.find((d) => d.district_id === focusedId) ?? null) : null;
   const lr = sel?.latest_reschedule ?? null;
   const maxQ = sel ? Math.max(...sel.queue_by_step.map((q) => q.waiting), 1) : 1;
-  const st = sel ? stateOf(sel) : null;
   const machineDown = machine ? machine.machine_status === '장애' || machine.machine_status === '정지' : false;
   const isCauseMachine = !!(
     machine && lr?.propagation.some((p) => p.role === 'cause' && p.machine_id === machine.machine_id)
@@ -173,7 +177,7 @@ export function OverviewDashboard() {
       ) : null}
 
       <div className="pointer-events-none absolute inset-0 z-30 p-4">
-        {sel && st ? (
+        {sel ? (
           <>
             {/* 상단: 구역 KPI 바 */}
             <Card bodyClassName="px-4 py-3">
@@ -189,10 +193,6 @@ export function OverviewDashboard() {
                 <div className="flex items-center gap-2 pr-2">
                   <span className="text-body-1 font-extrabold text-secondary-navy">
                     구역 {districtLetter(sel.district_id)}
-                  </span>
-                  <span className={`ml-1 flex items-center gap-1 text-label-3 font-bold ${STATE_STYLE[st].text}`}>
-                    <span className={`h-2 w-2 rounded-full ${STATE_STYLE[st].dot}`} />
-                    {st}
                   </span>
                 </div>
                 <div className="flex flex-1 flex-wrap items-center gap-x-6 gap-y-3">
@@ -284,22 +284,31 @@ export function OverviewDashboard() {
                     </button>
                   ) : null}
 
-                  <dl className="mt-3 grid grid-cols-3 gap-3">
-                    <div className="rounded-xl bg-surface-100/70 px-3 py-2.5">
-                      <dt className="text-[10px] text-gray-400">가동률</dt>
-                      <dd className="text-body-1 font-extrabold text-secondary-navy">{machine.utilization}%</dd>
-                    </div>
-                    <div className="rounded-xl bg-surface-100/70 px-3 py-2.5">
-                      <dt className="text-[10px] text-gray-400">투입 UNIT</dt>
-                      <dd className="text-body-2 font-bold text-secondary-navy">{machine.active_unit ?? '없음'}</dd>
-                    </div>
-                    <div className="rounded-xl bg-surface-100/70 px-3 py-2.5">
-                      <dt className="text-[10px] text-gray-400">소속 구역</dt>
-                      <dd className="text-body-2 font-bold text-secondary-navy">
-                        구역 {districtLetter(sel.district_id)}
-                      </dd>
-                    </div>
-                  </dl>
+                  {/* 부하율(원 차트, 메인) + 가동률·투입 UNIT·소속 구역 */}
+                  <div className="mt-3 flex items-center gap-4 rounded-xl bg-surface-100/70 px-4 py-3">
+                    <CircularProgress value={loadRateOf(machine)} size={96} strokeWidth={11} className="shrink-0">
+                      <span className="text-body-1 font-extrabold leading-none text-secondary-navy">
+                        {loadRateOf(machine)}%
+                      </span>
+                      <span className="mt-0.5 text-[10px] font-medium text-gray-400">부하율</span>
+                    </CircularProgress>
+                    <dl className="flex flex-1 flex-col gap-2">
+                      <div className="flex items-center justify-between">
+                        <dt className="text-[11px] text-gray-400">가동률</dt>
+                        <dd className="text-body-2 font-bold text-secondary-navy">{machine.utilization}%</dd>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <dt className="text-[11px] text-gray-400">투입 UNIT</dt>
+                        <dd className="text-label-2 font-bold text-secondary-navy">{machine.active_unit ?? '없음'}</dd>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <dt className="text-[11px] text-gray-400">소속 구역</dt>
+                        <dd className="text-label-2 font-bold text-secondary-navy">
+                          구역 {districtLetter(sel.district_id)}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
 
                   {/* UNIT 공정 순서 시각화 토글 */}
                   {machine.active_unit ? (
@@ -330,17 +339,15 @@ export function OverviewDashboard() {
                           {lr.process_step}
                         </Chip>
                       </div>
-                      <div className="mt-3 flex flex-wrap items-center gap-2.5">
-                        <Chip variant="solid" color={riskOf(lr.max_risk_score).color} size="lg" className="font-bold">
+                      <div className="mt-3 flex items-start gap-2.5">
+                        <Chip variant="solid" color={riskOf(lr.max_risk_score).color} size="lg" className="shrink-0 font-bold">
                           {riskOf(lr.max_risk_score).label}
                         </Chip>
-                        <span className="text-subtitle-2 font-bold text-secondary-navy">{lr.group_id}</span>
+                        <p className="text-subtitle-2 font-bold leading-snug text-secondary-navy line-clamp-2">
+                          {causeLabel(lr.cause)}
+                        </p>
                       </div>
-                      <div className="mt-3 grid grid-cols-2 gap-2.5">
-                        <div className="rounded-xl bg-surface-100/70 px-3 py-2.5">
-                          <p className="text-[10px] text-gray-400">원인</p>
-                          <p className="text-label-2 font-bold text-secondary-navy">{lr.cause}</p>
-                        </div>
+                      <div className="mt-3 grid grid-cols-3 gap-2">
                         <div className="rounded-xl bg-surface-100/70 px-3 py-2.5">
                           <p className="text-[10px] text-gray-400">발생 시간</p>
                           <p className="text-label-2 font-bold text-secondary-navy">{lr.occurred_at}</p>

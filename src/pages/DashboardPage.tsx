@@ -6,6 +6,7 @@ import {
   DashboardInfoCard,
   MachineScheduleGanttBoard,
   OverviewDashboard,
+  ProductionAchievementBar,
   StepSelector,
 } from '@components/common';
 import { MachineFleetBoard } from '@components/three';
@@ -62,6 +63,12 @@ function DistrictDashboard({
 
   return (
     <div className="flex w-full flex-col gap-3">
+      {/* 오늘 생산 달성률 — 카드 묶음 위 가로 슬림 바 (summary 실적/목표 연동) */}
+      <ProductionAchievementBar
+        current={data.daily_output_qty}
+        target={data.daily_target_output_qty}
+      />
+
       <div className="flex flex-wrap gap-3">
         {data.summaryCards.map((card) => (
           <DashboardInfoCard
