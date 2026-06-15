@@ -85,7 +85,8 @@ const CAUSE_LABEL: Record<string, string> = {
   Due_Date_Risk: '납기 위험',
   Delay_Propagation: '납기 위험',
 };
-function causeLabel(code: string): string {
+function causeLabel(code: string | null | undefined): string {
+  if (!code) return '원인 미상';
   return CAUSE_LABEL[code] ?? code.replace(/_/g, ' ');
 }
 

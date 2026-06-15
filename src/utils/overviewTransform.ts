@@ -66,7 +66,7 @@ function hhmm(iso: string | null | undefined): string {
  * 원인 = 재조정 스텝의 정지 장비, 영향 = delayRisks[].machineId.
  */
 function derivePropagation(machines: OverviewMachine[], latest: OverviewLatestReschedule): PropagationNode[] {
-  const causeLetter = stepLetterOf(latest.processStep);
+  const causeLetter = latest.processStep ? stepLetterOf(latest.processStep) : null;
   let cause: OverviewMachine | undefined;
   if (causeLetter) {
     const inStep = machines.filter((m) => m.step === causeLetter);
@@ -76,8 +76,9 @@ function derivePropagation(machines: OverviewMachine[], latest: OverviewLatestRe
   if (!cause) return [];
 
   const causeId = cause.machine_id;
+  const delayRisks = latest.delayRisks ?? [];
   const impactIds = Array.from(
-    new Set(latest.delayRisks.map((r) => r.machineId).filter((x): x is string => !!x && x !== causeId))
+    new Set(delayRisks.map((r) => r.machineId).filter((x): x is string => !!x && x !== causeId))
   );
   let impacts = machines.filter((m) => impactIds.includes(m.machine_id));
   if (impacts.length === 0 && causeLetter) {
@@ -123,7 +124,7 @@ export function buildDistrictOverview(dto: DistrictOverviewDto, color: string): 
       avg_utilization_rate: round1(dto.summary.avgUtilizationRate),
       total_waiting_unit_count: dto.summary.totalWaitingUnitCount,
       avg_wait_time_min: round1(dto.summary.avgWaitTimeMin),
-      daily_output_qty: dto.summary.dailyOutputQty,
+      daily_output_qty: dto.summary.dailyOutputQty ?? 0,
     },
     machines,
     reschedule_group_count: dto.rescheduleGroupCount,
@@ -131,12 +132,12 @@ export function buildDistrictOverview(dto: DistrictOverviewDto, color: string): 
       ? {
           group_id: lr.groupId,
           process_step: lr.processStep,
-          max_risk_score: lr.maxRiskScore,
+          max_risk_score: lr.maxRiskScore ?? 0,
           occurred_at: hhmm(lr.occurredAt),
-          cause: lr.rootCauseCategory,
-          affected_units: lr.affectedUnits,
+          cause: lr.rootCauseCategory ?? '',
+          affected_units: lr.affectedUnits ?? [],
           affected_steps: [lr.processStep],
-          delay_risks: lr.delayRisks.map((r) => ({
+          delay_risks: (lr.delayRisks ?? []).map((r) => ({
             risk_id: r.riskId,
             risk_level: r.riskLevel,
             detection_time: hhmm(r.detectionTime),
