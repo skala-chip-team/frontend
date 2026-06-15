@@ -10,8 +10,13 @@ export interface ScheduledUnit {
   unit_id: string; // unit_master.unit_id
   priority: number; // schedule_master.priority
   status: UnitStatus; // schedule_master.status
-  start_time: number; // work_status.start_time (mock: 시 단위)
-  end_time: number; // work_status.end_time
+  start_time: number; // (3D 보드 호환) 실적 우선 병합 시각
+  end_time: number;
+  // 간트 계획/실적 2-레인용 (시 단위 소수)
+  plan_start?: number; // 계획 시작 (schedule_master estimatedStart)
+  plan_end?: number; // 계획 종료 (schedule_master estimatedEnd)
+  actual_start?: number | null; // 실제 시작 (work_status), 미시작이면 null
+  actual_end?: number | null; // 실제 종료 (work_status), 진행중/미시작이면 null
   tone?: ScheduleTone;
 }
 
@@ -22,7 +27,8 @@ export interface DistrictMachine {
   avg_utilization_rate: number; // 가동률(%)
   load_rate: number; // 부하율(%) — machines API의 loadRate
   active_unit_id?: string | null; // 현재 투입 UNIT (machines API의 activeSchedule.unitId)
-  units: ScheduledUnit[];
+  units: ScheduledUnit[]; // 실제 투입 장비 기준 배치('현재 상태' 탭·3D)
+  plan_units?: ScheduledUnit[]; // 계획 장비 기준 배치('계획' 탭)
 }
 
 export interface ProcessStep {
