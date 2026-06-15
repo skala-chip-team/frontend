@@ -4,6 +4,7 @@ import { Home, Lightbulb, ClipboardList, Users, Cpu, ChevronsRight } from 'lucid
 import { useAuthStore } from '@/stores';
 
 import type { MenuItem, OptionProps, TitleSectionProps, ToggleCloseProps } from './types';
+import skLogo from './image.png';
 
 const MAIN_MENU: MenuItem[] = [
   { icon: Home, title: '대시보드', path: '/dashboard' },
@@ -139,8 +140,8 @@ function TitleSection({ open }: TitleSectionProps) {
       <div className="flex items-center gap-3 p-2">
         <Logo />
         {open && (
-          <span className="whitespace-nowrap text-subtitle-2 text-gray-900">
-            chipScheduler
+          <span className="whitespace-nowrap text-subtitle-2 font-bold text-gray-900">
+            3S Scheduler
           </span>
         )}
       </div>
@@ -150,18 +151,8 @@ function TitleSection({ open }: TitleSectionProps) {
 
 function Logo() {
   return (
-    <div className="grid size-10 shrink-0 place-content-center rounded-lg bg-gradient-to-br from-primary-500 to-primary-600 shadow-sm">
-      <svg
-        width="20"
-        height="15.6"
-        viewBox="0 0 50 39"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        className="fill-white"
-      >
-        <path d="M16.4992 2H37.5808L22.0816 24.9729H1L16.4992 2Z" />
-        <path d="M17.4224 27.102L11.4192 36H33.5008L49 13.0271H32.7024L23.2064 27.102H17.4224Z" />
-      </svg>
+    <div className="grid size-10 shrink-0 place-content-center overflow-hidden rounded-lg border border-gray-100 bg-white shadow-[0_4px_12px_rgba(15,23,42,0.12)]">
+      <img src={skLogo} alt="3S Scheduler" className="size-full scale-[1.9] object-contain" />
     </div>
   );
 }
