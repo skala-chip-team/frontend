@@ -107,6 +107,47 @@ function clipOverlaps(units: ScheduledUnit[]): void {
   }
 }
 
+/** schedule_id 기반 결정적 tone (탭/폴링 무관하게 같은 유닛은 같은 색) */
+function toneOf(scheduleId: string): ScheduleTone {
+  let h = 0;
+  for (let i = 0; i < scheduleId.length; i += 1) h = (h * 31 + scheduleId.charCodeAt(i)) >>> 0;
+  return TONES[h % TONES.length];
+}
+
+/** TimedBar → 화면용 ScheduledUnit (계획/실적 시각 모두 포함) */
+function barToUnit(b: TimedBar): ScheduledUnit {
+  const startTime = toHour(b.start);
+  let endTime: number;
+  if (b.actualEnd) {
+    endTime = toHour(b.actualEnd);
+  } else {
+    const estDurHr =
+      (new Date(b.bar.estimatedEnd).getTime() - new Date(b.bar.estimatedStart).getTime()) / 3_600_000;
+    endTime = startTime + (Number.isFinite(estDurHr) && estDurHr > 0 ? estDurHr : 1);
+  }
+  if (endTime <= startTime || endTime > 24) endTime = 24;
+
+  const planStart = toHour(b.bar.estimatedStart);
+  const planEnd = clampEnd(planStart, toHour(b.bar.estimatedEnd));
+  const actualStart = b.actualStart ? toHour(b.actualStart) : null;
+  const actualEnd =
+    actualStart != null && b.actualEnd ? clampEnd(actualStart, toHour(b.actualEnd)) : null;
+
+  return {
+    schedule_id: b.bar.scheduleId,
+    unit_id: b.bar.unitId,
+    priority: b.bar.priority,
+    status: toUnitStatus(b.bar.unitStatus),
+    start_time: startTime,
+    end_time: endTime,
+    plan_start: planStart,
+    plan_end: planEnd,
+    actual_start: actualStart,
+    actual_end: actualEnd,
+    tone: toneOf(b.bar.scheduleId),
+  };
+}
+
 function buildSummaryCards(summary: DistrictSummary): SummaryCard[] {
   return [
     {
@@ -208,46 +249,15 @@ export function buildDistrictDashboard(
     }
 
     const districtMachines: DistrictMachine[] = stepMachines.map((machine) => {
+      // units = 실제 투입 장비 기준 배치('현재 상태' 탭·3D 보드용). 미시작은 계획 장비로 폴백.
       const units: ScheduledUnit[] = barsToShow
         .filter((b) => b.machineId === machine.machineId)
-        .map((b, idx) => {
-          const startTime = toHour(b.start);
-          let endTime: number;
-          if (b.actualEnd) {
-            // 완료: 실제 종료시각 사용
-            endTime = toHour(b.actualEnd);
-          } else {
-            // 진행중/미완료: 실제 종료가 없으니 계획 소요시간(분)을 실제 시작에 더한다.
-            // (계획 종료시각을 그대로 쓰면 시작과 시간대가 달라 막대가 거대해짐)
-            const estDurHr =
-              (new Date(b.bar.estimatedEnd).getTime() - new Date(b.bar.estimatedStart).getTime()) /
-              3_600_000;
-            endTime = startTime + (Number.isFinite(estDurHr) && estDurHr > 0 ? estDurHr : 1);
-          }
-          // 자정을 넘는 막대(end<=start)는 그날 끝(24시)까지로 표시, 24시 초과도 클램프
-          if (endTime <= startTime || endTime > 24) endTime = 24;
+        .map(barToUnit);
 
-          // 간트 2-레인용 계획/실적 시각 (병합값과 별개로 원본 그대로)
-          const planStart = toHour(b.bar.estimatedStart);
-          const planEnd = clampEnd(planStart, toHour(b.bar.estimatedEnd));
-          const actualStart = b.actualStart ? toHour(b.actualStart) : null;
-          const actualEnd =
-            actualStart != null && b.actualEnd ? clampEnd(actualStart, toHour(b.actualEnd)) : null;
-
-          return {
-            schedule_id: b.bar.scheduleId,
-            unit_id: b.bar.unitId,
-            priority: b.bar.priority,
-            status: toUnitStatus(b.bar.unitStatus),
-            start_time: startTime,
-            end_time: endTime,
-            plan_start: planStart,
-            plan_end: planEnd,
-            actual_start: actualStart,
-            actual_end: actualEnd,
-            tone: TONES[idx % TONES.length],
-          };
-        });
+      // plan_units = 계획 장비(gantt machineId) 기준 배치('계획' 탭용).
+      const planUnits: ScheduledUnit[] = barsToShow
+        .filter((b) => b.bar.machineId === machine.machineId)
+        .map(barToUnit);
 
       // 실제 작업시간은 같은 장비에서도 인접 unit이 살짝 겹친다(기록상 다음 작업 시작 < 이전 작업 종료).
       // 시작 시각 순으로 정렬한 뒤, 이전 막대 끝을 다음 막대 시작까지로 잘라 겹침을 없앤다.
@@ -261,6 +271,7 @@ export function buildDistrictDashboard(
         load_rate: machine.loadRate,
         active_unit_id: machine.activeSchedule?.unitId ?? null,
         units,
+        plan_units: planUnits,
       };
     });
 

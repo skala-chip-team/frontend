@@ -25,7 +25,8 @@ type MachineScheduleRowData = {
   machine_id: string; // machine_master.machine_id
   machine_type: string; // machine_master.machine_type (표시용 장비명)
   avg_utilization_rate: number; // 가동률(%)
-  units: MachineScheduleItem[];
+  units: MachineScheduleItem[]; // 실제 투입 장비 기준('현재 상태')
+  plan_units?: MachineScheduleItem[]; // 계획 장비 기준('계획')
 };
 
 type MachineScheduleGanttRowProps = {
@@ -83,8 +84,11 @@ export function MachineScheduleGanttRow({
     return { left, width };
   };
 
+  // 모드별 소스: 계획은 계획 장비 기준(plan_units), 현재 상태는 실제 장비 기준(units)
+  const source = mode === 'plan' ? (schedule.plan_units ?? schedule.units) : schedule.units;
+
   // 모드별 막대 데이터 산출
-  const bars = schedule.units
+  const bars = source
     .map((u) => {
       if (mode === 'plan') {
         const start = u.plan_start ?? u.start_time;

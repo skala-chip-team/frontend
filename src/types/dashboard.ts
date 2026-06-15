@@ -27,7 +27,8 @@ export interface DistrictMachine {
   avg_utilization_rate: number; // 가동률(%)
   load_rate: number; // 부하율(%) — machines API의 loadRate
   active_unit_id?: string | null; // 현재 투입 UNIT (machines API의 activeSchedule.unitId)
-  units: ScheduledUnit[];
+  units: ScheduledUnit[]; // 실제 투입 장비 기준 배치('현재 상태' 탭·3D)
+  plan_units?: ScheduledUnit[]; // 계획 장비 기준 배치('계획' 탭)
 }
 
 export interface ProcessStep {
