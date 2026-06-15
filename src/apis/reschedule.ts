@@ -1,10 +1,19 @@
 import { apiClient } from './axios';
 import type {
   ApiResponse,
+  PredictionStatus,
   RescheduleGroupDetail,
   RescheduleGroupSummary,
   RescheduleSelectionResult,
 } from './types';
+
+/** 지연 예측 시스템 상태 (대시보드 위젯용) */
+export async function getPredictionStatus(): Promise<PredictionStatus> {
+  const { data } = await apiClient.get<ApiResponse<PredictionStatus>>(
+    '/api/reschedule/prediction-status'
+  );
+  return data.data;
+}
 
 /** 목록 필터. status 미지정 시 전체. active = pending + approved */
 export interface RescheduleGroupQuery {

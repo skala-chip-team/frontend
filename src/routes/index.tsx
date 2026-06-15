@@ -9,6 +9,7 @@ import ReschedulePage from '@/pages/ReschedulePage';
 import RescheduleDetailPage from '@/pages/RescheduleDetailPage';
 import SignupPage from '@/pages/SignupPage';
 import WorkerPage from '@/pages/WorkerPage';
+import MachinePage from '@/pages/MachinePage';
 
 import { RequireAuth } from './RequireAuth';
 import { RequireAdmin } from './RequireAdmin';
@@ -62,6 +63,15 @@ export const router = createBrowserRouter([
             element: (
               <RequireAdmin>
                 <WorkerPage />
+              </RequireAdmin>
+            ),
+          },
+
+          {
+            path: 'machines',
+            element: (
+              <RequireAdmin>
+                <MachinePage />
               </RequireAdmin>
             ),
           },

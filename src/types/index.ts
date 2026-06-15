@@ -37,3 +37,10 @@ export type {
   OrderUnit,
   Order,
 } from './order';
+export type {
+  MachineType,
+  MachineConfigStatus,
+  StepOption,
+  MachineConfig,
+  MachineConfigInput,
+} from './machine';

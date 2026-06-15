@@ -1,6 +1,6 @@
 import { startTransition, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, Lightbulb, ClipboardList, Users, ChevronsRight, Settings } from 'lucide-react';
+import { Home, Lightbulb, ClipboardList, Users, Cpu, ChevronsRight } from 'lucide-react';
 import { useAuthStore } from '@/stores';
 
 import type { MenuItem, OptionProps, TitleSectionProps, ToggleCloseProps } from './types';
@@ -9,18 +9,20 @@ const MAIN_MENU: MenuItem[] = [
   { icon: Home, title: '대시보드', path: '/dashboard' },
   { icon: ClipboardList, title: '주문 관리', path: '/orders' },
   { icon: Lightbulb, title: '재조정 제안 관리', path: '/reschedule' },
-  // 작업자 관리는 ADMIN 전용 (path로 식별해 필터)
+];
+
+/** 운영자(ADMIN) 전용 섹션 메뉴 */
+const OPERATOR_MENU: MenuItem[] = [
   { icon: Users, title: '작업자 관리', path: '/workers' },
+  { icon: Cpu, title: '장비 설정', path: '/machines' },
 ];
 
 /** ADMIN만 접근 가능한 메뉴 경로 */
-const ADMIN_ONLY_PATHS = new Set(['/workers']);
-
-const ACCOUNT_MENU: MenuItem[] = [{ icon: Settings, title: '설정' }];
+const ADMIN_ONLY_PATHS = new Set(['/workers', '/machines']);
 
 /** 현재 경로에 해당하는 메뉴 타이틀(없으면 null). 하위 경로도 startsWith로 매칭. */
 function matchTitleByPath(pathname: string): string | null {
-  const match = [...MAIN_MENU, ...ACCOUNT_MENU].find(
+  const match = [...MAIN_MENU, ...OPERATOR_MENU].find(
     (item) => item.path && pathname.startsWith(item.path)
   );
   return match?.title ?? null;
@@ -43,10 +45,10 @@ export function Sidebar() {
     if (title) setSelectedTitle(title);
   }
 
-  // ADMIN만 작업자 관리 메뉴 노출
+  // ADMIN만 운영자 섹션(작업자 관리·장비 설정) 노출
   const role = useAuthStore((state) => state.user?.role);
   const isAdmin = (role ?? '').toUpperCase() === 'ADMIN';
-  const mainMenu = MAIN_MENU.filter(
+  const operatorMenu = OPERATOR_MENU.filter(
     (item) => !item.path || !ADMIN_ONLY_PATHS.has(item.path) || isAdmin
   );
 
@@ -69,7 +71,7 @@ export function Sidebar() {
       <TitleSection open={open} />
 
       <div className="mb-8 space-y-1">
-        {mainMenu.map((item) => (
+        {MAIN_MENU.map((item) => (
           <Option
             key={item.title}
             icon={item.icon}
@@ -82,12 +84,12 @@ export function Sidebar() {
         ))}
       </div>
 
-      {open && (
+      {open && operatorMenu.length > 0 && (
         <div className="space-y-1 border-t border-gray-200 pt-4">
           <div className="px-3 py-2 text-label-3 uppercase tracking-wide text-gray-500">
-            계정
+            운영자
           </div>
-          {ACCOUNT_MENU.map((item) => (
+          {operatorMenu.map((item) => (
             <Option
               key={item.title}
               icon={item.icon}

@@ -2,6 +2,7 @@ import { DISTRICT_OPTIONS, useDistrictStore, type DistrictId } from '@/stores';
 
 import { DistrictSelect } from '../DistrictSelect';
 import { NotificationBell } from './NotificationBell';
+import { PredictionStatusBadge } from './PredictionStatusBadge';
 import { SimClock } from './SimClock';
 import { UserInfo } from './UserInfo';
 
@@ -18,6 +19,7 @@ export function Header() {
       />
 
       <div className="flex items-center gap-3">
+        <PredictionStatusBadge />
         <SimClock />
         <NotificationBell />
         <UserInfo />

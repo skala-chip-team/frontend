@@ -6,6 +6,8 @@ export { Chip } from './Chip';
 export type { ChipVariant, ChipColor, ChipSize } from './Chip';
 export { Modal } from './Modal';
 export { ConfirmModal } from './ConfirmModal';
+export { MachineTable } from './MachineTable';
+export { MachineFormModal } from './MachineFormModal';
 export { CircularProgress } from './CircularProgress';
 export { Board3DSkeleton } from './Board3DSkeleton';
 export type { Board3DSkeletonProps } from './Board3DSkeleton';

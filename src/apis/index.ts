@@ -7,6 +7,7 @@ export {
   getDistrictSummary,
   getDistrictWorkStatus,
   getMonitoringOverview,
+  getProductionStatus,
 } from './monitoring';
 export { getSimStatus } from './sim';
 export { login, signup } from './auth';
@@ -17,9 +18,17 @@ export {
   getRescheduleGroupDetail,
   generateReschedule,
   selectRescheduleStrategy,
+  getPredictionStatus,
 } from './reschedule';
 export type { RescheduleGroupQuery } from './reschedule';
 export { getOrders, getOrderDetail } from './orders';
+export {
+  getMachines,
+  getProcessSteps,
+  createMachine,
+  updateMachine,
+  deleteMachine,
+} from './machines';
 export type {
   ActiveSchedule,
   AfterSchedule,
@@ -42,6 +51,8 @@ export type {
   MachineDetail,
   MetricDelta,
   MetricsComparison,
+  PredictionStatus,
+  ProductionStatus,
   OrderBaseDto,
   OrderDetailDto,
   OrderListDto,
