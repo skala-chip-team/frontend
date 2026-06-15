@@ -15,3 +15,4 @@ export {
 } from './useReschedule';
 export { useOrders, useOrderDetail } from './useOrders';
 export type { OrdersResult } from './useOrders';
+export { useSendChatMessage, useChatSessions, useChatSessionMessages } from './useChatbot';

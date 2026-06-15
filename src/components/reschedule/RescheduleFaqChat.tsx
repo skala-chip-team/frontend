@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { MessageSquare, X } from 'lucide-react';
 
-import { rescheduleGroups } from '@/mocks';
-import type { RescheduleGroup, RescheduleStrategy } from '@/types';
+import { useSendChatMessage } from '@/hooks';
+import { getApiErrorMessage } from '@/utils';
+import type { RescheduleGroup } from '@/types';
 
 import { RescheduleFaqChatHeader } from './RescheduleFaqChatHeader';
 import { RescheduleFaqInput } from './RescheduleFaqInput';
@@ -13,10 +14,6 @@ import type { ChatMessage } from './chatTypes';
 
 interface RescheduleFaqChatProps {
   group: RescheduleGroup;
-  activeStrategy: RescheduleStrategy;
-  activeStrategyIndex: number;
-  recommendedStrategy: RescheduleStrategy;
-  recommendedStrategyIndex: number;
 }
 
 const QUICK_QUESTIONS = [
@@ -24,158 +21,31 @@ const QUICK_QUESTIONS = [
   'STEP4에서 가장 capa가 낮은 장비가 뭔가요?',
 ];
 
-const strategyLabel = (index: number) => String.fromCharCode(65 + index);
-
-const formatStrategyTitle = (strategy: RescheduleStrategy, index: number) =>
-  `재조정안${strategyLabel(index)} (${strategy.name})`;
-
-const buildWelcomeMessage = (
-  _group: RescheduleGroup,
-  _recommendedStrategy: RescheduleStrategy,
-  _recommendedStrategyIndex: number
-) => '재조정안이나 공장 상황에 대해 궁금한 점을 질문해주세요.';
-
-const buildSimilarRiskAnswer = (
-  group: RescheduleGroup,
-  recommendedStrategy: RescheduleStrategy,
-  recommendedStrategyIndex: number
-) => {
-  const similarGroups = rescheduleGroups.filter(
-    (item) => item.group_id !== group.group_id && item.risk_factor === group.risk_factor
-  );
-  const relievedCount = recommendedStrategy.compare.units.filter((unit) => unit.relieved).length;
-
-  return [
-    `현재 목업 데이터에서 같은 "${group.risk_factor}" 그룹은 ${similarGroups.length}건이에요.`,
-    `${formatStrategyTitle(recommendedStrategy, recommendedStrategyIndex)}처럼 위험 UNIT을 먼저 구제하는 안을 우선 검토하는 흐름으로 잡혀 있어요.`,
-    `이 안은 위험 ${relievedCount}건을 해소하고 평균 대기를 ${recommendedStrategy.compare.wait_before_min}분에서 ${recommendedStrategy.compare.wait_after_min}분으로 줄여줍니다.`,
-  ].join(' ');
+const WELCOME: ChatMessage = {
+  id: 'welcome',
+  role: 'assistant',
+  content: '재조정안이나 공장 상황에 대해 궁금한 점을 질문해주세요.',
 };
 
-const buildCapacityAnswer = (
-  group: RescheduleGroup,
-  activeStrategy: RescheduleStrategy,
-  activeStrategyIndex: number
-) => {
-  const tightestMachine = [...activeStrategy.compare.utils].sort(
-    (left, right) => right.util_after - left.util_after
-  )[0];
-
-  return [
-    `현재 선택한 ${formatStrategyTitle(activeStrategy, activeStrategyIndex)} 기준으로 ${group.process_step}에서 가용 CAPA가 가장 빠듯한 장비는 ${tightestMachine.machine}입니다.`,
-    `조정 후 가동률이 ${tightestMachine.util_after}%라 여유 CAPA는 약 ${100 - tightestMachine.util_after}% 수준으로 보여요.`,
-  ].join(' ');
-};
-
-const buildRecommendationAnswer = (
-  recommendedStrategy: RescheduleStrategy,
-  recommendedStrategyIndex: number
-) => {
-  const relievedCount = recommendedStrategy.compare.units.filter((unit) => unit.relieved).length;
-
-  return [
-    `추천안은 ${formatStrategyTitle(recommendedStrategy, recommendedStrategyIndex)}입니다.`,
-    `위험 UNIT ${relievedCount}건을 모두 구제하고, 전체 완료 시간을 ${recommendedStrategy.compare.makespan_before_min}분에서 ${recommendedStrategy.compare.makespan_after_min}분으로 줄이는 쪽에 강점이 있어요.`,
-  ].join(' ');
-};
-
-const buildWaitAnswer = (activeStrategy: RescheduleStrategy, activeStrategyIndex: number) =>
-  [
-    `${formatStrategyTitle(activeStrategy, activeStrategyIndex)} 기준 평균 대기는 ${activeStrategy.compare.wait_before_min}분에서 ${activeStrategy.compare.wait_after_min}분으로 바뀝니다.`,
-    `장비 부하 편차는 "${activeStrategy.compare.util_dev_label}"(±${activeStrategy.compare.util_dev_pp}%p) 수준이라, 대기 개선과 장비 균형의 trade-off를 함께 보시면 좋아요.`,
-  ].join(' ');
-
-const buildDefaultAnswer = (
-  group: RescheduleGroup,
-  activeStrategy: RescheduleStrategy,
-  activeStrategyIndex: number
-) =>
-  [
-    `현재 화면에서는 ${group.risk_factor || '지연 위험'} 대응으로 ${formatStrategyTitle(activeStrategy, activeStrategyIndex)}을 보고 있어요.`,
-    `위험 UNIT 변화, 장비 가동률, 큐 우선순위 변경, 납기 완화 효과 중 궁금한 항목을 질문해주시면 바로 정리해드릴게요.`,
-  ].join(' ');
-
-function buildAnswer(
-  question: string,
-  group: RescheduleGroup,
-  activeStrategy: RescheduleStrategy,
-  activeStrategyIndex: number,
-  recommendedStrategy: RescheduleStrategy,
-  recommendedStrategyIndex: number
-) {
-  const compactQuestion = question.toLowerCase().replace(/\s+/g, '');
-
-  if (
-    compactQuestion.includes('과거') ||
-    compactQuestion.includes('유사') ||
-    compactQuestion.includes('비슷한위험')
-  ) {
-    return buildSimilarRiskAnswer(group, recommendedStrategy, recommendedStrategyIndex);
-  }
-
-  if (
-    compactQuestion.includes('capa') ||
-    compactQuestion.includes('capacity') ||
-    compactQuestion.includes('장비')
-  ) {
-    return buildCapacityAnswer(group, activeStrategy, activeStrategyIndex);
-  }
-
-  if (compactQuestion.includes('추천') || compactQuestion.includes('승인')) {
-    return buildRecommendationAnswer(recommendedStrategy, recommendedStrategyIndex);
-  }
-
-  if (compactQuestion.includes('대기') || compactQuestion.includes('wait')) {
-    return buildWaitAnswer(activeStrategy, activeStrategyIndex);
-  }
-
-  return buildDefaultAnswer(group, activeStrategy, activeStrategyIndex);
-}
-
-export function RescheduleFaqChat({
-  group,
-  activeStrategy,
-  activeStrategyIndex,
-  recommendedStrategy,
-  recommendedStrategyIndex,
-}: RescheduleFaqChatProps) {
+export function RescheduleFaqChat({ group }: RescheduleFaqChatProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [draft, setDraft] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: buildWelcomeMessage(group, recommendedStrategy, recommendedStrategyIndex),
-    },
-  ]);
+  const [sessionId, setSessionId] = useState<string | undefined>(undefined);
+  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
   const viewportRef = useRef<HTMLDivElement | null>(null);
-  const typingTimerRef = useRef<number | null>(null);
 
-  // 그룹/추천 전략이 바뀌면 대화 초기화 — 렌더 중 상태 조정 패턴
-  const resetKey = `${group.group_id}|${recommendedStrategy.key}|${recommendedStrategyIndex}`;
-  const [prevResetKey, setPrevResetKey] = useState(resetKey);
-  if (prevResetKey !== resetKey) {
-    setPrevResetKey(resetKey);
+  const sendMessage = useSendChatMessage();
+  const isTyping = sendMessage.isPending;
+
+  // 그룹이 바뀌면 대화 초기화(세션도 새로) — 렌더 중 상태 조정 패턴
+  const [prevGroupId, setPrevGroupId] = useState(group.group_id);
+  if (prevGroupId !== group.group_id) {
+    setPrevGroupId(group.group_id);
     setDraft('');
     setIsOpen(false);
-    setIsTyping(false);
-    setMessages([
-      {
-        id: 'welcome',
-        role: 'assistant',
-        content: buildWelcomeMessage(group, recommendedStrategy, recommendedStrategyIndex),
-      },
-    ]);
+    setSessionId(undefined);
+    setMessages([WELCOME]);
   }
-
-  useEffect(() => {
-    return () => {
-      if (typingTimerRef.current !== null) {
-        window.clearTimeout(typingTimerRef.current);
-      }
-    };
-  }, []);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -185,45 +55,38 @@ export function RescheduleFaqChat({
   }, [isTyping, messages]);
 
   const submitQuestion = (question: string) => {
-    const trimmedQuestion = question.trim();
-    if (!trimmedQuestion) return;
+    const trimmed = question.trim();
+    if (!trimmed || sendMessage.isPending) return;
 
-    if (typingTimerRef.current !== null) {
-      window.clearTimeout(typingTimerRef.current);
-    }
-
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `user-${Date.now()}`,
-        role: 'user',
-        content: trimmedQuestion,
-      },
-    ]);
+    setMessages((prev) => [...prev, { id: `user-${Date.now()}`, role: 'user', content: trimmed }]);
     setDraft('');
-    setIsTyping(true);
 
-    const answer = buildAnswer(
-      trimmedQuestion,
-      group,
-      activeStrategy,
-      activeStrategyIndex,
-      recommendedStrategy,
-      recommendedStrategyIndex
-    );
-
-    typingTimerRef.current = window.setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `assistant-${Date.now()}`,
-          role: 'assistant',
-          content: answer,
+    // 첫 메시지면 sessionId 없이 전송 → 응답의 sessionId를 이후 메시지에 사용
+    sendMessage.mutate(
+      { groupId: group.group_id, message: trimmed, sessionId },
+      {
+        onSuccess: (result) => {
+          setSessionId(result.sessionId);
+          setMessages((prev) => [
+            ...prev,
+            { id: `assistant-${Date.now()}`, role: 'assistant', content: result.answer },
+          ]);
         },
-      ]);
-      setIsTyping(false);
-      typingTimerRef.current = null;
-    }, 420);
+        onError: (error) => {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `error-${Date.now()}`,
+              role: 'assistant',
+              content: getApiErrorMessage(
+                error,
+                '답변을 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.'
+              ),
+            },
+          ]);
+        },
+      }
+    );
   };
 
   return (

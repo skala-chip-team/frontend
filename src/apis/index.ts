@@ -20,6 +20,7 @@ export {
 } from './reschedule';
 export type { RescheduleGroupQuery } from './reschedule';
 export { getOrders, getOrderDetail } from './orders';
+export { sendChatMessage, getChatSessions, getChatSessionMessages } from './chatbot';
 export type {
   ActiveSchedule,
   AfterSchedule,
@@ -27,6 +28,10 @@ export type {
   AfterScheduleUnit,
   ApiResponse,
   ApiRiskLevel,
+  ChatHistoryMessage,
+  ChatMessageRequest,
+  ChatMessageResult,
+  ChatSession,
   DeadlineImpact,
   DelayRisk,
   DetailedReport,
