@@ -3,6 +3,7 @@ export { useDistrictDashboard } from './useDistrictDashboard';
 export { useSimStatus } from './useSimStatus';
 export { useRiskAlerts } from './useRiskAlerts';
 export { useAnimatedNumber } from './useAnimatedNumber';
+export { useDeferredMount } from './useDeferredMount';
 export { useUsers } from './useUsers';
 export { useSaveWorker, useDeleteUser } from './useUserActions';
 export { useDistrictOverviews } from './useDistrictOverviews';

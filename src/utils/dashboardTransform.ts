@@ -233,6 +233,7 @@ export function buildDistrictDashboard(
         machine_type: machine.machineType,
         machine_status: toMachineStatus(machine.machineStatus),
         avg_utilization_rate: machine.utilizationRate,
+        load_rate: machine.loadRate,
         active_unit_id: machine.activeSchedule?.unitId ?? null,
         units,
       };
@@ -250,5 +251,7 @@ export function buildDistrictDashboard(
   return {
     summaryCards: buildSummaryCards(summary),
     steps,
+    daily_output_qty: summary.dailyOutputQty,
+    daily_target_output_qty: summary.dailyTargetOutputQty,
   };
 }

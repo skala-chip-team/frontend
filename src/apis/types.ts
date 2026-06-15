@@ -234,6 +234,7 @@ export interface DistrictSummary {
   totalWaitingUnitCount: number;
   avgWaitTimeMin: number;
   dailyOutputQty: number;
+  dailyTargetOutputQty: number; // 일일 목표 생산량
 }
 
 /** GET /api/monitoring/districts/{districtId}/machines */
@@ -252,6 +253,7 @@ export interface MachineDetail {
   stepId: string;
   processStep: string;
   utilizationRate: number;
+  loadRate: number; // 부하율(%)
   activeSchedule: ActiveSchedule | null;
 }
 
