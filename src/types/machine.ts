@@ -17,8 +17,8 @@ export interface MachineConfig {
   machine_id: string; // 자동 생성 (MACHINE-NN)
   machine_type: MachineType;
   district_id: string; // 소속 구역 (DST-01 …)
-  step_id: string; // 매핑된 STEP (1개)
-  process_step: string; // STEP_A~D (step_id에서 파생, 표시용)
+  step_id: string | null; // 매핑된 STEP (없으면 null)
+  process_step: string | null; // STEP_A~D (step_id에서 파생, 표시용. 없으면 null)
   machine_status: MachineConfigStatus;
 }
 
@@ -26,6 +26,6 @@ export interface MachineConfig {
 export interface MachineConfigInput {
   machine_type: MachineType;
   district_id: string;
-  step_id: string;
+  step_id: string | null; // null이면 공정 매핑 해제
   machine_status: MachineConfigStatus;
 }

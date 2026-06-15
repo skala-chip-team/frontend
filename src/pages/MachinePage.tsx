@@ -4,6 +4,8 @@ import { Plus } from 'lucide-react';
 
 import { ConfirmModal, MachineFormModal, MachineTable } from '@components/common';
 import { useMachineActions, useMachines, useProcessSteps } from '@/hooks';
+import { useToastStore } from '@/stores';
+import { getApiErrorMessage } from '@/utils';
 import type { MachineConfig, MachineConfigInput } from '@/types';
 
 const DISTRICT_FILTERS: Array<{ key: string; label: string }> = [
@@ -23,6 +25,7 @@ export default function MachinePage() {
   const { data: machines, isLoading, isError } = useMachines();
   const { data: steps } = useProcessSteps();
   const { create, remove } = useMachineActions();
+  const addToast = useToastStore((state) => state.addToast);
 
   const [districtFilter, setDistrictFilter] = useState('all');
   const [stepFilter, setStepFilter] = useState('all');
@@ -39,12 +42,31 @@ export default function MachinePage() {
   );
 
   const handleAdd = (input: MachineConfigInput) => {
-    create.mutate(input, { onSuccess: () => setFormOpen(false) });
+    create.mutate(input, {
+      onSuccess: () => setFormOpen(false),
+      onError: (error) =>
+        addToast({
+          tone: 'critical',
+          title: '장비 추가 실패',
+          description: getApiErrorMessage(error, '장비를 추가하지 못했습니다.'),
+        }),
+    });
   };
 
   const handleDelete = () => {
     if (!deleting) return;
-    remove.mutate(deleting.machine_id, { onSuccess: () => setDeleting(null) });
+    remove.mutate(deleting.machine_id, {
+      onSuccess: () => setDeleting(null),
+      // 409(진행 중 스케줄) 등 → 백엔드 message를 그대로 토스트
+      onError: (error) => {
+        setDeleting(null);
+        addToast({
+          tone: 'critical',
+          title: '장비를 삭제할 수 없습니다',
+          description: getApiErrorMessage(error, '장비를 삭제하지 못했습니다.'),
+        });
+      },
+    });
   };
 
   const renderBody = () => {

@@ -240,6 +240,31 @@ export interface RescheduleSelectionResult {
   groupStatus: string;
 }
 
+/** GET /api/machines 항목 (장비 설정). stepId/processStep은 미매핑 시 null */
+export interface MachineItem {
+  machineId: string; // MACHINE-01
+  machineType: string; // TYPE_A ~ TYPE_D
+  districtId: string;
+  stepId: string | null;
+  processStep: string | null; // STEP_A ~ STEP_D
+  machineStatus: string; // 가동 | 대기 | 정지 | 점검중
+}
+
+/** GET /api/process-steps 항목 (구역 × STEP 조합) */
+export interface ProcessStepOption {
+  stepId: string; // STEP-AF589E464
+  processStep: string; // STEP_A
+  districtId: string;
+}
+
+/** POST/PUT /api/machines 요청 바디 (machineId는 서버 생성) */
+export interface MachineUpsertRequest {
+  machineType: string;
+  districtId: string;
+  stepId: string | null; // 매핑 안 하면 null
+  machineStatus: string;
+}
+
 /** GET /api/monitoring/districts/{districtId}/summary */
 export interface DistrictSummary {
   districtId: string;
