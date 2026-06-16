@@ -162,7 +162,7 @@ function UnitDeltaChip({ deltaHr }: { deltaHr: number }) {
       variant="subtle"
       color={improved ? 'emerald' : 'red'}
       size="xs"
-      className="font-bold tabular-nums"
+      className="whitespace-nowrap font-bold tabular-nums"
     >
       {improved ? (
         <ArrowDown className="h-3 w-3" aria-hidden />
@@ -204,7 +204,7 @@ function UnitRiskRow({ unit, phase }: { unit: UnitRiskChange; phase: ComparePhas
             <span className="text-label-3 text-gray-400">{unit.done_before}</span>
             <ArrowRight className="h-3.5 w-3.5 text-gray-300" aria-hidden />
             <span className="text-label-1 font-bold text-secondary-navy">{unit.done_after}</span>
-            <span className="flex w-[74px] justify-end">
+            <span className="flex min-w-[74px] shrink-0 justify-end">
               <UnitDeltaChip deltaHr={unit.delta_hr} />
             </span>
           </>
