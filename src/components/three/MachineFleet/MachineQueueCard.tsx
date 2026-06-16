@@ -45,6 +45,9 @@ export function MachineQueueCard({ queue, className = '' }: MachineQueueCardProp
           aria-hidden
         />
         <ul className="flex flex-col gap-2">
+          {waitingUnits.length === 0 ? (
+            <li className="py-1 text-[11px] font-medium text-gray-400">대기 작업 없음</li>
+          ) : null}
           {visibleUnits.map((unit, index) => (
             <li key={unit} className="relative flex items-center gap-2.5">
               <span className="z-10 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-500 text-[10px] font-bold text-white">
