@@ -31,16 +31,24 @@ interface RescheduleCardProps {
   data: RescheduleCardData;
   /** 우측 상단 화살표/카드 클릭 시 상세로 이동 */
   onOpenDetail?: () => void;
+  /** 만료 등으로 진입 차단 — 흐리게 + 클릭 불가 */
+  disabled?: boolean;
 }
 
 /** 재조정안 리스트 항목. 대시보드 카드의 border/shadow 톤을 따른다. */
-export function RescheduleCard({ data, onOpenDetail }: RescheduleCardProps) {
+export function RescheduleCard({ data, onOpenDetail, disabled = false }: RescheduleCardProps) {
   const [unitsOpen, setUnitsOpen] = useState(false);
 
   return (
     <article
-      onClick={onOpenDetail}
-      className="group flex cursor-pointer flex-col gap-4 rounded-2xl border border-gray-200/80 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)] transition hover:border-gray-300 hover:shadow-[0_12px_32px_rgba(15,23,42,0.08)]"
+      onClick={disabled ? undefined : onOpenDetail}
+      title={disabled ? '만료된 재조정안 — 상세를 열 수 없습니다' : undefined}
+      aria-disabled={disabled}
+      className={`group flex flex-col gap-4 rounded-2xl border border-gray-200/80 bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)] transition ${
+        disabled
+          ? 'cursor-not-allowed opacity-60'
+          : 'cursor-pointer hover:border-gray-300 hover:shadow-[0_12px_32px_rgba(15,23,42,0.08)]'
+      }`}
     >
       {/* 헤더: 위험레벨 + 구역·공정(제목) / 상태 + 화살표 */}
       <div className="flex items-start justify-between gap-3">
@@ -76,7 +84,9 @@ export function RescheduleCard({ data, onOpenDetail }: RescheduleCardProps) {
           <Chip variant="subtle" color={statusChipColor(data.group_status)} size="xl">
             {statusLabel(data.group_status)}
           </Chip>
-          <ChevronRight className="h-5 w-5 shrink-0 text-gray-300 transition group-hover:translate-x-0.5 group-hover:text-gray-500" />
+          {disabled ? null : (
+            <ChevronRight className="h-5 w-5 shrink-0 text-gray-300 transition group-hover:translate-x-0.5 group-hover:text-gray-500" />
+          )}
         </div>
       </div>
 
