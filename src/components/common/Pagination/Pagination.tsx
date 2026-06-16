@@ -5,13 +5,27 @@ interface PaginationProps {
   totalPages: number;
   onChange: (page: number) => void;
   className?: string;
+  /** 한 번에 보여줄 페이지 번호 개수(슬라이딩 윈도우). 기본 10 */
+  maxButtons?: number;
 }
 
-/** 페이지네이션: 이전/다음 + 페이지 번호 */
-export function Pagination({ page, totalPages, onChange, className = '' }: PaginationProps) {
+/** 페이지네이션: 이전/다음 + 페이지 번호(최대 maxButtons개 슬라이딩 윈도우) */
+export function Pagination({
+  page,
+  totalPages,
+  onChange,
+  className = '',
+  maxButtons = 10,
+}: PaginationProps) {
   if (totalPages <= 1) return null;
 
-  const pages = Array.from({ length: totalPages }, (_, index) => index + 1);
+  // 현재 페이지 주변으로 최대 maxButtons개만 노출 (예: 1~10, 이동 시 슬라이드)
+  const windowSize = Math.min(maxButtons, totalPages);
+  let start = Math.max(1, page - Math.floor(windowSize / 2));
+  const end = Math.min(totalPages, start + windowSize - 1);
+  start = Math.max(1, end - windowSize + 1);
+  const pages = Array.from({ length: end - start + 1 }, (_, index) => start + index);
+
   const go = (next: number) => {
     const clamped = Math.min(Math.max(next, 1), totalPages);
     if (clamped !== page) onChange(clamped);
