@@ -58,7 +58,14 @@ export default function ReschedulePage() {
     () =>
       (data ?? [])
         .filter((g) => statusFilter === 'all' || g.groupStatus === statusFilter)
-        .filter((g) => periodFilter === 'all' || withinDays(g.createdAt, Number(periodFilter))),
+        .filter((g) => periodFilter === 'all' || withinDays(g.createdAt, Number(periodFilter)))
+        // 만료되지 않은 것(신규·승인) 먼저, 그 다음 만료. 각 그룹 내에서는 최신순(createdAt desc)
+        .sort((a, b) => {
+          const expiredA = a.groupStatus === 'expired' ? 1 : 0;
+          const expiredB = b.groupStatus === 'expired' ? 1 : 0;
+          if (expiredA !== expiredB) return expiredA - expiredB;
+          return b.createdAt.localeCompare(a.createdAt);
+        }),
     [data, statusFilter, periodFilter]
   );
 
