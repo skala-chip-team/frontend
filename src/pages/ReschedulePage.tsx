@@ -18,22 +18,20 @@ const STATUS_FILTERS: Array<{ key: StatusKey; label: string }> = [
   { key: 'expired', label: '만료' },
 ];
 
-// 요일 필터 (getDay: 0=일 … 6=토)
-const DAY_FILTERS: Array<{ key: string; label: string }> = [
+// 기간 필터 (생성 후 경과 기준 — 하루치/일주일치 등)
+const PERIOD_FILTERS: Array<{ key: string; label: string }> = [
   { key: 'all', label: '전체' },
-  { key: '1', label: '월' },
-  { key: '2', label: '화' },
-  { key: '3', label: '수' },
-  { key: '4', label: '목' },
-  { key: '5', label: '금' },
-  { key: '6', label: '토' },
-  { key: '0', label: '일' },
+  { key: '1', label: '최근 1일' },
+  { key: '7', label: '최근 7일' },
+  { key: '30', label: '최근 30일' },
 ];
 
-/** 서버 시각(UTC 무접미사)을 KST 요일로. 오프셋 표기 있으면 그대로 */
-function weekdayOf(iso: string): number {
+/** createdAt(UTC 무접미사)이 최근 days일 이내인가. 오프셋 표기 있으면 그대로 */
+function withinDays(iso: string, days: number): boolean {
   const hasZone = /[zZ]$|[+-]\d\d:?\d\d$/.test(iso);
-  return new Date(hasZone ? iso : `${iso}Z`).getDay();
+  const t = new Date(hasZone ? iso : `${iso}Z`).getTime();
+  if (Number.isNaN(t)) return true;
+  return Date.now() - t <= days * 24 * 60 * 60 * 1000;
 }
 
 export default function ReschedulePage() {
@@ -46,10 +44,10 @@ export default function ReschedulePage() {
 
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<StatusKey>('all');
-  const [dayFilter, setDayFilter] = useState('all');
+  const [periodFilter, setPeriodFilter] = useState('all');
 
   // 구역/필터 전환 시 첫 페이지로 (effect 대신 렌더 중 상태 조정)
-  const filterKey = `${selectedDistrict}|${statusFilter}|${dayFilter}`;
+  const filterKey = `${selectedDistrict}|${statusFilter}|${periodFilter}`;
   const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
   if (prevFilterKey !== filterKey) {
     setPrevFilterKey(filterKey);
@@ -60,8 +58,8 @@ export default function ReschedulePage() {
     () =>
       (data ?? [])
         .filter((g) => statusFilter === 'all' || g.groupStatus === statusFilter)
-        .filter((g) => dayFilter === 'all' || String(weekdayOf(g.createdAt)) === dayFilter),
-    [data, statusFilter, dayFilter]
+        .filter((g) => periodFilter === 'all' || withinDays(g.createdAt, Number(periodFilter))),
+    [data, statusFilter, periodFilter]
   );
 
   const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
@@ -91,7 +89,7 @@ export default function ReschedulePage() {
         {/* 필터: 상태 + 요일 */}
         <div className="flex flex-col gap-2">
           <FilterRow label="상태" options={STATUS_FILTERS} value={statusFilter} onChange={(k) => setStatusFilter(k as StatusKey)} />
-          <FilterRow label="요일" options={DAY_FILTERS} value={dayFilter} onChange={setDayFilter} />
+          <FilterRow label="기간" options={PERIOD_FILTERS} value={periodFilter} onChange={setPeriodFilter} />
         </div>
 
         {isLoading ? (
