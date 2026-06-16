@@ -90,10 +90,12 @@ export function ScheduleChangeGantt({ rows, startHour, endHour }: ScheduleChange
                 <p className="truncate text-label-3 font-bold text-secondary-navy">{row.machine}</p>
               </div>
 
-              <div className="relative h-7">
+              <div className="relative h-7 overflow-hidden">
                 {row.units.map((unit) => {
-                  const left = pct(unit.start);
-                  const width = Math.max(pct(unit.end) - pct(unit.start), 6);
+                  // 차트 범위(start~end) 밖이면 0~100%로 클램프 → 막대가 라벨 칸을 덮거나 잘리지 않게
+                  const left = Math.max(0, Math.min(100, pct(unit.start)));
+                  const right = Math.max(0, Math.min(100, pct(unit.end)));
+                  const width = Math.max(right - left, 6);
                   const isSelected = unit.unit_id === selectedId;
                   return (
                     <button
