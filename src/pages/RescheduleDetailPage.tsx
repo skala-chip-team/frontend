@@ -328,8 +328,16 @@ function CandidateCard({
   );
 }
 
-/** 로딩/에러/없음 등 상태 화면 — 뒤로가기 + 중앙 메시지 */
-function StateShell({ onBack, children }: { onBack: () => void; children: ReactNode }) {
+/** 로딩/에러/없음 등 상태 화면 — 뒤로가기 + 중앙 메시지(+선택적 목록 이동 버튼) */
+function StateShell({
+  onBack,
+  children,
+  showListButton = false,
+}: {
+  onBack: () => void;
+  children: ReactNode;
+  showListButton?: boolean;
+}) {
   return (
     <section className="min-h-full bg-surface-50 px-6 pb-6 pt-4 lg:px-8 lg:pb-8">
       <div className="mx-auto flex w-full max-w-[1680px] flex-col gap-4">
@@ -344,8 +352,17 @@ function StateShell({ onBack, children }: { onBack: () => void; children: ReactN
           </button>
           <span className="text-heading-2 text-gray-400">재조정안 관리</span>
         </div>
-        <div className="flex h-40 items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-200 bg-white text-body-2 text-gray-500">
-          {children}
+        <div className="flex h-40 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-gray-200 bg-white text-body-2 text-gray-500">
+          <div className="flex items-center gap-2">{children}</div>
+          {showListButton ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="rounded-lg bg-primary-500 px-4 py-2 text-label-1 font-semibold text-white transition hover:bg-primary-600"
+            >
+              재조정안 목록으로
+            </button>
+          ) : null}
         </div>
       </div>
     </section>
@@ -427,15 +444,18 @@ export default function RescheduleDetailPage() {
     );
   }
   if (isError) {
+    // 404(RESCHEDULE_GROUP_NOT_FOUND) 등 → 안내 + 목록 이동 버튼
     return (
-      <StateShell onBack={() => navigate('/reschedule')}>
-        {getApiErrorMessage(error, '재조정안을 불러오지 못했습니다.')}
+      <StateShell onBack={() => navigate('/reschedule')} showListButton>
+        {getApiErrorStatus(error) === 404
+          ? '해당 재조정안을 찾을 수 없습니다.'
+          : getApiErrorMessage(error, '재조정안을 불러오지 못했습니다.')}
       </StateShell>
     );
   }
   if (!detail || !group) {
     return (
-      <StateShell onBack={() => navigate('/reschedule')}>
+      <StateShell onBack={() => navigate('/reschedule')} showListButton>
         해당 재조정안을 찾을 수 없습니다.
       </StateShell>
     );
@@ -498,6 +518,51 @@ export default function RescheduleDetailPage() {
               )}
               {generate.isPending ? '재생성 중… (최대 2분)' : '재조정안 생성'}
             </button>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // 예외3: 현재 운영 스케줄(beforeSchedule)이 없으면 비교 불가 → 비교 영역 숨기고 안내
+  if (detail.beforeSchedule === null) {
+    const fallbackReason = detail.options.find((o) => o.fallbackReason)?.fallbackReason ?? null;
+    return (
+      <section className="min-h-full bg-surface-50 px-6 pb-6 pt-4 lg:px-8 lg:pb-8">
+        <div className="mx-auto flex w-full max-w-[1680px] flex-col gap-4">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => navigate('/reschedule')}
+              aria-label="목록으로"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition hover:border-gray-300 hover:text-secondary-navy"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <div className="flex items-center gap-2 text-heading-2">
+              <span className="text-gray-400">재조정안 관리</span>
+              <span className="text-gray-300">›</span>
+              <span className="text-secondary-navy">{group.risk_factor || '지연 위험'}</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-gray-200 bg-white px-6 py-12 text-center">
+            <div className="flex items-center gap-3">
+              <Chip variant="solid" color={riskChipColor(group.risk_level)} size="lg" className="font-bold">
+                {riskLevelLabel(group.risk_level)}
+              </Chip>
+              <span className="text-subtitle-1 font-bold text-secondary-navy">
+                {group.risk_factor || '지연 위험'}
+              </span>
+            </div>
+            <p className="text-body-2 text-gray-500">
+              현재 운영 스케줄이 없어 재조정 전·후를 비교할 수 없습니다.
+            </p>
+            {fallbackReason ? (
+              <span className="rounded-md bg-amber-50 px-3 py-1 text-label-2 font-semibold text-amber-700">
+                사유: {fallbackReason}
+              </span>
+            ) : null}
           </div>
         </div>
       </section>
