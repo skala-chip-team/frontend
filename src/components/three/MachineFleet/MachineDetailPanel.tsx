@@ -106,8 +106,14 @@ export function MachineDetailPanel({ machine, open, onClose }: MachineDetailPane
           <div className="rounded-2xl bg-surface-100 px-4 py-3">
             <p className="text-[12px] font-medium text-gray-500">부하율</p>
             <p className="mt-1 text-[22px] font-bold leading-none text-secondary-navy">
-              {machine?.load_rate ?? 0}
-              <span className="ml-0.5 text-[13px] font-semibold text-gray-400">%</span>
+              {machine == null || machine.load_rate == null ? (
+                <span className="text-[14px] font-semibold text-gray-400">산출 불가</span>
+              ) : (
+                <>
+                  {machine.load_rate}
+                  <span className="ml-0.5 text-[13px] font-semibold text-gray-400">%</span>
+                </>
+              )}
             </p>
           </div>
         </div>
