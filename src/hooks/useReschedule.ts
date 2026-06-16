@@ -4,12 +4,15 @@ import {
   generateReschedule,
   getRescheduleGroupDetail,
   getRescheduleGroups,
+  getRescheduleHistory,
   selectRescheduleStrategy,
 } from '@apis/index';
 import type {
   RescheduleGroupDetail,
   RescheduleGroupQuery,
   RescheduleGroupSummary,
+  RescheduleHistoryPage,
+  RescheduleHistoryQuery,
 } from '@apis/index';
 
 const KEYS = {
@@ -28,6 +31,16 @@ export function useRescheduleGroups(query: RescheduleGroupQuery = {}, pollMs?: n
     queryKey: KEYS.groups(query.districtId, query.status),
     queryFn: () => getRescheduleGroups(query),
     refetchInterval: pollMs ?? false,
+  });
+}
+
+/** 기간별 재조정 이력 (페이지네이션). enabled=false면 호출 보류(기간 검증 실패 등) */
+export function useRescheduleHistory(query: RescheduleHistoryQuery, enabled = true) {
+  return useQuery<RescheduleHistoryPage>({
+    queryKey: ['rescheduleHistory', query.from, query.to, query.page ?? 0, query.size ?? 20],
+    queryFn: () => getRescheduleHistory(query),
+    enabled,
+    placeholderData: (prev) => prev, // 페이지 전환 시 깜빡임 방지
   });
 }
 

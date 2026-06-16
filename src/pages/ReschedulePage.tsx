@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronRight, History, Loader2 } from 'lucide-react';
 
 import { Pagination, RescheduleCard } from '@components/common';
 import { useRescheduleGroups } from '@/hooks';
@@ -75,15 +75,25 @@ export default function ReschedulePage() {
   return (
     <section className="min-h-full bg-surface-50 px-6 pb-6 pt-4 lg:px-8 lg:pb-8">
       <div className="flex w-full flex-col gap-4">
-        {/* 위치 브레드크럼 — 큰 글씨 */}
-        <div className="flex items-center gap-2 text-heading-2">
-          <span className={isAll ? 'text-secondary-navy' : 'text-gray-400'}>재조정안 관리</span>
-          {!isAll ? (
-            <>
-              <ChevronRight className="h-6 w-6 text-gray-300" aria-hidden />
-              <span className="text-secondary-navy">{districtLabels[selectedDistrict]}</span>
-            </>
-          ) : null}
+        {/* 위치 브레드크럼 + 기간별 이력 */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-heading-2">
+            <span className={isAll ? 'text-secondary-navy' : 'text-gray-400'}>재조정안 관리</span>
+            {!isAll ? (
+              <>
+                <ChevronRight className="h-6 w-6 text-gray-300" aria-hidden />
+                <span className="text-secondary-navy">{districtLabels[selectedDistrict]}</span>
+              </>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate('/reschedule/history')}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-label-2 font-semibold text-secondary-navy transition hover:bg-surface-100"
+          >
+            <History className="h-4 w-4" aria-hidden />
+            기간별 이력
+          </button>
         </div>
 
         {/* 필터: 상태 + 요일 */}

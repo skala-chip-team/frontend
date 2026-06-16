@@ -12,6 +12,7 @@ export {
   toRescheduleGroupFromDetail,
   toCardData,
   toRiskLevel,
+  riskFactorLabel,
 } from './rescheduleAdapter';
 export type { AdaptedStrategy } from './rescheduleAdapter';
 export { getApiErrorMessage, getApiErrorStatus } from './apiError';

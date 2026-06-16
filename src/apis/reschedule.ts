@@ -4,8 +4,17 @@ import type {
   PredictionStatus,
   RescheduleGroupDetail,
   RescheduleGroupSummary,
+  RescheduleHistoryPage,
   RescheduleSelectionResult,
 } from './types';
+
+/** 기간별 재조정 이력 (페이지네이션). 기간 92일 초과 시 400 */
+export interface RescheduleHistoryQuery {
+  from: string; // YYYY-MM-DD
+  to: string; // YYYY-MM-DD
+  page?: number; // 0-based
+  size?: number;
+}
 
 /** 지연 예측 시스템 상태 (대시보드 위젯용) */
 export async function getPredictionStatus(): Promise<PredictionStatus> {
@@ -32,6 +41,24 @@ export async function getRescheduleGroups(
   const { data } = await apiClient.get<ApiResponse<RescheduleGroupSummary[]>>(
     '/api/reschedule/groups',
     { params: Object.keys(params).length ? params : undefined }
+  );
+  return data.data;
+}
+
+/** 기간별 재조정 이력 조회 (만료 포함, 페이지네이션) */
+export async function getRescheduleHistory(
+  query: RescheduleHistoryQuery
+): Promise<RescheduleHistoryPage> {
+  const { data } = await apiClient.get<ApiResponse<RescheduleHistoryPage>>(
+    '/api/reschedule/groups/history',
+    {
+      params: {
+        from: query.from,
+        to: query.to,
+        page: query.page ?? 0,
+        size: query.size ?? 20,
+      },
+    }
   );
   return data.data;
 }
