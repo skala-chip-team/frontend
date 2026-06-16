@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   generateReschedule,
@@ -20,6 +20,35 @@ const KEYS = {
     ['rescheduleGroups', districtId ?? 'all', status ?? 'all'] as const,
   detail: (groupId?: string) => ['rescheduleDetail', groupId ?? ''] as const,
 };
+
+/**
+ * 승인된 재조정안이 실제로 바꾼 unit_id 집합 (대시보드 간트 강조용).
+ * 승인 그룹 summary의 affectedUnits는 위험 해소로 비어있을 수 있으므로,
+ * 각 승인 그룹의 상세에서 선택된 안(selected)의 afterSchedule·queueReorder·delayRisks unit을 모은다.
+ */
+export function useApprovedRescheduleUnitIds(districtId?: string): Set<string> {
+  const { data: groups } = useRescheduleGroups({ districtId, status: 'approved' });
+  const details = useQueries({
+    queries: (groups ?? []).map((group) => ({
+      queryKey: KEYS.detail(group.groupId),
+      queryFn: () => getRescheduleGroupDetail(group.groupId),
+      staleTime: 60_000,
+    })),
+  });
+
+  const ids = new Set<string>();
+  for (const query of details) {
+    const detail = query.data;
+    if (!detail) continue;
+    const selected =
+      detail.options.find((option) => option.selected) ??
+      detail.options.find((option) => option.afterSchedule != null);
+    selected?.afterSchedule?.units.forEach((unit) => ids.add(unit.unit_id));
+    selected?.queueReorder?.forEach((item) => ids.add(item.unit_id));
+    detail.delayRisks.forEach((risk) => ids.add(risk.unitId));
+  }
+  return ids;
+}
 
 /**
  * 재조정 그룹 목록.

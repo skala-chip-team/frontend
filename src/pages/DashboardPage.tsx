@@ -13,9 +13,9 @@ import {
 import { MachineFleetBoard } from '@components/three';
 import { districtLabels, useDistrictStore } from '@/stores';
 import {
+  useApprovedRescheduleUnitIds,
   useDeferredMount,
   useDistrictDashboard,
-  useRescheduleGroups,
   useSimStatus,
 } from '@/hooks';
 import type { DistrictDashboardData } from '@/types';
@@ -147,14 +147,9 @@ export default function DashboardPage() {
     sim?.is_running ?? false
   );
 
-  // 승인된 재조정안의 영향 unit → 간트 '계획' 탭에서 강조(재조정이 실제 반영됐음을 표시)
-  const { data: approvedGroups } = useRescheduleGroups({
-    districtId: selectedDistrict,
-    status: 'approved',
-  });
-  const highlightUnitIds = new Set(
-    (approvedGroups ?? []).flatMap((group) => group.affectedUnits.map((unit) => unit.unitId))
-  );
+  // 승인된 재조정안이 실제 바꾼 unit → 간트 '계획' 탭에서 강조(재조정 반영 표시)
+  // summary affectedUnits는 승인 후 비어있을 수 있어 상세(selected 옵션)에서 수집한다.
+  const highlightUnitIds = useApprovedRescheduleUnitIds(selectedDistrict);
 
   const renderBody = () => {
     if (isAll) return <OverviewDashboard />;
