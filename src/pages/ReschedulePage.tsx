@@ -6,33 +6,62 @@ import { ChevronRight, Loader2 } from 'lucide-react';
 import { Pagination, RescheduleCard } from '@components/common';
 import { useRescheduleGroups } from '@/hooks';
 import { districtLabels, useDistrictStore, type DistrictId } from '@/stores';
-import { toCardData } from '@/utils';
-import { getApiErrorMessage } from '@/utils';
+import { getApiErrorMessage, toCardData } from '@/utils';
 
 const PAGE_SIZE = 5;
+
+type StatusKey = 'all' | 'pending' | 'approved' | 'expired';
+const STATUS_FILTERS: Array<{ key: StatusKey; label: string }> = [
+  { key: 'all', label: '전체' },
+  { key: 'pending', label: '신규' },
+  { key: 'approved', label: '승인' },
+  { key: 'expired', label: '만료' },
+];
+
+// 기간 필터 (생성 후 경과 기준 — 하루치/일주일치 등)
+const PERIOD_FILTERS: Array<{ key: string; label: string }> = [
+  { key: 'all', label: '전체' },
+  { key: '1', label: '최근 1일' },
+  { key: '7', label: '최근 7일' },
+  { key: '30', label: '최근 30일' },
+];
+
+/** createdAt(UTC 무접미사)이 최근 days일 이내인가. 오프셋 표기 있으면 그대로 */
+function withinDays(iso: string, days: number): boolean {
+  const hasZone = /[zZ]$|[+-]\d\d:?\d\d$/.test(iso);
+  const t = new Date(hasZone ? iso : `${iso}Z`).getTime();
+  if (Number.isNaN(t)) return true;
+  return Date.now() - t <= days * 24 * 60 * 60 * 1000;
+}
 
 export default function ReschedulePage() {
   const navigate = useNavigate();
   const selectedDistrict = useDistrictStore((state) => state.selectedDistrict);
   const isAll = selectedDistrict === 'all';
 
-  // 목록은 pending(미처리) 기준 — 승인 완료된 건은 제외. 구역 선택 시 districtId 필터
-  const { data, isLoading, isError, error } = useRescheduleGroups({
-    districtId: selectedDistrict,
-    status: 'pending',
-  });
+  // status 없이 전체(만료 포함) 조회 → 클라이언트에서 상태/요일 필터링
+  const { data, isLoading, isError, error } = useRescheduleGroups({ districtId: selectedDistrict });
 
   const [page, setPage] = useState(1);
-  const [prevDistrict, setPrevDistrict] = useState(selectedDistrict);
+  const [statusFilter, setStatusFilter] = useState<StatusKey>('all');
+  const [periodFilter, setPeriodFilter] = useState('all');
 
-  // 구역 전환 시 첫 페이지로 (effect 대신 렌더 중 상태 조정)
-  if (prevDistrict !== selectedDistrict) {
-    setPrevDistrict(selectedDistrict);
+  // 구역/필터 전환 시 첫 페이지로 (effect 대신 렌더 중 상태 조정)
+  const filterKey = `${selectedDistrict}|${statusFilter}|${periodFilter}`;
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
+  if (prevFilterKey !== filterKey) {
+    setPrevFilterKey(filterKey);
     setPage(1);
   }
 
-  // 시뮬 진행으로 위험이 해소된 stale 그룹(영향 유닛 0)은 숨김 → 살아있는 위험만
-  const items = useMemo(() => (data ?? []).filter((g) => g.affectedUnits.length > 0), [data]);
+  const items = useMemo(
+    () =>
+      (data ?? [])
+        .filter((g) => statusFilter === 'all' || g.groupStatus === statusFilter)
+        .filter((g) => periodFilter === 'all' || withinDays(g.createdAt, Number(periodFilter))),
+    [data, statusFilter, periodFilter]
+  );
+
   const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
   const pageItems = useMemo(
@@ -57,6 +86,12 @@ export default function ReschedulePage() {
           ) : null}
         </div>
 
+        {/* 필터: 상태 + 요일 */}
+        <div className="flex flex-col gap-2">
+          <FilterRow label="상태" options={STATUS_FILTERS} value={statusFilter} onChange={(k) => setStatusFilter(k as StatusKey)} />
+          <FilterRow label="기간" options={PERIOD_FILTERS} value={periodFilter} onChange={setPeriodFilter} />
+        </div>
+
         {isLoading ? (
           <div className="flex h-40 items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-200 bg-white text-body-2 text-gray-400">
             <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
@@ -68,18 +103,22 @@ export default function ReschedulePage() {
           </div>
         ) : items.length === 0 ? (
           <div className="flex h-40 items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white text-body-2 text-gray-400">
-            재조정안이 없습니다.
+            조건에 맞는 재조정안이 없습니다.
           </div>
         ) : (
           <>
             <div className="flex flex-col gap-3">
-              {pageItems.map((group) => (
-                <RescheduleCard
-                  key={group.groupId}
-                  onOpenDetail={() => navigate(`/reschedule/${group.groupId}`)}
-                  data={toCardData(group, districtLabel(group.districtId))}
-                />
-              ))}
+              {pageItems.map((group) => {
+                const expired = group.groupStatus === 'expired';
+                return (
+                  <RescheduleCard
+                    key={group.groupId}
+                    disabled={expired}
+                    onOpenDetail={expired ? undefined : () => navigate(`/reschedule/${group.groupId}`)}
+                    data={toCardData(group, districtLabel(group.districtId))}
+                  />
+                );
+              })}
             </div>
 
             <Pagination
@@ -92,5 +131,43 @@ export default function ReschedulePage() {
         )}
       </div>
     </section>
+  );
+}
+
+/** 라벨 + 칩 필터 한 줄 */
+function FilterRow({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: Array<{ key: string; label: string }>;
+  value: string;
+  onChange: (key: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="w-8 shrink-0 text-label-3 font-semibold text-gray-400">{label}</span>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {options.map((opt) => {
+          const active = value === opt.key;
+          return (
+            <button
+              key={opt.key}
+              type="button"
+              onClick={() => onChange(opt.key)}
+              className={`rounded-lg border px-3 py-1.5 text-label-2 font-semibold transition ${
+                active
+                  ? 'border-primary-500 bg-primary-50 text-primary-600'
+                  : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:text-secondary-navy'
+              }`}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }

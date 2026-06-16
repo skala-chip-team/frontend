@@ -7,13 +7,18 @@ export function riskChipColor(level: RiskLevel): 'red' | 'orange' | 'emerald' {
   return 'emerald';
 }
 
-/** 그룹 상태 → Chip color (subtle, Recommend 칩과 동일 톤) */
-export function statusChipColor(status: GroupStatus): 'primary' | 'gray' {
-  return status === 'expired' ? 'gray' : 'primary';
+/** 그룹 상태 → Chip color (subtle) */
+export function statusChipColor(status: GroupStatus): 'primary' | 'gray' | 'emerald' {
+  if (status === 'expired') return 'gray';
+  if (status === 'approved') return 'emerald';
+  return 'primary'; // pending(신규)
 }
 
+/** 그룹 상태 → 라벨 (신규/승인/만료됨) */
 export function statusLabel(status: GroupStatus): string {
-  return status === 'expired' ? '만료됨' : '진행중';
+  if (status === 'expired') return '만료됨';
+  if (status === 'approved') return '승인';
+  return '신규'; // pending
 }
 
 /** 위험 레벨 → 배지 표기(영문 대문자: LOW / MEDIUM / HIGH / CRITICAL) */
