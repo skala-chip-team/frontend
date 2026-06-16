@@ -51,4 +51,5 @@ export interface DistrictDashboardData {
   steps: ProcessStep[];
   daily_output_qty: number; // 오늘 생산 실적(summary.dailyOutputQty)
   daily_target_output_qty: number; // 오늘 생산 목표(summary.dailyTargetOutputQty)
+  achievement_rate: number | null; // 달성률(%). null이면 산출 불가(목표 정보 없음)
 }

@@ -793,6 +793,12 @@ export default function RescheduleDetailPage() {
                         추천
                       </Chip>
                     ) : null}
+                    {activeStrategy.manualReviewRequired ? (
+                      <Chip variant="subtle" color="amber" size="sm" className="font-bold">
+                        <TriangleAlert className="h-3.5 w-3.5" aria-hidden />
+                        운영자 수동 검토 대상
+                      </Chip>
+                    ) : null}
                   </div>
 
                   {/* 전/후 토글 + 안내 툴팁 (페이드+슬라이드 인터랙션) */}
