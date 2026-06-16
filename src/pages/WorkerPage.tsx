@@ -3,9 +3,9 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
 
 import { WorkerDetailPanel, WorkerTable, type WorkerUpdate } from '@components/common';
-import { districtLabels, useDistrictStore } from '@/stores';
+import { districtLabels, useDistrictStore, useToastStore } from '@/stores';
 import { useSaveWorker, useUsers } from '@/hooks';
-import { koreanRoleToName, userToWorker, WORKER_DISTRICT_IDS } from '@/utils';
+import { getApiErrorMessage, koreanRoleToName, userToWorker, WORKER_DISTRICT_IDS } from '@/utils';
 import type { WorkerRole } from '@/types';
 
 const ROLE_FILTERS: Array<{ key: WorkerRole | 'all'; label: string }> = [
@@ -21,6 +21,7 @@ export default function WorkerPage() {
 
   const { data: users, isLoading, isError } = useUsers();
   const saveWorker = useSaveWorker();
+  const addToast = useToastStore((state) => state.addToast);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [roleFilter, setRoleFilter] = useState<WorkerRole | 'all'>('all');
@@ -44,11 +45,23 @@ export default function WorkerPage() {
   }));
 
   const handleSave = ({ user_id, role, districts }: WorkerUpdate) => {
-    saveWorker.mutate({
-      userId: user_id,
-      roleName: koreanRoleToName(role),
-      districtIds: districts,
-    });
+    saveWorker.mutate(
+      {
+        userId: user_id,
+        roleName: koreanRoleToName(role),
+        districtIds: districts,
+      },
+      {
+        onSuccess: () => addToast({ tone: 'info', title: '변경 사항을 저장했습니다' }),
+        // 403 ADMIN_ROLE_CHANGE_FORBIDDEN(관리자 역할 변경 불가) 등 → 백엔드 message 표시
+        onError: (error) =>
+          addToast({
+            tone: 'critical',
+            title: '저장 실패',
+            description: getApiErrorMessage(error, '저장하지 못했습니다. 잠시 후 다시 시도해 주세요.'),
+          }),
+      }
+    );
   };
 
   const renderBody = () => {
