@@ -1022,8 +1022,8 @@ export default function RescheduleDetailPage() {
                   ) : (
                     <ScheduleChangeGantt
                       rows={activeStrategy.detail.schedule}
-                      startHour={8}
-                      endHour={20}
+                      startHour={0}
+                      endHour={24}
                     />
                   )}
                 </div>

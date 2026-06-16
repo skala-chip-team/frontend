@@ -9,11 +9,13 @@ export function riskChipColor(level: RiskLevel): 'red' | 'orange' | 'emerald' {
 
 /** 그룹 상태 → Chip color (subtle, Recommend 칩과 동일 톤) */
 export function statusChipColor(status: GroupStatus): 'primary' | 'gray' {
-  return status === 'expired' ? 'gray' : 'primary';
+  return status === 'pending' ? 'primary' : 'gray';
 }
 
 export function statusLabel(status: GroupStatus): string {
-  return status === 'expired' ? '만료됨' : '진행중';
+  if (status === 'approved') return '승인됨';
+  if (status === 'expired') return '해결됨';
+  return '진행중';
 }
 
 /** 위험 레벨 → 배지 표기(영문 대문자: LOW / MEDIUM / HIGH / CRITICAL) */
