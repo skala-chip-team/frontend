@@ -278,6 +278,37 @@ export interface MachineUpsertRequest {
   machineStatus: string;
 }
 
+/** POST /api/chatbot/messages 요청. 첫 메시지엔 sessionId·refTime 생략 가능 */
+export interface ChatMessageRequest {
+  groupId: string;
+  message: string;
+  sessionId?: string; // 첫 대화면 생략 → 응답에서 발급된 값을 이후 메시지에 사용
+  refTime?: string; // 기준 시각(선택). 첫 메시지엔 불필요
+}
+
+/** POST /api/chatbot/messages 응답 data */
+export interface ChatMessageResult {
+  sessionId: string;
+  answer: string;
+  toolCalls: string[];
+}
+
+/** GET /api/chatbot/sessions 항목 */
+export interface ChatSession {
+  sessionId: string;
+  startedAt: string;
+  endedAt: string;
+  messageCount: number;
+}
+
+/** GET /api/chatbot/sessions/{sessionId}/messages 항목 */
+export interface ChatHistoryMessage {
+  messageId: string;
+  messageType: string; // user / assistant
+  content: string;
+  createdAt: string;
+}
+
 /** GET /api/monitoring/districts/{districtId}/summary */
 export interface DistrictSummary {
   districtId: string;

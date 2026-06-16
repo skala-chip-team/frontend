@@ -477,7 +477,6 @@ export default function RescheduleDetailPage() {
     return i >= 0 ? i : recommendedIndex;
   })();
   const activeStrategy = strategies[activeIndex];
-  const recommendedStrategy = strategies[recommendedIndex] ?? activeStrategy;
 
   // 재조정안이 아직 없음(빈 options) → 재생성 유도
   if (strategies.length === 0 || !activeStrategy) {
@@ -1218,15 +1217,7 @@ export default function RescheduleDetailPage() {
         )}
       </div>
 
-      {group ? (
-        <RescheduleFaqChat
-          group={group}
-          activeStrategy={activeStrategy}
-          activeStrategyIndex={activeIndex}
-          recommendedStrategy={recommendedStrategy}
-          recommendedStrategyIndex={recommendedIndex}
-        />
-      ) : null}
+      {group ? <RescheduleFaqChat group={group} /> : null}
     </section>
   );
 }

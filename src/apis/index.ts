@@ -30,6 +30,7 @@ export {
   updateMachine,
   deleteMachine,
 } from './machines';
+export { sendChatMessage, getChatSessions, getChatSessionMessages } from './chatbot';
 export type {
   ActiveSchedule,
   AfterSchedule,
@@ -37,6 +38,10 @@ export type {
   AfterScheduleUnit,
   ApiResponse,
   ApiRiskLevel,
+  ChatHistoryMessage,
+  ChatMessageRequest,
+  ChatMessageResult,
+  ChatSession,
   DeadlineImpact,
   DelayRisk,
   DetailedReport,

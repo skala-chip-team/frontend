@@ -19,3 +19,4 @@ export {
 export { useOrders, useOrderDetail } from './useOrders';
 export type { OrdersResult } from './useOrders';
 export { useMachines, useProcessSteps, useMachineActions } from './useMachines';
+export { useSendChatMessage, useChatSessions, useChatSessionMessages } from './useChatbot';
