@@ -8,6 +8,7 @@ import {
   Gauge,
   Loader2,
   Minus,
+  Package,
   RefreshCw,
   ShieldAlert,
   Star,
@@ -878,6 +879,53 @@ export default function RescheduleDetailPage() {
                           ))}
                         </div>
                       </div>
+                    </StatCard>
+
+                    {/* ④ 생산량이 늘어나는가 */}
+                    <StatCard icon={Package} title="생산량" hint="생산량이 늘어나는가">
+                      {(() => {
+                        const completed = activeStrategy.metricsComparison?.completedUnits;
+                        if (!completed) {
+                          return (
+                            <span className="text-[1.5rem] font-bold leading-none text-gray-400">
+                              계산 실패
+                            </span>
+                          );
+                        }
+                        const diff = completed.after - completed.before; // 양수=생산량 증가
+                        return (
+                          <div className="flex items-center gap-5">
+                            <div className="flex shrink-0 flex-col">
+                              {diff === 0 ? (
+                                <span className="text-[1.5rem] font-bold leading-none text-secondary-navy">
+                                  변화 없음
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-0.5 text-[1.5rem] font-bold leading-none text-secondary-navy">
+                                  {diff > 0 ? (
+                                    <ArrowUp className="h-6 w-6 text-emerald-600" aria-hidden />
+                                  ) : (
+                                    <ArrowDown className="h-6 w-6 text-red-500" aria-hidden />
+                                  )}
+                                  {Math.abs(diff)}개
+                                </span>
+                              )}
+                              <span className="mt-1.5 text-label-3 tabular-nums text-gray-400">
+                                {completed.before}개 → {completed.after}개
+                              </span>
+                            </div>
+                            <BeforeAfterBar
+                              before={completed.before}
+                              after={completed.after}
+                              phase={phase}
+                              max={Math.max(completed.before, completed.after, 1)}
+                              unit="개"
+                              barClassName={accent.bar}
+                              className="flex-1"
+                            />
+                          </div>
+                        );
+                      })()}
                     </StatCard>
                   </div>
                 </div>
