@@ -297,23 +297,29 @@ function CandidateCard({
         {candidate.whenTail}
       </p>
 
-      {/* 핵심 효과 */}
+      {/* 핵심 효과 — 전→후 한 줄, 변화량 배지는 아래 줄(좁은 칸에서 줄바꿈 깨짐 방지) */}
       <div className="mt-3 border-t border-gray-100 pt-3">
         <p className="text-label-3 text-gray-400">{effect.metric}</p>
-        <div className="mt-1.5 flex flex-wrap items-center gap-2">
-          <span className="text-label-1 tabular-nums text-gray-400">{effect.before}</span>
-          <ArrowRight className="h-4 w-4 text-gray-300" aria-hidden />
-          <span className="text-subtitle-1 font-bold tabular-nums text-secondary-navy">
-            {effect.after}
-          </span>
+        <div className="mt-1.5 flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            <span className="whitespace-nowrap text-label-1 tabular-nums text-gray-400">
+              {effect.before}
+            </span>
+            <ArrowRight className="h-4 w-4 shrink-0 text-gray-300" aria-hidden />
+            <span className="whitespace-nowrap text-subtitle-1 font-bold tabular-nums text-secondary-navy">
+              {effect.after}
+            </span>
+          </div>
           {/* 변화량 배지 — 카드 고유 색상의 라이트 톤 */}
-          <span
-            className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-label-3 font-bold"
-            style={{ color: accentHex, backgroundColor: `${accentHex}1A` }}
-          >
-            <TrendingUp className="h-3 w-3" aria-hidden />
-            {effect.delta}
-          </span>
+          {effect.delta ? (
+            <span
+              className="inline-flex w-fit items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-0.5 text-label-3 font-bold"
+              style={{ color: accentHex, backgroundColor: `${accentHex}1A` }}
+            >
+              <TrendingUp className="h-3 w-3" aria-hidden />
+              {effect.delta}
+            </span>
+          ) : null}
         </div>
       </div>
 
