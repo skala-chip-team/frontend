@@ -296,5 +296,6 @@ export function buildDistrictDashboard(
     steps,
     daily_output_qty: summary.dailyOutputQty,
     daily_target_output_qty: summary.dailyTargetOutputQty,
+    achievement_rate: summary.achievementRate ?? null,
   };
 }

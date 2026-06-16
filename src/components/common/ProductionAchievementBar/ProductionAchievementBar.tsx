@@ -3,18 +3,23 @@ interface ProductionAchievementBarProps {
   current?: number;
   /** 목표 생산량(summary.dailyTargetOutputQty) */
   target?: number;
+  /** 달성률(%) — null/목표없음이면 0%로 렌더. 미지정 시 current/target로 계산. 100 초과 그대로 */
+  rate?: number | null;
   className?: string;
 }
 
 /** 오늘의 생산 달성률 — 카드 묶음 위에 놓이는 가로 글래스 바.
- *  제목 → 달성률(%) → 진행바 → 현재/목표 순의 시각 위계. */
+ *  제목 → 달성률(%) → 진행바 → 현재/목표 순의 시각 위계.
+ *  목표 미정의(rate null/target 0)면 누적 생산량 + 달성률 0%. 목표 초과는 100% 초과 그대로 표시. */
 export function ProductionAchievementBar({
   current = 0,
   target = 0,
+  rate,
   className = '',
 }: ProductionAchievementBarProps) {
-  const percent = target > 0 ? Math.round((current / target) * 100) : 0;
-  const clamped = Math.min(Math.max(percent, 0), 100);
+  // rate 우선, 없으면 목표>0일 때 계산, 목표 정보 없으면 0%
+  const percent = rate != null ? rate : target > 0 ? Math.round((current / target) * 100) : 0;
+  const clamped = Math.min(Math.max(percent, 0), 100); // 진행바 폭만 0~100 클램프
 
   return (
     <div
@@ -39,12 +44,12 @@ export function ProductionAchievementBar({
         />
       </div>
 
-      {/* 현재 / 목표 */}
+      {/* 현재 / 목표 (목표 없으면 현재 실적만) */}
       <div className="flex shrink-0 items-baseline gap-1.5 tabular-nums">
-        <span className="text-body-1 font-bold text-secondary-navy">
-          {current.toLocaleString()}
+        <span className="text-body-1 font-bold text-secondary-navy">{current.toLocaleString()}</span>
+        <span className="text-label-2 text-gray-400">
+          {target > 0 ? `/ ${target.toLocaleString()} EA` : 'EA'}
         </span>
-        <span className="text-label-2 text-gray-400">/ {target.toLocaleString()} EA</span>
       </div>
     </div>
   );

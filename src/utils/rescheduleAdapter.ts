@@ -187,6 +187,11 @@ function fmtHr(hours: number): string {
   return Number.isInteger(hours) ? `${hours}시간` : `${hours.toFixed(1)}시간`;
 }
 
+/** 지표 계산 실패 시 헤드라인 효과 */
+function failEffect(metric: string) {
+  return { metric, before: '—', after: '계산 실패', delta: '' };
+}
+
 function utilDevLabel(devPp: number): string {
   if (devPp <= 5) return '매우 균등';
   if (devPp <= 15) return '균등';
@@ -210,8 +215,8 @@ function rawMetrics(opt: RescheduleOption, afterLoads: Map<string, number>): Opt
   const utilDevPp = loadVals.length ? Math.max(...loadVals) - Math.min(...loadVals) : 0;
   return {
     rescued: opt.deadlineImpact?.rescuedCount ?? 0,
-    delayImprove: mc ? mc.cumulativeDelayHr.before - mc.cumulativeDelayHr.after : 0,
-    waitImprove: mc ? mc.avgQueueWaitMin.before - mc.avgQueueWaitMin.after : 0,
+    delayImprove: mc?.cumulativeDelayHr ? mc.cumulativeDelayHr.before - mc.cumulativeDelayHr.after : 0,
+    waitImprove: mc?.avgQueueWaitMin ? mc.avgQueueWaitMin.before - mc.avgQueueWaitMin.after : 0,
     utilDevPp,
     moves: opt.queueReorder.length,
   };
@@ -230,6 +235,7 @@ export interface AdaptedStrategy extends RescheduleStrategy {
   apiStrategy: string; // select 호출용 원본 전략 코드
   analysisStatus: string; // success | fallback
   selectable: boolean; // fallback/스케줄 없음이면 false → 선택 비활성
+  manualReviewRequired: boolean; // 운영자 수동 검토 대상
   fallbackReason: string | null;
   recommendationReasoning: string | null;
   keyImprovements: KeyImprovement[];
@@ -389,8 +395,9 @@ export function buildStrategies(detail: RescheduleGroupDetail): AdaptedStrategy[
 
     // 헤드라인 효과 — 전략별 대표 지표 (납기 우선=누적지연 / 부하 균형=부하율 편차 / 대기 최소화=평균 대기)
     const effect = (() => {
-      // 장비 부하율 균형 → 부하율 편차(전/후)
+      // 장비 부하율 균형 → 부하율 편차(전/후). 적용 후 스케줄 없으면 계산 실패
       if (opt.strategy === 'utilization_balance') {
+        if (!opt.afterSchedule) return failEffect('장비 부하율 편차');
         const b = Math.round(loadDeviation(beforeLoads));
         const a = Math.round(loadDeviation(afterLoads));
         const d = b - a;
@@ -401,10 +408,12 @@ export function buildStrategies(detail: RescheduleGroupDetail): AdaptedStrategy[
           delta: d > 0 ? `${d}%p 감소` : d < 0 ? `${-d}%p 증가` : '변화 없음',
         };
       }
-      // 대기시간 최소화(라인 회복) → 평균 대기 시간(전/후)
-      if (opt.strategy === 'line_recovery_first' && mc) {
-        const b = Math.round(mc.avgQueueWaitMin.before);
-        const a = Math.round(mc.avgQueueWaitMin.after);
+      // 대기시간 최소화(라인 회복) → 평균 대기 시간(전/후). 지표 null이면 계산 실패
+      if (opt.strategy === 'line_recovery_first') {
+        const w = mc?.avgQueueWaitMin;
+        if (!w) return failEffect('평균 대기 시간');
+        const b = Math.round(w.before);
+        const a = Math.round(w.after);
         const d = b - a;
         return {
           metric: '평균 대기 시간',
@@ -413,9 +422,10 @@ export function buildStrategies(detail: RescheduleGroupDetail): AdaptedStrategy[
           delta: d > 0 ? `${d}분 감소` : d < 0 ? `${-d}분 증가` : '변화 없음',
         };
       }
-      // 유닛 납기 우선 → 누적 지연 시간(전/후)
-      if (opt.strategy === 'due_date_first' && mc) {
-        const c = mc.cumulativeDelayHr;
+      // 유닛 납기 우선 → 누적 지연 시간(전/후). 지표 null이면 계산 실패
+      if (opt.strategy === 'due_date_first') {
+        const c = mc?.cumulativeDelayHr;
+        if (!c) return failEffect('누적 지연 시간');
         const d = Math.round((c.before - c.after) * 10) / 10;
         return {
           metric: '누적 지연 시간',
@@ -425,12 +435,13 @@ export function buildStrategies(detail: RescheduleGroupDetail): AdaptedStrategy[
         };
       }
       // 그 외/fallback → 생산량, 없으면 예상 지연
-      if (mc) {
+      const cu = mc?.completedUnits;
+      if (cu) {
         return {
           metric: '생산량(완료 유닛)',
-          before: `${mc.completedUnits.before}개`,
-          after: `${mc.completedUnits.after}개`,
-          delta: `${mc.completedUnits.delta >= 0 ? '+' : ''}${mc.completedUnits.delta}개`,
+          before: `${cu.before}개`,
+          after: `${cu.after}개`,
+          delta: `${cu.delta >= 0 ? '+' : ''}${cu.delta}개`,
         };
       }
       return {
@@ -457,10 +468,10 @@ export function buildStrategies(detail: RescheduleGroupDetail): AdaptedStrategy[
       },
       compare: {
         units: buildUnits(detail, opt, riskUnitIds),
-        makespan_before_min: mc ? Math.round(mc.cumulativeDelayHr.before * 60) : 0,
-        makespan_after_min: mc ? Math.round(mc.cumulativeDelayHr.after * 60) : 0,
-        wait_before_min: mc ? Math.round(mc.avgQueueWaitMin.before) : 0,
-        wait_after_min: mc ? Math.round(mc.avgQueueWaitMin.after) : 0,
+        makespan_before_min: mc?.cumulativeDelayHr ? Math.round(mc.cumulativeDelayHr.before * 60) : 0,
+        makespan_after_min: mc?.cumulativeDelayHr ? Math.round(mc.cumulativeDelayHr.after * 60) : 0,
+        wait_before_min: mc?.avgQueueWaitMin ? Math.round(mc.avgQueueWaitMin.before) : 0,
+        wait_after_min: mc?.avgQueueWaitMin ? Math.round(mc.avgQueueWaitMin.after) : 0,
         utils,
         util_dev_pp: m.utilDevPp,
         util_dev_label: utilDevLabel(m.utilDevPp),
@@ -478,6 +489,7 @@ export function buildStrategies(detail: RescheduleGroupDetail): AdaptedStrategy[
       apiStrategy: opt.strategy ?? '',
       analysisStatus: opt.analysisStatus,
       selectable,
+      manualReviewRequired: opt.manualReviewRequired ?? opt.analysisStatus === 'fallback',
       fallbackReason: opt.fallbackReason,
       recommendationReasoning: opt.recommendationReasoning,
       keyImprovements: opt.keyImprovements ?? [],

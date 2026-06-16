@@ -70,6 +70,7 @@ function DistrictDashboard({
       <ProductionAchievementBar
         current={data.daily_output_qty}
         target={data.daily_target_output_qty}
+        rate={data.achievement_rate}
       />
 
       <div className="flex flex-wrap gap-3">

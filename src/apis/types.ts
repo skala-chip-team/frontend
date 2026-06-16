@@ -12,6 +12,7 @@ export interface ProductionStatus {
   completedTodayQty: number; // 금일 전체 구역 완성품 수(최종 공정 output 합)
   latestCompletionAt: string | null; // 최근 완성 작업 시각(sim)
   planDate: string; // sim 기준 오늘(일 경계 리셋 판별용)
+  simulatedAt?: string | null; // 시뮬 기준 스냅샷 시각
 }
 
 /** GET /api/reschedule/prediction-status — 지연 예측 시스템 상태(대시보드용) */
@@ -148,13 +149,13 @@ export interface MetricDelta {
   delta: number;
 }
 
-/** options[].metricsComparison — 적용 전/후 비교 (각 지표 { before, after, delta }) */
+/** options[].metricsComparison — 적용 전/후 비교. 지표별 계산 실패 시 해당 항목 null */
 export interface MetricsComparison {
-  completedUnits: MetricDelta; // ★ 생산량 차이
-  cumulativeDelayHr: MetricDelta; // ★ 누적지연 개선
-  avgQueueWaitMin: MetricDelta;
-  deadlineViolationCount: MetricDelta;
-  overallLoad: MetricDelta;
+  completedUnits: MetricDelta | null; // ★ 생산량 차이
+  cumulativeDelayHr: MetricDelta | null; // ★ 누적지연 개선
+  avgQueueWaitMin: MetricDelta | null;
+  deadlineViolationCount: MetricDelta | null;
+  overallLoad: MetricDelta | null;
 }
 
 /** options[].keyImprovements[] — 추천 근거(개선점) */
@@ -194,6 +195,8 @@ export interface RescheduleOption {
   analysisStatus: string; // success | fallback
   fallbackReason: string | null;
   recommended: boolean;
+  recommendation?: string; // "recommend" | "not_recommend"
+  manualReviewRequired?: boolean; // 운영자 수동 검토 대상 여부
   summary: string;
   selected: boolean;
   estimatedDelayHrAfter: number | null;
@@ -232,6 +235,7 @@ export interface RescheduleGroupDetail {
   maxDelayProbability: number;
   groupStatus: string;
   actedAt: string;
+  simulatedAt?: string | null; // 재조정안 시뮬 기준 시각(actedAt과 비교)
   delayRisks: DelayRisk[];
   riskAnalysis: RiskAnalysis | null;
   // 적용 전 스케줄 (null 가능). afterSchedule와 동일 구조
@@ -261,6 +265,8 @@ export interface DistrictSummary {
   avgWaitTimeMin: number;
   dailyOutputQty: number;
   dailyTargetOutputQty: number; // 일일 목표 생산량
+  achievementRate?: number | null; // 달성률(%)=output/target*100. null이면 산출 불가
+  simulatedAt?: string | null; // 시뮬 기준 스냅샷 시각
 }
 
 /** GET /api/monitoring/districts/{districtId}/machines */
