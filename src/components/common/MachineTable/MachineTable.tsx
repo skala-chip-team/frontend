@@ -22,9 +22,9 @@ function districtLabel(id: string): string {
   return districtLabels[id as DistrictId] ?? id;
 }
 
-/** STEP_A → 'STEP A' */
-function stepLabel(processStep: string): string {
-  return processStep.replace('STEP_', 'STEP ');
+/** STEP_A → 'STEP A'. 미매핑(null)이면 '미매핑' */
+function stepLabel(processStep: string | null): string {
+  return processStep ? processStep.replace('STEP_', 'STEP ') : '미매핑';
 }
 
 interface MachineTableProps {
