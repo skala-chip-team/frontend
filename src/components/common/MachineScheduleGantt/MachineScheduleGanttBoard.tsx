@@ -12,6 +12,8 @@ type MachineScheduleGanttBoardProps = {
   schedules: MachineScheduleRowData[];
   /** 현재선 위치를 시(소수)로 직접 지정. 주면 실시간 시계 대신 이 값(시뮬레이션 시각)을 쓴다. */
   currentHour?: number;
+  /** 승인된 재조정으로 계획이 바뀐 unit_id 집합 — 계획 탭에서 강조 */
+  highlightUnitIds?: Set<string>;
 };
 
 function formatHourLabel(hour: number) {
@@ -38,6 +40,7 @@ export function MachineScheduleGanttBoard({
   endHour,
   schedules,
   currentHour: currentHourOverride,
+  highlightUnitIds,
 }: MachineScheduleGanttBoardProps) {
   const labelColumnWidth = '10rem';
   const columnGap = '1rem';
@@ -100,6 +103,12 @@ export function MachineScheduleGanttBoard({
             {m === 'plan' ? '계획' : '현재 상태'}
           </button>
         ))}
+        {mode === 'plan' && highlightUnitIds && highlightUnitIds.size > 0 ? (
+          <span className="ml-2 inline-flex items-center gap-1 whitespace-nowrap text-label-3 text-gray-400">
+            <span className="h-2.5 w-2.5 rounded-sm border border-primary-400 bg-primary-100" />
+            재조정 반영
+          </span>
+        ) : null}
       </div>
 
       <div className="relative min-h-0 flex-1 overflow-auto pt-6">
@@ -150,6 +159,7 @@ export function MachineScheduleGanttBoard({
               endHour={endHour}
               currentHour={currentHour}
               mode={mode}
+              highlightUnitIds={highlightUnitIds}
             />
           ))}
         </div>

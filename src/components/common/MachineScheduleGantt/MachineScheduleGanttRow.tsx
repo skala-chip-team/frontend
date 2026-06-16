@@ -37,6 +37,8 @@ type MachineScheduleGanttRowProps = {
   currentHour: number;
   /** 표시 모드(계획/현재 상태) */
   mode: GanttViewMode;
+  /** 승인된 재조정으로 계획이 바뀐 unit_id 집합 — 계획 탭에서 강조 */
+  highlightUnitIds?: Set<string>;
 };
 
 // 막대 사이 간격(%)과 최소 폭(%). 전체 시간폭 대비 비율.
@@ -45,6 +47,8 @@ const MIN_BAR_WIDTH = 0.6;
 
 // 계획 = 옅은 점선 고스트, 현재 상태 = tone 색 채움
 const PLAN_CLASS = 'border border-dashed border-gray-300 bg-gray-100/80 text-gray-600';
+// 재조정 반영된 계획 막대 — 강조색(채움)
+const PLAN_HIGHLIGHT_CLASS = 'border border-primary-400 bg-primary-100 text-primary-700';
 const actualToneClassMap: Record<ScheduleItemTone, string> = {
   primary: 'bg-primary-500/80 border border-primary-300 text-white',
   navy: 'bg-secondary-navy/75 border border-slate-400 text-white',
@@ -65,6 +69,7 @@ export function MachineScheduleGanttRow({
   endHour,
   currentHour,
   mode,
+  highlightUnitIds,
 }: MachineScheduleGanttRowProps) {
   const totalHours = endHour - startHour;
 
@@ -93,12 +98,13 @@ export function MachineScheduleGanttRow({
       if (mode === 'plan') {
         const start = u.plan_start ?? u.start_time;
         const end = u.plan_end ?? u.end_time;
+        const highlighted = highlightUnitIds?.has(u.unit_id) ?? false;
         return {
           u,
           start,
           end,
-          cls: PLAN_CLASS,
-          tip: `${u.unit_id} · P${u.priority} · 계획 ${fmtHour(start)}–${fmtHour(end)}`,
+          cls: highlighted ? PLAN_HIGHLIGHT_CLASS : PLAN_CLASS,
+          tip: `${u.unit_id} · P${u.priority} · 계획 ${fmtHour(start)}–${fmtHour(end)}${highlighted ? ' · 재조정 반영' : ''}`,
         };
       }
       // 현재 상태(work-status)

@@ -12,7 +12,12 @@ import {
 } from '@components/common';
 import { MachineFleetBoard } from '@components/three';
 import { districtLabels, useDistrictStore } from '@/stores';
-import { useDeferredMount, useDistrictDashboard, useSimStatus } from '@/hooks';
+import {
+  useDeferredMount,
+  useDistrictDashboard,
+  useRescheduleGroups,
+  useSimStatus,
+} from '@/hooks';
 import type { DistrictDashboardData } from '@/types';
 
 const STEP_LOCK_MS = 720;
@@ -28,9 +33,11 @@ function isoToHour(iso: string): number {
 function DistrictDashboard({
   data,
   currentHour,
+  highlightUnitIds,
 }: {
   data: DistrictDashboardData;
   currentHour?: number;
+  highlightUnitIds?: Set<string>;
 }) {
   const steps = data.steps;
   const stepOptions = steps.map((step) => ({ id: step.step_id, label: step.process_step }));
@@ -102,6 +109,7 @@ function DistrictDashboard({
                   endHour={24}
                   schedules={activeStep.machines}
                   currentHour={currentHour}
+                  highlightUnitIds={highlightUnitIds}
                 />
               </div>
             }
@@ -139,6 +147,15 @@ export default function DashboardPage() {
     sim?.is_running ?? false
   );
 
+  // 승인된 재조정안의 영향 unit → 간트 '계획' 탭에서 강조(재조정이 실제 반영됐음을 표시)
+  const { data: approvedGroups } = useRescheduleGroups({
+    districtId: selectedDistrict,
+    status: 'approved',
+  });
+  const highlightUnitIds = new Set(
+    (approvedGroups ?? []).flatMap((group) => group.affectedUnits.map((unit) => unit.unitId))
+  );
+
   const renderBody = () => {
     if (isAll) return <OverviewDashboard />;
     if (isLoading) return <DashboardMessage>대시보드를 불러오는 중…</DashboardMessage>;
@@ -146,7 +163,14 @@ export default function DashboardPage() {
     if (!data || data.steps.length === 0) {
       return <DashboardMessage>표시할 데이터가 없습니다.</DashboardMessage>;
     }
-    return <DistrictDashboard key={selectedDistrict} data={data} currentHour={simHour} />;
+    return (
+      <DistrictDashboard
+        key={selectedDistrict}
+        data={data}
+        currentHour={simHour}
+        highlightUnitIds={highlightUnitIds}
+      />
+    );
   };
 
   return (
