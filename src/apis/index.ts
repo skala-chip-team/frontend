@@ -19,8 +19,9 @@ export {
   generateReschedule,
   selectRescheduleStrategy,
   getPredictionStatus,
+  getRescheduleHistory,
 } from './reschedule';
-export type { RescheduleGroupQuery } from './reschedule';
+export type { RescheduleGroupQuery, RescheduleHistoryQuery } from './reschedule';
 export { getOrders, getOrderDetail } from './orders';
 export {
   getMachines,
@@ -63,6 +64,7 @@ export type {
   RescheduleAffectedUnit,
   RescheduleGroupDetail,
   RescheduleGroupSummary,
+  RescheduleHistoryPage,
   RescheduleOption,
   RescheduleSelectionResult,
   RiskAnalysis,

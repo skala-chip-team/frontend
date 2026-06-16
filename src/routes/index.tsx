@@ -7,6 +7,7 @@ import LoginPage from '@/pages/LoginPage';
 import OrderPage from '@/pages/OrderPage';
 import ReschedulePage from '@/pages/ReschedulePage';
 import RescheduleDetailPage from '@/pages/RescheduleDetailPage';
+import RescheduleHistoryPage from '@/pages/RescheduleHistoryPage';
 import SignupPage from '@/pages/SignupPage';
 import WorkerPage from '@/pages/WorkerPage';
 import MachinePage from '@/pages/MachinePage';
@@ -51,6 +52,11 @@ export const router = createBrowserRouter([
       {
         path: 'reschedule',
         element: <ReschedulePage />,
+      },
+
+      {
+        path: 'reschedule/history',
+        element: <RescheduleHistoryPage />,
       },
 
       {

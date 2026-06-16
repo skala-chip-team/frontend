@@ -11,6 +11,7 @@ export { useSaveWorker, useDeleteUser } from './useUserActions';
 export { useDistrictOverviews } from './useDistrictOverviews';
 export {
   useRescheduleGroups,
+  useRescheduleHistory,
   useRescheduleDetail,
   useGenerateReschedule,
   useSelectStrategy,

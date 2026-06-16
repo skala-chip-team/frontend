@@ -75,7 +75,7 @@ const RISK_FACTOR_KO: Record<string, string> = {
   ds_queue_wait: '대기시간 지연',
 };
 
-function riskFactorLabel(factor: string | null | undefined): string {
+export function riskFactorLabel(factor: string | null | undefined): string {
   if (!factor) return '지연 위험';
   const key = factor.toLowerCase();
   if (RISK_FACTOR_KO[key]) return RISK_FACTOR_KO[key];

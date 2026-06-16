@@ -213,6 +213,15 @@ export interface RescheduleOption {
   deadlineImpact: DeadlineImpact | null;
 }
 
+/** GET /api/reschedule/groups/history 응답 data (페이지네이션) */
+export interface RescheduleHistoryPage {
+  content: RescheduleGroupSummary[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
 /** GET /api/reschedule/groups/{groupId} 응답 data */
 export interface RescheduleGroupDetail {
   groupId: string;
