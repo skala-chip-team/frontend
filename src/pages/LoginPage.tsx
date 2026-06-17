@@ -8,6 +8,8 @@ import InputBox from '@/components/common/InputBox/InputBox';
 import { login } from '@apis/index';
 import { useAuthStore } from '@/stores';
 import { getApiErrorMessage } from '@/utils';
+// 나비 배경 — 반드시 import해서 번들(빌드 시 해시 URL). '/src/...' 직접 경로는 dev에서만 동작.
+import butterflyBg from '@/components/common/Sidebar/image.png';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -41,7 +43,7 @@ export default function LoginPage() {
 
         <div className="absolute inset-0 overflow-hidden">
           <img
-            src="/src/components/common/Sidebar/image.png"
+            src={butterflyBg}
             alt="butterfly background"
             className="pointer-events-none absolute left-[54%] top-[50%] w-[82%] -translate-x-1/2 -translate-y-1/2 select-none opacity-[0.22] mix-blend-lighten contrast-125 saturate-150 animate-[butterflyFly_12s_ease-in-out_infinite]"
           />
