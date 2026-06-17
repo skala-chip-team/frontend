@@ -10,6 +10,7 @@ export {
   getProductionStatus,
 } from './monitoring';
 export { getSimStatus, startSim, stopSim, restartSim, toggleSimSpeed } from './sim';
+export type { SimControlResult } from './sim';
 export { login, signup } from './auth';
 export { getUsers, changeUserRole, assignUserDistricts, deleteUser } from './users';
 export {

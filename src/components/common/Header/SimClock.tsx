@@ -3,6 +3,14 @@ import { Clock, FastForward, Loader2, Play, RotateCcw, Square } from 'lucide-rea
 import type { LucideIcon } from 'lucide-react';
 
 import { useSimControl, useSimStatus } from '@/hooks';
+import type { SimControlResult } from '@apis/index';
+
+/** 응답의 preset/sim_factor로 배속 여부 판정 (preset 우선, 없으면 sim_factor<1) */
+function isFast(res?: SimControlResult): boolean {
+  if (!res) return false;
+  if (res.preset) return res.preset === 'fast';
+  return (res.sim_factor ?? 60) < 1;
+}
 
 /** '2025-05-05T09:55:00' → { date: '2025.05.05', time: '09:55' } */
 function formatSimTime(iso: string) {
@@ -93,7 +101,7 @@ export function SimClock() {
           tone="primary"
           loading={start.isPending}
           disabled={pending || running || !statusKnown}
-          onClick={() => start.mutate(undefined, { onSuccess: () => setFast(false) })}
+          onClick={() => start.mutate(undefined, { onSuccess: (res) => setFast(isFast(res)) })}
         />
         <SimButton
           label="정지"
@@ -107,7 +115,7 @@ export function SimClock() {
           icon={RotateCcw}
           loading={restart.isPending}
           disabled={pending}
-          onClick={() => restart.mutate(undefined, { onSuccess: () => setFast(false) })}
+          onClick={() => restart.mutate(undefined, { onSuccess: (res) => setFast(isFast(res)) })}
         />
         <SimButton
           label={fast ? '배속' : '실시간'}
@@ -115,7 +123,7 @@ export function SimClock() {
           tone={fast ? 'primary' : 'gray'}
           loading={toggleSpeed.isPending}
           disabled={pending || !running}
-          onClick={() => toggleSpeed.mutate(undefined, { onSuccess: () => setFast((f) => !f) })}
+          onClick={() => toggleSpeed.mutate(undefined, { onSuccess: (res) => setFast(isFast(res)) })}
         />
       </div>
     </div>
