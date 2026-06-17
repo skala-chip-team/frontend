@@ -70,6 +70,7 @@ export const districtDashboards: Record<'A' | 'B' | 'C', DistrictDashboardData> 
     summaryCards: summary('18', '6', '68', '37', '82'),
     daily_output_qty: 9_360,
     daily_target_output_qty: 12_000,
+    achievement_rate: 78,
     steps: [
       step('A-step1', 'Step 1', 14, [
         m('A-201', 'Diffusion Line A', '가동중', 72, [
@@ -125,6 +126,7 @@ export const districtDashboards: Record<'A' | 'B' | 'C', DistrictDashboardData> 
     summaryCards: summary('11', '3', '74', '21', '57'),
     daily_output_qty: 6_120,
     daily_target_output_qty: 8_000,
+    achievement_rate: 76.5,
     steps: [
       step('B-step1', 'Step 1', 11, [
         m('B-210', 'Coating Line A', '가동중', 80, [
@@ -167,6 +169,7 @@ export const districtDashboards: Record<'A' | 'B' | 'C', DistrictDashboardData> 
     summaryCards: summary('7', '2', '61', '13', '38'),
     daily_output_qty: 3_480,
     daily_target_output_qty: 5_000,
+    achievement_rate: 69.6,
     steps: [
       step('C-step1', 'Step 1', 8, [
         m('C-101', 'Grind Line A', '가동중', 78, [
