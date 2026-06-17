@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { getSimStatus, startSim, stopSim } from '@apis/index';
+import { getSimStatus, restartSim, startSim, stopSim } from '@apis/index';
 import type { SimStatus } from '@apis/index';
 import { useToastStore } from '@/stores';
 import { getApiErrorMessage } from '@/utils';
@@ -45,6 +45,11 @@ export function useSimControl() {
     onSuccess: refreshStatus,
     onError: onError('정지'),
   });
+  const restart = useMutation({
+    mutationFn: restartSim,
+    onSuccess: refreshStatus,
+    onError: onError('다시 시작'),
+  });
 
-  return { start, stop };
+  return { start, stop, restart };
 }

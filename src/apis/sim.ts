@@ -22,3 +22,8 @@ export async function startSim(): Promise<void> {
 export async function stopSim(): Promise<void> {
   await axios.post(`${SIM_BASE}/sim/stop`);
 }
+
+/** 시뮬레이션 다시 시작 (POST /sim/restart, body 기본값 사용) */
+export async function restartSim(): Promise<void> {
+  await axios.post(`${SIM_BASE}/sim/restart`, {});
+}
