@@ -18,7 +18,7 @@ const OPERATOR_MENU: MenuItem[] = [
   { icon: Cpu, title: '장비 설정', path: '/machines' },
 ];
 
-/** ADMIN만 접근 가능한 메뉴 경로 */
+/** ADMIN만 접근 가능한 메뉴 경로 (재조정은 전 역할 조회 가능 — 제외) */
 const ADMIN_ONLY_PATHS = new Set(['/workers', '/machines']);
 
 /** 현재 경로에 해당하는 메뉴 타이틀(없으면 null). 하위 경로도 startsWith로 매칭. */
@@ -46,12 +46,13 @@ export function Sidebar() {
     if (title) setSelectedTitle(title);
   }
 
-  // ADMIN만 운영자 섹션(작업자 관리·장비 설정) 노출
+  // ADMIN만 운영자 섹션 + 재조정 검토 메뉴 노출
   const role = useAuthStore((state) => state.user?.role);
   const isAdmin = (role ?? '').toUpperCase() === 'ADMIN';
-  const operatorMenu = OPERATOR_MENU.filter(
-    (item) => !item.path || !ADMIN_ONLY_PATHS.has(item.path) || isAdmin
-  );
+  const canShow = (item: MenuItem) =>
+    !item.path || !ADMIN_ONLY_PATHS.has(item.path) || isAdmin;
+  const mainMenu = MAIN_MENU.filter(canShow);
+  const operatorMenu = OPERATOR_MENU.filter(canShow);
 
   const isItemSelected = (item: MenuItem) => selectedTitle === item.title;
 
@@ -72,7 +73,7 @@ export function Sidebar() {
       <TitleSection open={open} />
 
       <div className="mb-8 space-y-1">
-        {MAIN_MENU.map((item) => (
+        {mainMenu.map((item) => (
           <Option
             key={item.title}
             icon={item.icon}

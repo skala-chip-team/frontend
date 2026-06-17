@@ -52,4 +52,5 @@ export interface DistrictDashboardData {
   daily_output_qty: number; // 오늘 생산 실적(summary.dailyOutputQty)
   daily_target_output_qty: number; // 오늘 생산 목표(summary.dailyTargetOutputQty)
   achievement_rate: number | null; // 달성률(%). null이면 산출 불가(목표 정보 없음)
+  failed_sections?: string[]; // 부분 조회 실패한 섹션 라벨(있으면 일부만 표시됨)
 }

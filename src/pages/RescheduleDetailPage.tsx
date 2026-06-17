@@ -17,7 +17,7 @@ import {
   TriangleAlert,
   type LucideIcon,
 } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 
 import {
   BeforeAfterBar,
@@ -31,7 +31,7 @@ import {
 } from '@components/common';
 import { RescheduleFaqChat } from '@/components/reschedule';
 import { useGenerateReschedule, useRescheduleDetail, useSelectStrategy } from '@/hooks';
-import { districtLabels, useToastStore, type DistrictId } from '@/stores';
+import { districtLabels, useAuthStore, useToastStore, type DistrictId } from '@/stores';
 import {
   buildStrategies,
   formatDelayHours,
@@ -72,7 +72,7 @@ function QueueRow({
   unitId: string;
   position: number;
   affected: boolean;
-  delta?: number; // 이전 대비 상승(+)/하락(-)/유지(0). undefined면 변동 미표시(이전 대기열)
+  delta?: number; // 이전 대비 상승(+)/하락(-)/변경 없음(0). undefined면 변동 미표시(이전 대기열)
 }) {
   const showDelta = delta !== undefined;
   const DeltaIcon = !showDelta || delta === 0 ? Minus : delta > 0 ? ArrowUp : ArrowDown;
@@ -108,7 +108,7 @@ function QueueRow({
         {showDelta ? (
           <span className={`flex items-center gap-0.5 text-label-3 font-semibold ${deltaColor}`}>
             <DeltaIcon className="h-3.5 w-3.5" aria-hidden />
-            {delta === 0 ? '유지' : Math.abs(delta)}
+            {delta === 0 ? '변경 없음' : Math.abs(delta)}
           </span>
         ) : null}
       </span>
@@ -151,8 +151,8 @@ function QueueList({
 function UnitDeltaChip({ deltaHr }: { deltaHr: number }) {
   if (deltaHr === 0) {
     return (
-      <Chip variant="subtle" color="gray" size="xs" className="font-bold tabular-nums">
-        ±0
+      <Chip variant="subtle" color="gray" size="xs" className="whitespace-nowrap font-bold">
+        변경 없음
       </Chip>
     );
   }
@@ -380,6 +380,9 @@ export default function RescheduleDetailPage() {
   const navigate = useNavigate();
   const { groupId } = useParams();
   const addToast = useToastStore((state) => state.addToast);
+  // 재조정 승인은 운영자(OPERATOR)·관리자(ADMIN)만 가능 (작업자는 조회만)
+  const role = useAuthStore((state) => state.user?.role);
+  const canApprove = ['ADMIN', 'OPERATOR'].includes((role ?? '').toUpperCase());
 
   const { data: detail, isLoading, isError, error } = useRescheduleDetail(groupId);
   const generate = useGenerateReschedule(groupId);
@@ -451,6 +454,11 @@ export default function RescheduleDetailPage() {
     );
   }
   if (isError) {
+    // 403(DISTRICT_FORBIDDEN): 담당 구역이 아니어서 이 재조정안에 접근 불가
+    // → 대시보드로 리다이렉트 (접근 거부 토스트는 axios 인터셉터가 표시)
+    if (getApiErrorStatus(error) === 403) {
+      return <Navigate to="/dashboard" replace />;
+    }
     // 404(RESCHEDULE_GROUP_NOT_FOUND) 등 → 안내 + 목록 이동 버튼
     return (
       <StateShell onBack={() => navigate('/reschedule')} showListButton>
@@ -616,7 +624,8 @@ export default function RescheduleDetailPage() {
   // 이미 승인(approved)·만료(expired)된 그룹은 재승인 불가
   const isApproved = detail.groupStatus === 'approved';
   const isExpired = detail.groupStatus === 'expired';
-  const canSelect = activeStrategy.selectable && !select.isPending && !isApproved && !isExpired;
+  const canSelect =
+    activeStrategy.selectable && !select.isPending && !isApproved && !isExpired && canApprove;
   const approveStrategy = () =>
     select.mutate(activeStrategy.apiStrategy, {
       onSuccess: () => {
@@ -662,6 +671,22 @@ export default function RescheduleDetailPage() {
             </span>
           </div>
         </div>
+
+        {/* 근거 위험 정보 만료/삭제 — 사유 표시 + 항목 비활성(승인 불가) */}
+        {isExpired ? (
+          <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 shadow-[0_8px_24px_rgba(217,119,6,0.08)]">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
+              <TriangleAlert className="h-5 w-5" aria-hidden />
+            </span>
+            <div className="flex flex-col gap-1">
+              <h3 className="text-subtitle-2 font-bold text-amber-800">근거 위험 정보 만료</h3>
+              <p className="text-label-2 leading-relaxed text-amber-700">
+                이 재조정안의 근거가 된 지연 위험 정보가 만료되었거나 삭제되어 더 이상 적용할 수
+                없습니다. 동일 위험에 대한 최신 재조정안은 재조정안 관리 목록에서 확인하세요.
+              </p>
+            </div>
+          </div>
+        ) : null}
 
         {(
           <>
@@ -763,9 +788,11 @@ export default function RescheduleDetailPage() {
                         ? '이미 승인된 재조정안입니다.'
                         : isExpired
                           ? '만료된 재조정안입니다.'
-                          : activeStrategy.selectable
-                            ? undefined
-                            : 'fallback로 생성된 안은 선택할 수 없습니다. 재생성하세요.'
+                          : !canApprove
+                            ? '재조정 승인은 운영자·관리자만 가능합니다.'
+                            : activeStrategy.selectable
+                              ? undefined
+                              : 'fallback로 생성된 안은 선택할 수 없습니다. 재생성하세요.'
                     }
                     className="inline-flex items-center gap-1.5 rounded-lg bg-primary-500 px-4 py-2.5 text-label-1 font-semibold text-white shadow-[0_8px_20px_rgba(234,0,44,0.18)] transition hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
                   >
