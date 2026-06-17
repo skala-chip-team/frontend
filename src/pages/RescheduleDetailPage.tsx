@@ -1021,26 +1021,42 @@ export default function RescheduleDetailPage() {
                   </div>
                 </div>
 
-                {/* fallback 안내 — 선택 불가 시 재생성 유도 */}
+                {/* 운영자 검토 필요 안내 — 선택 불가(fallback/지표 누락) 시 강조 카드 */}
                 {!activeStrategy.selectable ? (
-                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-amber-50 px-4 py-3">
-                    <p className="text-label-1 leading-relaxed text-amber-700">
-                      <b>fallback로 생성된 안</b>이라 일부 지표·스케줄이 없어 선택할 수 없습니다.
-                      {activeStrategy.fallbackReason ? ` (${activeStrategy.fallbackReason})` : ''} 재생성을
-                      권장합니다.
-                    </p>
+                  <div className="mt-4 flex flex-col gap-4 rounded-2xl border border-amber-200 bg-amber-50/80 p-5 shadow-[0_4px_16px_rgba(217,119,6,0.08)]">
+                    <div className="flex items-start gap-3.5">
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
+                        <TriangleAlert className="h-6 w-6" aria-hidden />
+                      </span>
+                      <div className="flex flex-col gap-1.5">
+                        <p className="text-subtitle-1 font-bold text-amber-900">
+                          운영자 검토가 필요한 재조정안입니다
+                        </p>
+                        <p className="text-label-1 leading-relaxed text-amber-800/90">
+                          자동 분석이 완료되지 못해 <b>비교 지표·스케줄 일부가 비어 있어</b> 바로
+                          승인할 수 없습니다. 아래 사유를 확인해 <b>재생성</b>하거나, 운영자가 직접
+                          검토해 주세요.
+                        </p>
+                        <p className="mt-1 inline-flex w-fit items-center gap-1.5 rounded-lg bg-amber-100 px-3 py-1.5 text-label-2 font-semibold text-amber-800">
+                          사유 ·{' '}
+                          {activeStrategy.fallbackReason === 'INPUT_INSUFFICIENT'
+                            ? '분석에 필요한 입력 데이터(운영 스케줄·위험 정보)가 부족했습니다'
+                            : (activeStrategy.fallbackReason ?? '자동 분석 실패')}
+                        </p>
+                      </div>
+                    </div>
                     <button
                       type="button"
                       onClick={runGenerate}
                       disabled={generate.isPending}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3.5 py-2 text-label-2 font-semibold text-amber-700 transition hover:bg-amber-100 disabled:opacity-60"
+                      className="inline-flex w-fit items-center gap-1.5 self-end rounded-lg bg-amber-500 px-4 py-2.5 text-label-1 font-semibold text-white shadow-[0_8px_20px_rgba(217,119,6,0.22)] transition hover:bg-amber-600 disabled:opacity-60"
                     >
                       {generate.isPending ? (
                         <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                       ) : (
                         <RefreshCw className="h-4 w-4" aria-hidden />
                       )}
-                      재생성
+                      {generate.isPending ? '재생성 중… (최대 2분)' : '재조정안 재생성'}
                     </button>
                   </div>
                 ) : null}
