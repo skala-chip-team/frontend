@@ -1,4 +1,5 @@
-import { Clock, Loader2, Play, RotateCcw, Square } from 'lucide-react';
+import { useState } from 'react';
+import { Clock, FastForward, Loader2, Play, RotateCcw, Square } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 import { useSimControl, useSimStatus } from '@/hooks';
@@ -8,7 +9,7 @@ function formatSimTime(iso: string) {
   return { date: iso.slice(0, 10).replace(/-/g, '.'), time: iso.slice(11, 16) };
 }
 
-/** 헤더 시뮬레이션 제어 버튼 (시작/정지/다시 시작 공통) */
+/** 헤더 시뮬레이션 제어 버튼 (시작/정지/다시 시작/속도 공통) */
 function SimButton({
   label,
   icon: Icon,
@@ -46,15 +47,18 @@ function SimButton({
   );
 }
 
-/** 헤더의 시뮬레이션(서버) 시각 표시 + 시작/정지/다시 시작 제어. */
+/** 헤더의 시뮬레이션(서버) 시각 표시 + 시작/정지/다시 시작/속도 제어. */
 export function SimClock() {
   const { data } = useSimStatus();
-  const { start, stop, restart } = useSimControl();
+  const { start, stop, restart, toggleSpeed } = useSimControl();
+  // 서버 status에 sim_factor가 없어 속도는 클라이언트에서 추적. 시작/다시 시작 직후 기본은 실시간.
+  const [fast, setFast] = useState(false);
+
   const statusKnown = data != null; // 상태 로딩 전엔 시작/정지 비활성(중복 호출 409 방지)
   const running = data?.is_running ?? false;
   const iso = data?.sim_now_iso ?? null;
   const formatted = iso ? formatSimTime(iso) : null;
-  const pending = start.isPending || stop.isPending || restart.isPending;
+  const pending = start.isPending || stop.isPending || restart.isPending || toggleSpeed.isPending;
 
   return (
     <div className="flex items-center gap-2 rounded-full border border-gray-200 bg-white py-1.5 pl-3 pr-1.5">
@@ -80,7 +84,7 @@ export function SimClock() {
         )}
       </span>
 
-      {/* 구분선 + 시작 / 정지 / 다시 시작 */}
+      {/* 구분선 + 시작 / 정지 / 다시 시작 / 속도 */}
       <span className="mx-0.5 h-4 w-px bg-gray-200" aria-hidden />
       <div className="flex items-center gap-1">
         <SimButton
@@ -89,7 +93,7 @@ export function SimClock() {
           tone="primary"
           loading={start.isPending}
           disabled={pending || running || !statusKnown}
-          onClick={() => start.mutate()}
+          onClick={() => start.mutate(undefined, { onSuccess: () => setFast(false) })}
         />
         <SimButton
           label="정지"
@@ -103,7 +107,15 @@ export function SimClock() {
           icon={RotateCcw}
           loading={restart.isPending}
           disabled={pending}
-          onClick={() => restart.mutate()}
+          onClick={() => restart.mutate(undefined, { onSuccess: () => setFast(false) })}
+        />
+        <SimButton
+          label={fast ? '배속' : '실시간'}
+          icon={FastForward}
+          tone={fast ? 'primary' : 'gray'}
+          loading={toggleSpeed.isPending}
+          disabled={pending || !running}
+          onClick={() => toggleSpeed.mutate(undefined, { onSuccess: () => setFast((f) => !f) })}
         />
       </div>
     </div>

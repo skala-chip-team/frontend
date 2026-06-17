@@ -27,3 +27,8 @@ export async function stopSim(): Promise<void> {
 export async function restartSim(): Promise<void> {
   await axios.post(`${SIM_BASE}/sim/restart`, {});
 }
+
+/** 시뮬레이션 속도 토글 (POST /sim/speed/toggle) — 실시간(60) ↔ 배속(0.1). 실행 중에만 가능. */
+export async function toggleSimSpeed(): Promise<void> {
+  await axios.post(`${SIM_BASE}/sim/speed/toggle`);
+}

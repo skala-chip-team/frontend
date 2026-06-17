@@ -9,7 +9,7 @@ export {
   getMonitoringOverview,
   getProductionStatus,
 } from './monitoring';
-export { getSimStatus, startSim, stopSim, restartSim } from './sim';
+export { getSimStatus, startSim, stopSim, restartSim, toggleSimSpeed } from './sim';
 export { login, signup } from './auth';
 export { getUsers, changeUserRole, assignUserDistricts, deleteUser } from './users';
 export {

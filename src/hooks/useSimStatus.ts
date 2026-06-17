@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { getSimStatus, restartSim, startSim, stopSim } from '@apis/index';
+import { getSimStatus, restartSim, startSim, stopSim, toggleSimSpeed } from '@apis/index';
 import type { SimStatus } from '@apis/index';
 import { useToastStore } from '@/stores';
 import { getApiErrorMessage, getApiErrorStatus } from '@/utils';
@@ -62,6 +62,23 @@ export function useSimControl() {
     onSuccess: refreshStatus,
     onError: onError('다시 시작'),
   });
+  const toggleSpeed = useMutation({
+    mutationFn: toggleSimSpeed,
+    onSuccess: refreshStatus,
+    onError: (error) => {
+      // 409 = 정지 상태에선 속도 변경 불가
+      if (getApiErrorStatus(error) === 409) {
+        refreshStatus();
+        addToast({
+          tone: 'info',
+          title: '속도 변경 불가',
+          description: '시뮬레이션이 실행 중일 때만 속도를 바꿀 수 있습니다.',
+        });
+        return;
+      }
+      onError('속도 변경')(error);
+    },
+  });
 
-  return { start, stop, restart };
+  return { start, stop, restart, toggleSpeed };
 }
