@@ -50,6 +50,7 @@ function SimButton({
 export function SimClock() {
   const { data } = useSimStatus();
   const { start, stop, restart } = useSimControl();
+  const statusKnown = data != null; // 상태 로딩 전엔 시작/정지 비활성(중복 호출 409 방지)
   const running = data?.is_running ?? false;
   const iso = data?.sim_now_iso ?? null;
   const formatted = iso ? formatSimTime(iso) : null;
@@ -87,14 +88,14 @@ export function SimClock() {
           icon={Play}
           tone="primary"
           loading={start.isPending}
-          disabled={pending || running}
+          disabled={pending || running || !statusKnown}
           onClick={() => start.mutate()}
         />
         <SimButton
           label="정지"
           icon={Square}
           loading={stop.isPending}
-          disabled={pending || !running}
+          disabled={pending || !running || !statusKnown}
           onClick={() => stop.mutate()}
         />
         <SimButton

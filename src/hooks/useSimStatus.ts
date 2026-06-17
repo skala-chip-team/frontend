@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getSimStatus, restartSim, startSim, stopSim } from '@apis/index';
 import type { SimStatus } from '@apis/index';
 import { useToastStore } from '@/stores';
-import { getApiErrorMessage } from '@/utils';
+import { getApiErrorMessage, getApiErrorStatus } from '@/utils';
 
 /**
  * 시뮬레이션 현재 시각/상태.
@@ -38,7 +38,19 @@ export function useSimControl() {
   const start = useMutation({
     mutationFn: startSim,
     onSuccess: refreshStatus,
-    onError: onError('시작'),
+    onError: (error) => {
+      // 409 = 이미 실행 중(중복 시작). 에러 대신 상태만 동기화하고 가볍게 안내.
+      if (getApiErrorStatus(error) === 409) {
+        refreshStatus();
+        addToast({
+          tone: 'info',
+          title: '이미 실행 중',
+          description: '시뮬레이션이 이미 실행 중입니다.',
+        });
+        return;
+      }
+      onError('시작')(error);
+    },
   });
   const stop = useMutation({
     mutationFn: stopSim,
