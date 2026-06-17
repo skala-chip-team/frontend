@@ -1,7 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { getSimStatus } from '@apis/index';
+import { getSimStatus, startSim, stopSim } from '@apis/index';
 import type { SimStatus } from '@apis/index';
+import { useToastStore } from '@/stores';
+import { getApiErrorMessage } from '@/utils';
 
 /**
  * 시뮬레이션 현재 시각/상태.
@@ -17,4 +19,32 @@ export function useSimStatus() {
     refetchIntervalInBackground: true,
     staleTime: 0,
   });
+}
+
+/**
+ * 시뮬레이션 시작/정지 제어. 성공하면 상태(시계)를 즉시 갱신하고, 실패하면 토스트로 알린다.
+ */
+export function useSimControl() {
+  const queryClient = useQueryClient();
+  const addToast = useToastStore((state) => state.addToast);
+  const refreshStatus = () => queryClient.invalidateQueries({ queryKey: ['simStatus'] });
+  const onError = (label: string) => (error: unknown) =>
+    addToast({
+      tone: 'critical',
+      title: `시뮬레이션 ${label} 실패`,
+      description: getApiErrorMessage(error, '잠시 후 다시 시도해 주세요.'),
+    });
+
+  const start = useMutation({
+    mutationFn: startSim,
+    onSuccess: refreshStatus,
+    onError: onError('시작'),
+  });
+  const stop = useMutation({
+    mutationFn: stopSim,
+    onSuccess: refreshStatus,
+    onError: onError('정지'),
+  });
+
+  return { start, stop };
 }

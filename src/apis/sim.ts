@@ -12,3 +12,13 @@ export async function getSimStatus(): Promise<SimStatus> {
   const { data } = await axios.get<SimStatus>(`${SIM_BASE}/sim/status`);
   return data;
 }
+
+/** 시뮬레이션 시작 (POST /sim/start, body 기본값 사용) */
+export async function startSim(): Promise<void> {
+  await axios.post(`${SIM_BASE}/sim/start`, {});
+}
+
+/** 시뮬레이션 정지 (POST /sim/stop) */
+export async function stopSim(): Promise<void> {
+  await axios.post(`${SIM_BASE}/sim/stop`);
+}
