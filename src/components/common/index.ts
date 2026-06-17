@@ -24,6 +24,7 @@ export type { ComparePhase } from './BeforeAfterBar';
 export { WorkerTable } from './WorkerTable';
 export { WorkerDetailPanel, type WorkerUpdate } from './WorkerDetailPanel';
 export { OrderTable } from './OrderTable';
+export type { OrderSort, OrderSortKey, OrderSortDir } from './OrderTable';
 export { OrderDetailPanel } from './OrderDetailPanel';
 export { Pagination } from './Pagination';
 export { RescheduleCard } from './RescheduleCard';

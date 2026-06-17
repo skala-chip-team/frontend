@@ -14,7 +14,7 @@ const STEPS_KEY = ['processSteps'];
 
 /** 장비 목록 */
 export function useMachines() {
-  return useQuery({ queryKey: MACHINES_KEY, queryFn: getMachines });
+  return useQuery({ queryKey: MACHINES_KEY, queryFn: () => getMachines() });
 }
 
 /** 공정 STEP 옵션 (구역별 A~D) */
