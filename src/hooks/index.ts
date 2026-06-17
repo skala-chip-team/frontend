@@ -15,6 +15,7 @@ export {
   useRescheduleDetail,
   useGenerateReschedule,
   useSelectStrategy,
+  useApprovedRescheduleUnitIds,
 } from './useReschedule';
 export { useOrders, useOrderDetail } from './useOrders';
 export type { OrdersResult } from './useOrders';

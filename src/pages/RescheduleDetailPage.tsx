@@ -613,7 +613,10 @@ export default function RescheduleDetailPage() {
   }
   if (ra?.causal_chain) reasons.push(ra.causal_chain);
 
-  const canSelect = activeStrategy.selectable && !select.isPending;
+  // 이미 승인(approved)·만료(expired)된 그룹은 재승인 불가
+  const isApproved = detail.groupStatus === 'approved';
+  const isExpired = detail.groupStatus === 'expired';
+  const canSelect = activeStrategy.selectable && !select.isPending && !isApproved && !isExpired;
   const approveStrategy = () =>
     select.mutate(activeStrategy.apiStrategy, {
       onSuccess: () => {
@@ -755,11 +758,23 @@ export default function RescheduleDetailPage() {
                     type="button"
                     onClick={() => setApproveModalOpen(true)}
                     disabled={!canSelect}
-                    title={activeStrategy.selectable ? undefined : 'fallback로 생성된 안은 선택할 수 없습니다. 재생성하세요.'}
+                    title={
+                      isApproved
+                        ? '이미 승인된 재조정안입니다.'
+                        : isExpired
+                          ? '만료된 재조정안입니다.'
+                          : activeStrategy.selectable
+                            ? undefined
+                            : 'fallback로 생성된 안은 선택할 수 없습니다. 재생성하세요.'
+                    }
                     className="inline-flex items-center gap-1.5 rounded-lg bg-primary-500 px-4 py-2.5 text-label-1 font-semibold text-white shadow-[0_8px_20px_rgba(234,0,44,0.18)] transition hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
                   >
                     {select.isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
-                    재조정안{strategyLabel(activeIndex)} 승인
+                    {isApproved
+                      ? '승인 완료'
+                      : isExpired
+                        ? '만료됨'
+                        : `재조정안${strategyLabel(activeIndex)} 승인`}
                   </button>
                 </div>
               </div>
