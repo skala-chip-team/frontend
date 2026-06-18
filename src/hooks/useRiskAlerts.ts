@@ -170,7 +170,7 @@ export function useRiskAlerts() {
             const witnessed = awaitingGen.current.delete(group.groupId);
             if (!witnessed && !isRecent) return;
             const ok = detail.options.some((option) => option.analysisStatus === 'success');
-            const title = ok ? '재조정안이 생성되었습니다' : '재조정안 생성 완료 — 운영자 검토 필요';
+            const title = ok ? '재조정안이 생성되었습니다' : '재조정안 생성 완료 (운영자 검토 필요)';
             addToast({ tone: 'info', title, description: where, groupId: group.groupId });
             logNotification({
               id: `${group.groupId}:generated`,
