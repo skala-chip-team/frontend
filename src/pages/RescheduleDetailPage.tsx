@@ -444,6 +444,18 @@ export default function RescheduleDetailPage() {
       },
     });
 
+  // 옵션이 비어 있으면(아직 생성 전) 자동으로 1회 생성 트리거 → 운영자는 "생성 중"만 본다.
+  // 그룹당 1회(autoGenRef). 만료/이미 생성/생성 중인 경우는 제외.
+  const autoGenRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!detail || detail.options.length > 0) return;
+    if (detail.groupStatus === 'expired') return;
+    if (generate.isPending || autoGenRef.current === groupId) return;
+    autoGenRef.current = groupId ?? null;
+    runGenerate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detail, groupId]);
+
   // ── 상태 화면 ──
   if (isLoading) {
     return (
@@ -486,8 +498,9 @@ export default function RescheduleDetailPage() {
   })();
   const activeStrategy = strategies[activeIndex];
 
-  // 재조정안이 아직 없음(빈 options) → 재생성 유도
+  // 재조정안이 아직 없음(빈 options) → 자동 생성 중 표시(실패 시에만 다시 시도)
   if (strategies.length === 0 || !activeStrategy) {
+    const genFailed = generate.isError;
     return (
       <section className="min-h-full bg-surface-50 px-6 pb-6 pt-4 lg:px-8 lg:pb-8">
         <div className="mx-auto flex w-full max-w-[1680px] flex-col gap-4">
@@ -516,22 +529,33 @@ export default function RescheduleDetailPage() {
                 {group.risk_factor || '지연 위험'}
               </span>
             </div>
-            <p className="text-body-2 text-gray-500">
-              아직 생성된 재조정안이 없습니다. 재생성을 실행하면 AI가 전략별 재조정안을 만듭니다.
-            </p>
-            <button
-              type="button"
-              onClick={runGenerate}
-              disabled={generate.isPending}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary-500 px-5 py-2.5 text-label-1 font-semibold text-white shadow-[0_8px_20px_rgba(234,0,44,0.18)] transition hover:bg-primary-600 disabled:opacity-60"
-            >
-              {generate.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              ) : (
-                <RefreshCw className="h-4 w-4" aria-hidden />
-              )}
-              {generate.isPending ? '재생성 중… (최대 2분)' : '재조정안 생성'}
-            </button>
+            {genFailed ? (
+              <>
+                <p className="text-body-2 text-gray-500">
+                  재조정안을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요.
+                </p>
+                <button
+                  type="button"
+                  onClick={runGenerate}
+                  disabled={generate.isPending}
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary-500 px-5 py-2.5 text-label-1 font-semibold text-white shadow-[0_8px_20px_rgba(234,0,44,0.18)] transition hover:bg-primary-600 disabled:opacity-60"
+                >
+                  {generate.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" aria-hidden />
+                  )}
+                  다시 시도
+                </button>
+              </>
+            ) : (
+              <>
+                <Loader2 className="h-6 w-6 animate-spin text-primary-500" aria-hidden />
+                <p className="text-body-2 text-gray-500">
+                  AI가 재조정안을 생성하고 있습니다… (최대 2분)
+                </p>
+              </>
+            )}
           </div>
         </div>
       </section>
@@ -759,19 +783,6 @@ export default function RescheduleDetailPage() {
 
                 {/* 액션 버튼 — 후보안 헤더 우측 */}
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={runGenerate}
-                    disabled={generate.isPending}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-label-1 font-semibold text-secondary-navy transition hover:bg-surface-100 disabled:opacity-60"
-                  >
-                    {generate.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                    ) : (
-                      <RefreshCw className="h-4 w-4" aria-hidden />
-                    )}
-                    {generate.isPending ? '재생성 중…' : '재생성'}
-                  </button>
                   <button
                     type="button"
                     onClick={() => setReportModalOpen(true)}
