@@ -782,6 +782,8 @@ export default function RescheduleDetailPage() {
   // 이미 승인(approved)·만료(expired)된 그룹은 재승인 불가
   const isApproved = detail.groupStatus === 'approved';
   const isExpired = detail.groupStatus === 'expired';
+  // fallback/검토 대상 = 운영자 수동 검토 필요 → 배너 + 레이더 '?' 동일 기준
+  const needsManualReview = activeStrategy.manualReviewRequired || !activeStrategy.selectable;
   const canSelect =
     activeStrategy.selectable && !select.isPending && !isApproved && !isExpired && canApprove;
   const approveStrategy = () =>
@@ -847,7 +849,7 @@ export default function RescheduleDetailPage() {
         ) : null}
 
         {/* fallback/검토 대상 — 운영자 수동 검토 필요 (크게 강조) */}
-        {!isExpired && (activeStrategy.manualReviewRequired || !activeStrategy.selectable) ? (
+        {!isExpired && needsManualReview ? (
           <div className="flex items-start gap-3.5 rounded-2xl border-2 border-amber-400 bg-amber-50 px-5 py-4 shadow-[0_10px_30px_rgba(217,119,6,0.20)]">
             <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-400 text-white">
               <TriangleAlert className="h-6 w-6" aria-hidden />
@@ -1049,7 +1051,7 @@ export default function RescheduleDetailPage() {
                   {/* 레이더(메인) — 전략 전환 시 폴리곤 모핑, 폴리곤 클릭으로도 전환.
                       fallback(지표 산출 불가)이면 가짜 오각형 대신 '구할 수 없음' 표시 */}
                   <div className="mx-auto w-full max-w-[420px] self-center lg:mx-0 lg:w-[400px] lg:shrink-0">
-                    {activeStrategy.selectable ? (
+                    {!needsManualReview ? (
                       <StrategyRadar
                         axes={RADAR_AXES.map((axis) => axis.label)}
                         descriptions={RADAR_AXES.map((axis) => axis.desc)}
