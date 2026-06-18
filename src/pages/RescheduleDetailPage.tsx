@@ -376,6 +376,63 @@ function StateShell({
   );
 }
 
+/** fallback 등으로 비교 지표를 산출할 수 없을 때 — 오각형 자리에 '?'와 안내를 표시 */
+function RadarUnavailable({ axes }: { axes: string[] }) {
+  const cx = 100;
+  const cy = 96;
+  const r = 74;
+  const pts = axes.map((_, i) => {
+    const angle = (-90 + (360 / axes.length) * i) * (Math.PI / 180);
+    return [cx + r * Math.cos(angle), cy + r * Math.sin(angle)] as const;
+  });
+  const polygon = pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+
+  return (
+    <div className="flex w-full flex-col items-center gap-2">
+      <svg viewBox="0 0 200 200" className="w-full max-w-[320px]" role="img" aria-label="비교 지표 없음">
+        {/* 옅은 점선 오각형 + 중심까지 스포크 */}
+        <polygon
+          points={polygon}
+          fill="none"
+          stroke="#d1d5db"
+          strokeWidth={1.5}
+          strokeDasharray="4 4"
+        />
+        {pts.map(([x, y], i) => (
+          <line
+            key={i}
+            x1={cx}
+            y1={cy}
+            x2={x}
+            y2={y}
+            stroke="#e5e7eb"
+            strokeWidth={1}
+            strokeDasharray="4 4"
+          />
+        ))}
+        {/* 축 라벨(흐리게) */}
+        {pts.map(([x, y], i) => (
+          <text
+            key={`l-${i}`}
+            x={x}
+            y={y + (y < cy ? -6 : 12)}
+            textAnchor="middle"
+            className="fill-gray-300"
+            style={{ fontSize: 9, fontWeight: 600 }}
+          >
+            {axes[i]}
+          </text>
+        ))}
+        <text x={cx} y={cy + 12} textAnchor="middle" className="fill-gray-300" style={{ fontSize: 44, fontWeight: 800 }}>
+          ?
+        </text>
+      </svg>
+      <p className="text-label-2 font-semibold text-gray-400">비교 지표를 구할 수 없습니다</p>
+      <p className="text-label-3 text-gray-400">fallback로 생성돼 전·후 비교 점수가 산출되지 않았습니다.</p>
+    </div>
+  );
+}
+
 export default function RescheduleDetailPage() {
   const navigate = useNavigate();
   const { groupId } = useParams();
@@ -900,17 +957,22 @@ export default function RescheduleDetailPage() {
                 </div>
 
                 <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-stretch lg:gap-7">
-                  {/* 레이더(메인) — 전략 전환 시 폴리곤 모핑, 폴리곤 클릭으로도 전환 */}
+                  {/* 레이더(메인) — 전략 전환 시 폴리곤 모핑, 폴리곤 클릭으로도 전환.
+                      fallback(지표 산출 불가)이면 가짜 오각형 대신 '구할 수 없음' 표시 */}
                   <div className="mx-auto w-full max-w-[420px] self-center lg:mx-0 lg:w-[400px] lg:shrink-0">
-                    <StrategyRadar
-                      axes={RADAR_AXES.map((axis) => axis.label)}
-                      descriptions={RADAR_AXES.map((axis) => axis.desc)}
-                      bestAxes={bestAxes}
-                      series={radarSeries}
-                      selectedKey={activeStrategy.key}
-                      onSelect={(key) => selectStrategy(key as StrategyKey)}
-                      className="w-full"
-                    />
+                    {activeStrategy.selectable ? (
+                      <StrategyRadar
+                        axes={RADAR_AXES.map((axis) => axis.label)}
+                        descriptions={RADAR_AXES.map((axis) => axis.desc)}
+                        bestAxes={bestAxes}
+                        series={radarSeries}
+                        selectedKey={activeStrategy.key}
+                        onSelect={(key) => selectStrategy(key as StrategyKey)}
+                        className="w-full"
+                      />
+                    ) : (
+                      <RadarUnavailable axes={RADAR_AXES.map((axis) => axis.label)} />
+                    )}
                   </div>
 
                   {/* 선택 전략 효과 — 의사결정 질문 1개 = 카드 1개, 결론부터 크게 */}
