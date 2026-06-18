@@ -41,6 +41,8 @@ interface NotificationState {
   add: (n: Omit<AppNotification, 'read'>) => void;
   markRead: (id: string) => void;
   markAllRead: () => void;
+  /** 전체 비우기 (시뮬레이션 재시작 등 새 런 시작 시) */
+  clear: () => void;
 }
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({
@@ -62,5 +64,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     const items = get().items.map((it) => ({ ...it, read: true }));
     persist(items);
     set({ items });
+  },
+  clear: () => {
+    persist([]);
+    set({ items: [] });
   },
 }));

@@ -115,16 +115,7 @@ export function SimClock() {
           icon={RotateCcw}
           loading={restart.isPending}
           disabled={pending}
-          onClick={() => {
-            // /sim/restart 는 DB를 truncate(전체 초기화)한다 — 실수 방지용 확인.
-            const ok = window.confirm(
-              '다시 시작하면 시뮬레이션이 처음부터 다시 돌고,\n' +
-                '지금까지의 재조정 제안·이력 등 모든 데이터가 초기화됩니다.\n\n' +
-                '정말 다시 시작할까요?'
-            );
-            if (!ok) return;
-            restart.mutate(undefined, { onSuccess: (res) => setFast(isFast(res)) });
-          }}
+          onClick={() => restart.mutate(undefined, { onSuccess: (res) => setFast(isFast(res)) })}
         />
         <SimButton
           label={fast ? '배속' : '실시간'}

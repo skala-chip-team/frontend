@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getPendingRescheduleGroups, getRescheduleGroupDetail } from '@apis/index';
 import { districtLabels, useNotificationStore, useToastStore, type DistrictId } from '@/stores';
 import { processStepLabel } from '@/utils';
+import { useSimStatus } from './useSimStatus';
 
 /**
  * 위험 탐지 → (백엔드 자동) 재조정안 생성 알림 (실시간/이벤트 기반).
@@ -52,6 +53,7 @@ function createdAtMs(createdAt?: string): number {
 export function useRiskAlerts() {
   const addToast = useToastStore((state) => state.addToast);
   const logNotification = useNotificationStore((state) => state.add);
+  const clearNotifications = useNotificationStore((state) => state.clear);
   const seen = useRef<Set<string>>(loadIds(SEEN_KEY)); // '위험 발생' 알림 띄운 그룹
   const generated = useRef<Set<string>>(loadIds(GEN_KEY)); // '생성 완료' 알림 띄운(또는 baseline) 그룹
   const awaitingGen = useRef<Set<string>>(new Set()); // 옵션이 비어 '생성 중'으로 관찰한 그룹
@@ -66,6 +68,31 @@ export function useRiskAlerts() {
     refetchInterval: 5000,
     refetchIntervalInBackground: true,
   });
+
+  // 시뮬 재시작/새 런 감지: sim_now_min 이 되돌아가면(처음으로 리셋) 한 런의 알림 기록을 초기화.
+  // (한 번 도는 동안은 유지, 시작/재시작 시 비움 — DB도 동일하게 truncate 됨)
+  const { data: sim } = useSimStatus();
+  const prevSimMin = useRef<number | null>(null);
+  useEffect(() => {
+    const min = sim?.sim_now_min ?? null;
+    if (min == null) return;
+    const prev = prevSimMin.current;
+    prevSimMin.current = min;
+    if (prev != null && min + 1 < prev) {
+      clearNotifications();
+      seen.current.clear();
+      generated.current.clear();
+      awaitingGen.current.clear();
+      active.current.clear();
+      resolutionReady.current = false;
+      try {
+        localStorage.removeItem(SEEN_KEY);
+        localStorage.removeItem(GEN_KEY);
+      } catch {
+        /* localStorage 불가 시 무시 */
+      }
+    }
+  }, [sim?.sim_now_min, clearNotifications]);
 
   useEffect(() => {
     if (!data) return;
