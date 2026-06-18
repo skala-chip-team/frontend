@@ -1,94 +1,41 @@
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Bell, ChevronsRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
 
 import { useClickOutside } from '@hooks/useClickOutside';
-import { getPendingRescheduleGroups } from '@apis/index';
-import { districtLabels, type DistrictId } from '@/stores';
-import { formatRelativeTime, processStepLabel } from '@/utils';
+import { useNotificationStore, type NotificationType } from '@/stores';
+import { formatRelativeTime } from '@/utils';
 
-const READ_KEY = 'notifications.read';
-
-function loadRead(): Set<string> {
-  try {
-    const raw = localStorage.getItem(READ_KEY);
-    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
-  } catch {
-    return new Set();
-  }
-}
-
-function saveRead(read: Set<string>) {
-  try {
-    localStorage.setItem(READ_KEY, JSON.stringify([...read].slice(-300)));
-  } catch {
-    /* localStorage 불가 시 무시 */
-  }
-}
-
-/** 위험 레벨 → 점 색상 (읽지 않은 알림) */
-function dotColor(riskLevel: string | null | undefined): string {
+/** 알림 종류·위험 레벨 → 점 색상 (읽지 않은 알림) */
+function dotColor(type: NotificationType, riskLevel: string | null | undefined): string {
+  if (type === 'generated') return 'bg-primary-500';
+  if (type === 'resolved') return 'bg-emerald-500';
   if (riskLevel === 'Critical' || riskLevel === 'High') return 'bg-red-500';
   if (riskLevel === 'Medium') return 'bg-orange-500';
-  return 'bg-emerald-500';
+  return 'bg-amber-500';
 }
 
 export function NotificationBell() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [read, setRead] = useState<Set<string>>(loadRead);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // 실제 위험 알람 = pending 재조정 그룹(살아있는 위험). useRiskAlerts와 동일 쿼리키로 캐시 공유
-  const { data } = useQuery({
-    queryKey: ['riskAlerts'],
-    queryFn: getPendingRescheduleGroups,
-    refetchInterval: 5000,
-  });
+  // 위험 발생/재조정안 생성/위험 해결 등 이벤트 로그 (useRiskAlerts가 적재)
+  const items = useNotificationStore((state) => state.items);
+  const markRead = useNotificationStore((state) => state.markRead);
+  const markAllRead = useNotificationStore((state) => state.markAllRead);
 
-  const notifications = useMemo(() => {
-    return (data ?? [])
-      .filter((group) => group.affectedUnits.length > 0) // 해소된 stale 제외
-      .slice()
-      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)) // 최신순
-      .map((group) => ({
-        id: group.groupId,
-        riskLevel: group.riskLevel,
-        title: '위험이 발생했습니다',
-        description: `${districtLabels[group.districtId as DistrictId] ?? group.districtId} · ${processStepLabel(group.processStep)}`,
-        time: formatRelativeTime(group.createdAt),
-        unread: !read.has(group.groupId),
-      }));
-  }, [data, read]);
-
-  const unreadCount = notifications.filter((n) => n.unread).length;
+  const unreadCount = items.filter((n) => !n.read).length;
 
   useClickOutside([triggerRef, panelRef], () => setOpen(false), open);
 
-  const markRead = (id: string) => {
-    setRead((prev) => {
-      const next = new Set(prev);
-      next.add(id);
-      saveRead(next);
-      return next;
-    });
-  };
-
-  const openDetail = (id: string) => {
+  const onItemClick = (id: string, groupId?: string) => {
     markRead(id);
-    setOpen(false);
-    navigate(`/reschedule/${id}`);
-  };
-
-  const markAllRead = () => {
-    setRead((prev) => {
-      const next = new Set(prev);
-      notifications.forEach((n) => next.add(n.id));
-      saveRead(next);
-      return next;
-    });
+    if (groupId) {
+      setOpen(false);
+      navigate(`/reschedule/${groupId}`);
+    }
   };
 
   return (
@@ -142,29 +89,29 @@ export function NotificationBell() {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {notifications.length === 0 ? (
+          {items.length === 0 ? (
             <div className="grid h-40 place-content-center px-4 text-center text-caption-1 text-gray-400">
-              새 위험 알림이 없습니다
+              알림이 없습니다
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
-              {notifications.map((n) => (
+              {items.map((n) => (
                 <button
                   key={n.id}
                   type="button"
-                  onClick={() => openDetail(n.id)}
+                  onClick={() => onItemClick(n.id, n.groupId)}
                   className="w-full cursor-pointer p-4 text-left hover:bg-gray-50"
                 >
                   <div className="flex items-start gap-3">
                     <div
                       className={`mt-2 h-2 w-2 shrink-0 rounded-full ${
-                        n.unread ? dotColor(n.riskLevel) : 'bg-gray-300'
+                        n.read ? 'bg-gray-300' : dotColor(n.type, n.riskLevel)
                       }`}
                     />
                     <div className="flex-1 space-y-1">
                       <p className="text-label-1 text-gray-900">{n.title}</p>
                       <p className="text-caption-1 text-gray-500">{n.description}</p>
-                      <p className="text-caption-1 text-gray-400">{n.time}</p>
+                      <p className="text-caption-1 text-gray-400">{formatRelativeTime(n.iso)}</p>
                     </div>
                   </div>
                 </button>

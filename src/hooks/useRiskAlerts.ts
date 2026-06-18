@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { getPendingRescheduleGroups, getRescheduleGroupDetail } from '@apis/index';
-import { districtLabels, useToastStore, type DistrictId } from '@/stores';
+import { districtLabels, useNotificationStore, useToastStore, type DistrictId } from '@/stores';
 import { processStepLabel } from '@/utils';
 
 /**
@@ -51,6 +51,7 @@ function createdAtMs(createdAt?: string): number {
 
 export function useRiskAlerts() {
   const addToast = useToastStore((state) => state.addToast);
+  const logNotification = useNotificationStore((state) => state.add);
   const seen = useRef<Set<string>>(loadIds(SEEN_KEY)); // '위험 발생' 알림 띄운 그룹
   const generated = useRef<Set<string>>(loadIds(GEN_KEY)); // '생성 완료' 알림 띄운 그룹
   const inflight = useRef<Set<string>>(new Set()); // 상세 조회 중복 방지
@@ -78,6 +79,18 @@ export function useRiskAlerts() {
 
       const created = createdAtMs(group.createdAt);
       const isRecent = Number.isFinite(created) && now - created < RECENT_MS;
+
+      // 기록창엔 현재 살아있는 위험을 항상 1회 적재(store가 id로 중복 방지)
+      logNotification({
+        id: `${group.groupId}:risk`,
+        type: 'risk',
+        title: '위험이 발생했습니다',
+        description: where,
+        riskLevel: group.riskLevel,
+        groupId: group.groupId,
+        ts: Number.isFinite(created) ? created : now,
+        iso: group.createdAt,
+      });
 
       // 1) 위험 발생 알림 (새 그룹 1회, 최근 것만). 오래된 그룹은 조용히 seen 등록(첫 로드 폭주 방지).
       if (!seen.current.has(group.groupId)) {
@@ -115,11 +128,16 @@ export function useRiskAlerts() {
             generated.current.add(group.groupId);
             saveIds(GEN_KEY, generated.current);
             const ok = detail.options.some((option) => option.analysisStatus === 'success');
-            addToast({
-              tone: 'info',
-              title: ok ? '재조정안이 생성되었습니다' : '재조정안 생성 완료 — 운영자 검토 필요',
+            const title = ok ? '재조정안이 생성되었습니다' : '재조정안 생성 완료 — 운영자 검토 필요';
+            addToast({ tone: 'info', title, description: where, groupId: group.groupId });
+            logNotification({
+              id: `${group.groupId}:generated`,
+              type: 'generated',
+              title,
               description: where,
               groupId: group.groupId,
+              ts: Date.now(),
+              iso: new Date().toISOString(),
             });
           } catch {
             // 일시 오류는 조용히 무시(다음 폴링에서 재시도)
@@ -138,11 +156,19 @@ export function useRiskAlerts() {
       for (const [id, where] of active.current) {
         if (!currentIds.has(id)) {
           addToast({ tone: 'info', title: '위험이 해결되었습니다', description: where });
+          logNotification({
+            id: `${id}:resolved`,
+            type: 'resolved',
+            title: '위험이 해결되었습니다',
+            description: where,
+            ts: Date.now(),
+            iso: new Date().toISOString(),
+          });
           active.current.delete(id);
         }
       }
     } else {
       resolutionReady.current = true;
     }
-  }, [data, addToast]);
+  }, [data, addToast, logNotification]);
 }
