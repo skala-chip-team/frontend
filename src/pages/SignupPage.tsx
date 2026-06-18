@@ -8,6 +8,8 @@ import InputBox from '@/components/common/InputBox/InputBox';
 import { login, signup } from '@apis/index';
 import { useAuthStore } from '@/stores';
 import { getApiErrorMessage } from '@/utils';
+// 나비 배경 — import해서 번들(빌드 시 해시 URL). '/src/...' 직접 경로는 dev에서만 동작.
+import butterflyBg from '@/components/common/Sidebar/image.png';
 
 export default function SignupPage() {
   const navigate = useNavigate();
@@ -49,7 +51,7 @@ export default function SignupPage() {
       : null;
 
   return (
-    <main className="flex min-h-screen overflow-hidden bg-surface-50">
+    <main className="flex min-h-screen bg-surface-50">
       <section className="relative hidden w-[58%] flex-col justify-between overflow-hidden bg-secondary-navy px-[5%] py-[4%] text-white lg:flex">
         <div className="absolute inset-0 opacity-100">
           <div className="absolute left-[-10%] top-[-8%] h-[42vw] w-[42vw] rounded-full bg-primary-500/35 blur-[140px]" />
@@ -59,23 +61,9 @@ export default function SignupPage() {
 
         <div className="absolute inset-0 overflow-hidden">
           <img
-            src="/src/components/common/Sidebar/image.png"
+            src={butterflyBg}
             alt="butterfly background"
-            className="
-              pointer-events-none
-              absolute
-              left-[54%]
-              top-[50%]
-              w-[82%]
-              -translate-x-1/2
-              -translate-y-1/2
-              select-none
-              opacity-[0.22]
-              mix-blend-lighten
-              contrast-125
-              saturate-150
-              animate-[butterflyFly_12s_ease-in-out_infinite]
-            "
+            className="pointer-events-none absolute left-[54%] top-[50%] w-[82%] -translate-x-1/2 -translate-y-1/2 select-none opacity-[0.22] mix-blend-lighten contrast-125 saturate-150 animate-[butterflyFly_12s_ease-in-out_infinite]"
           />
         </div>
 
@@ -108,13 +96,30 @@ export default function SignupPage() {
         </div>
       </section>
 
-      <section className="relative flex flex-1 items-center justify-center overflow-hidden bg-surface-100 px-[6%]">
-        <div className="absolute inset-0">
+      <section className="relative flex min-h-screen flex-1 items-center justify-center bg-secondary-navy px-5 py-10 sm:px-[6%] lg:min-h-0 lg:bg-surface-100 lg:py-0">
+        {/* 모바일: 어두운 나비 배경 */}
+        <div className="absolute inset-0 overflow-hidden lg:hidden">
+          <div className="absolute left-[-20%] top-[-10%] h-[80vw] w-[80vw] rounded-full bg-primary-500/30 blur-[120px]" />
+          <div className="absolute bottom-[-15%] right-[-15%] h-[60vw] w-[60vw] rounded-full bg-secondary-orange/20 blur-[120px]" />
+          <img
+            src={butterflyBg}
+            alt=""
+            aria-hidden
+            className="pointer-events-none absolute left-1/2 top-1/2 w-[150%] max-w-none -translate-x-1/2 -translate-y-1/2 select-none opacity-[0.18] mix-blend-lighten contrast-125 saturate-150 animate-[butterflyFly_12s_ease-in-out_infinite]"
+          />
+        </div>
+        {/* 데스크톱: 밝은 글로우 */}
+        <div className="absolute inset-0 hidden overflow-hidden lg:block">
           <div className="absolute right-[-10%] top-[10%] h-[24vw] w-[24vw] rounded-full bg-primary-500/5 blur-[100px]" />
         </div>
 
-        <div className="relative z-10 w-full max-w-[27.5rem] translate-x-[-4%] animate-[fadeUp_0.6s_ease-out]">
-          <div className="rounded-[2rem] border border-gray-200/80 bg-white p-10 shadow-[0_10px_40px_rgba(15,23,42,0.06)] backdrop-blur">
+        <div className="relative z-10 w-full max-w-[27.5rem] animate-[fadeUp_0.6s_ease-out] lg:-translate-x-[4%]">
+          <div className="mb-8 text-center lg:hidden">
+            <h1 className="text-xl font-bold text-white">chipScheduler</h1>
+            <p className="text-sm text-white/60">Operations Dashboard</p>
+          </div>
+
+          <div className="rounded-[2rem] border border-gray-200/80 bg-white p-6 shadow-[0_20px_50px_rgba(0,0,0,0.3)] backdrop-blur sm:p-10 lg:shadow-[0_10px_40px_rgba(15,23,42,0.06)]">
             <div className="mb-8">
               <p className="mb-2 text-sm font-semibold text-primary-500">
                 Create account
@@ -186,7 +191,7 @@ export default function SignupPage() {
             </form>
           </div>
 
-          <p className="mt-6 text-center text-xs text-gray-400">
+          <p className="mt-6 text-center text-xs text-white/45 lg:text-gray-400">
             이미 계정이 있으신가요?
 
             <button
