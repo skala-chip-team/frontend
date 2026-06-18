@@ -39,8 +39,12 @@ export default function ReschedulePage() {
   const selectedDistrict = useDistrictStore((state) => state.selectedDistrict);
   const isAll = selectedDistrict === 'all';
 
-  // status 없이 전체(만료 포함) 조회 → 클라이언트에서 상태/요일 필터링
-  const { data, isLoading, isError, error } = useRescheduleGroups({ districtId: selectedDistrict });
+  // status 없이 전체(만료 포함) 조회 → 클라이언트에서 상태/요일 필터링.
+  // 알림 무효화에 더해 15초 폴링으로 새 결과 반영 지연을 줄인다(백업).
+  const { data, isLoading, isError, error } = useRescheduleGroups(
+    { districtId: selectedDistrict },
+    15_000
+  );
 
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<StatusKey>('all');

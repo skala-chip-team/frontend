@@ -70,6 +70,7 @@ export function useRescheduleHistory(query: RescheduleHistoryQuery, enabled = tr
     queryFn: () => getRescheduleHistory(query),
     enabled,
     placeholderData: (prev) => prev, // 페이지 전환 시 깜빡임 방지
+    refetchInterval: enabled ? 20_000 : false, // 새 결과가 늦게 반영되지 않도록 가벼운 폴링
   });
 }
 
