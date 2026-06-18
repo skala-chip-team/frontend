@@ -56,7 +56,7 @@ export default function SignupPage() {
         <div className="absolute inset-0 opacity-100">
           <div className="absolute left-[-10%] top-[-8%] h-[42vw] w-[42vw] rounded-full bg-primary-500/35 blur-[140px]" />
           <div className="absolute bottom-[-12%] right-[-8%] h-[34vw] w-[34vw] rounded-full bg-secondary-orange/25 blur-[140px]" />
-          <div className="absolute left-[34%] top-[62%] h-[22vw] w-[22vw] rounded-full bg-primary-500/12 blur-[120px]" />
+          <div className="absolute left-[84%] top-[62%] h-[22vw] w-[22vw] rounded-full bg-primary-500/12 blur-[120px]" />
         </div>
 
         <div className="absolute inset-0 overflow-hidden">
@@ -105,7 +105,7 @@ export default function SignupPage() {
             src={butterflyBg}
             alt=""
             aria-hidden
-            className="pointer-events-none absolute left-1/2 top-1/2 w-[175%] max-w-none -translate-x-1/2 -translate-y-1/2 select-none opacity-[0.32] mix-blend-lighten contrast-125 saturate-150 animate-[butterflyFly_12s_ease-in-out_infinite]"
+            className="pointer-events-none absolute left-[64%] top-[42%] w-[150%] max-w-none -translate-x-1/2 -translate-y-1/2 select-none opacity-[0.42] mix-blend-lighten contrast-125 saturate-150 animate-[butterflyFly_12s_ease-in-out_infinite]"
           />
         </div>
         {/* 데스크톱: 밝은 글로우 */}
