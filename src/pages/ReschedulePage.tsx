@@ -10,12 +10,12 @@ import { getApiErrorMessage, toCardData } from '@/utils';
 
 const PAGE_SIZE = 5;
 
-// 만료(expired)는 관리 목록에서 제외하고 '기간별 이력'에서만 노출한다.
-type StatusKey = 'all' | 'pending' | 'approved';
+type StatusKey = 'all' | 'pending' | 'approved' | 'expired';
 const STATUS_FILTERS: Array<{ key: StatusKey; label: string }> = [
   { key: 'all', label: '전체' },
   { key: 'pending', label: '신규' },
   { key: 'approved', label: '승인' },
+  { key: 'expired', label: '만료' },
 ];
 
 // 기간 필터 (생성 후 경과 기준 — 하루치/일주일치 등)
@@ -57,12 +57,15 @@ export default function ReschedulePage() {
   const items = useMemo(
     () =>
       (data ?? [])
-        // 동일 위험에 신규 묶음이 생성돼 만료된 안은 대시보드(관리 목록)에서 숨기고 이력에만 노출
-        .filter((g) => g.groupStatus !== 'expired')
         .filter((g) => statusFilter === 'all' || g.groupStatus === statusFilter)
         .filter((g) => periodFilter === 'all' || withinDays(g.createdAt, Number(periodFilter)))
-        // 최신순(createdAt desc)
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+        // 만료되지 않은 것(신규·승인) 먼저, 그 다음 만료. 각 그룹 내에서는 최신순(createdAt desc)
+        .sort((a, b) => {
+          const expiredA = a.groupStatus === 'expired' ? 1 : 0;
+          const expiredB = b.groupStatus === 'expired' ? 1 : 0;
+          if (expiredA !== expiredB) return expiredA - expiredB;
+          return b.createdAt.localeCompare(a.createdAt);
+        }),
     [data, statusFilter, periodFilter]
   );
 
@@ -104,9 +107,6 @@ export default function ReschedulePage() {
         <div className="flex flex-col gap-2">
           <FilterRow label="상태" options={STATUS_FILTERS} value={statusFilter} onChange={(k) => setStatusFilter(k as StatusKey)} />
           <FilterRow label="기간" options={PERIOD_FILTERS} value={periodFilter} onChange={setPeriodFilter} />
-          <p className="pl-10 text-label-3 text-gray-400">
-            만료된 재조정안은 상단 ‘기간별 이력’에서 확인할 수 있습니다.
-          </p>
         </div>
 
         {isLoading ? (
@@ -125,13 +125,17 @@ export default function ReschedulePage() {
         ) : (
           <>
             <div className="flex flex-col gap-3">
-              {pageItems.map((group) => (
-                <RescheduleCard
-                  key={group.groupId}
-                  onOpenDetail={() => navigate(`/reschedule/${group.groupId}`)}
-                  data={toCardData(group, districtLabel(group.districtId))}
-                />
-              ))}
+              {pageItems.map((group) => {
+                const expired = group.groupStatus === 'expired';
+                return (
+                  <RescheduleCard
+                    key={group.groupId}
+                    disabled={expired}
+                    onOpenDetail={expired ? undefined : () => navigate(`/reschedule/${group.groupId}`)}
+                    data={toCardData(group, districtLabel(group.districtId))}
+                  />
+                );
+              })}
             </div>
 
             <Pagination
