@@ -67,7 +67,7 @@ export function useRiskAlerts() {
   const { data } = useQuery({
     queryKey: ['riskAlerts'],
     queryFn: getPendingRescheduleGroups,
-    refetchInterval: 5000,
+    refetchInterval: 1000,
     refetchIntervalInBackground: true,
   });
 

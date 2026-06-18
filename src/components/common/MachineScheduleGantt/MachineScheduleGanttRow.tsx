@@ -45,15 +45,18 @@ type MachineScheduleGanttRowProps = {
 const BAR_GAP = 0.3;
 const MIN_BAR_WIDTH = 0.6;
 
-// 계획 = 옅은 점선 고스트, 현재 상태 = tone 색 채움
-const PLAN_CLASS = 'border border-dashed border-gray-300 bg-gray-100/80 text-gray-600';
-// 재조정 반영된 계획 막대 — 강조색(채움)
-const PLAN_HIGHLIGHT_CLASS = 'border border-primary-400 bg-primary-100 text-primary-700';
+// 계획 = 옅은 점선 고스트, 현재 상태 = tone 색 채움(그라데이션)
+const PLAN_CLASS = 'border border-dashed border-gray-300 bg-gray-50 text-gray-500';
+// 승인된 재조정으로 바뀐 unit — 빨간색(채움)으로 강조. 계획/현재 상태 양쪽 모두 적용.
+const RESCHEDULED_CLASS =
+  'border border-primary-600 bg-primary-500 text-white shadow-[0_2px_8px_rgba(234,0,44,0.45)] ring-1 ring-primary-300';
 const actualToneClassMap: Record<ScheduleItemTone, string> = {
-  primary: 'bg-primary-500/80 border border-primary-300 text-white',
-  navy: 'bg-secondary-navy/75 border border-slate-400 text-white',
-  orange: 'bg-secondary-orange/85 border border-orange-300 text-white',
-  slate: 'bg-gray-400/85 border border-gray-300 text-white',
+  primary:
+    'border border-primary-400/50 bg-gradient-to-b from-primary-500 to-primary-600 text-white shadow-[0_2px_7px_rgba(234,0,44,0.28)]',
+  navy: 'border border-slate-500/50 bg-gradient-to-b from-secondary-navy to-slate-800 text-white shadow-[0_2px_7px_rgba(15,23,42,0.25)]',
+  orange:
+    'border border-orange-300/60 bg-gradient-to-b from-secondary-orange to-orange-500 text-white shadow-[0_2px_7px_rgba(234,88,12,0.22)]',
+  slate: 'border border-gray-300/60 bg-gradient-to-b from-gray-400 to-gray-500 text-white shadow-[0_2px_7px_rgba(15,23,42,0.18)]',
 };
 
 /** 시(소수) → 'HH:MM' */
@@ -95,16 +98,17 @@ export function MachineScheduleGanttRow({
   // 모드별 막대 데이터 산출
   const bars = source
     .map((u) => {
+      const rescheduled = highlightUnitIds?.has(u.unit_id) ?? false; // 승인된 재조정으로 바뀐 unit
       if (mode === 'plan') {
         const start = u.plan_start ?? u.start_time;
         const end = u.plan_end ?? u.end_time;
-        const highlighted = highlightUnitIds?.has(u.unit_id) ?? false;
         return {
           u,
           start,
           end,
-          cls: highlighted ? PLAN_HIGHLIGHT_CLASS : PLAN_CLASS,
-          tip: `${u.unit_id} · P${u.priority} · 계획 ${fmtHour(start)}–${fmtHour(end)}${highlighted ? ' · 재조정 반영' : ''}`,
+          inProgress: false,
+          cls: rescheduled ? RESCHEDULED_CLASS : PLAN_CLASS,
+          tip: `${u.unit_id} · P${u.priority} · 계획 ${fmtHour(start)}–${fmtHour(end)}${rescheduled ? ' · 재조정 반영' : ''}`,
         };
       }
       // 현재 상태(work-status)
@@ -118,34 +122,42 @@ export function MachineScheduleGanttRow({
         u,
         start,
         end,
-        cls: actualToneClassMap[u.tone ?? 'primary'],
-        tip: `${u.unit_id} · P${u.priority} · 현재 상태 ${fmtHour(start)}–${inProgress ? '진행중' : fmtHour(end)}`,
+        inProgress,
+        // 재조정으로 바뀐 unit 은 현재 상태 탭에서도 빨갛게 강조
+        cls: rescheduled ? RESCHEDULED_CLASS : actualToneClassMap[u.tone ?? 'primary'],
+        tip: `${u.unit_id} · P${u.priority} · 현재 상태 ${fmtHour(start)}–${inProgress ? '진행중' : fmtHour(end)}${rescheduled ? ' · 재조정 반영' : ''}`,
       };
     })
     .filter((b): b is NonNullable<typeof b> => b != null);
 
   return (
-    <div className="grid grid-cols-[10rem_minmax(0,1fr)] items-center gap-4 py-1">
+    <div className="group grid grid-cols-[10rem_minmax(0,1fr)] items-center gap-4 py-1">
       <h3 className="sticky left-0 z-30 flex items-center self-stretch overflow-hidden bg-white pr-3 text-body-2 font-semibold text-gray-900">
         <span className="truncate">{schedule.machine_id}</span>
       </h3>
 
-      <div className="relative h-8">
-        {bars.map(({ u, start, end, cls, tip: label }) => {
+      <div className="relative h-8 rounded-md transition group-hover:bg-surface-100/40">
+        {bars.map(({ u, start, end, inProgress, cls, tip: label }) => {
           const { left, width } = geom(start, end);
           return (
             <div
               key={u.schedule_id}
-              className={`absolute top-1/2 flex h-7 -translate-y-1/2 items-center gap-1.5 overflow-hidden rounded-lg px-2 ${cls}`}
+              className={`absolute top-1/2 flex h-7 -translate-y-1/2 items-center gap-1.5 overflow-hidden rounded-lg px-2 transition hover:z-10 hover:brightness-105 ${cls}`}
               style={{ left: `${left}%`, width: `${width}%` }}
               onMouseEnter={(e) => showTip(e, label)}
               onMouseMove={moveTip}
               onMouseLeave={hideTip}
             >
-              <span className="truncate text-[11px] font-semibold leading-none">{u.unit_id}</span>
-              <span className="ml-auto shrink-0 rounded bg-white/35 px-1 text-[9px] font-bold leading-tight">
+              {/* 상단 하이라이트 — 입체감 */}
+              <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-lg bg-white/15" aria-hidden />
+              <span className="relative truncate text-[11px] font-semibold leading-none">{u.unit_id}</span>
+              <span className="relative ml-auto shrink-0 rounded bg-white/25 px-1 text-[9px] font-bold leading-tight ring-1 ring-inset ring-white/20">
                 P{u.priority}
               </span>
+              {/* 진행중 — 우측 끝 펄스 캡 */}
+              {inProgress ? (
+                <span className="pointer-events-none absolute inset-y-0 right-0 w-1.5 animate-pulse bg-white/60" aria-hidden />
+              ) : null}
             </div>
           );
         })}

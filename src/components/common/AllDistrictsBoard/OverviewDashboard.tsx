@@ -179,9 +179,9 @@ export function OverviewDashboard() {
           {isLoading ? (
             <span className="text-gray-500">구역 데이터 불러오는 중…</span>
           ) : isError ? (
-            <span className="text-rose-500">API 연결 실패 · 데모 데이터</span>
+            <span className="text-rose-500">API 연결 실패 · 실시간</span>
           ) : (
-            <span className="text-amber-600">데모 데이터</span>
+            <span className="text-amber-600">실시간</span>
           )}
         </div>
       ) : null}

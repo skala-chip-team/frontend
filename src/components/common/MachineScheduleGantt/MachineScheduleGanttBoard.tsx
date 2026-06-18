@@ -103,9 +103,9 @@ export function MachineScheduleGanttBoard({
             {m === 'plan' ? '계획' : '현재 상태'}
           </button>
         ))}
-        {mode === 'plan' && highlightUnitIds && highlightUnitIds.size > 0 ? (
+        {highlightUnitIds && highlightUnitIds.size > 0 ? (
           <span className="ml-2 inline-flex items-center gap-1 whitespace-nowrap text-label-3 text-gray-400">
-            <span className="h-2.5 w-2.5 rounded-sm border border-primary-400 bg-primary-100" />
+            <span className="h-2.5 w-2.5 rounded-sm bg-primary-500" />
             재조정 반영
           </span>
         ) : null}
@@ -150,18 +150,42 @@ export function MachineScheduleGanttBoard({
           </div>
         </div>
 
-        <div className="mt-1 flex flex-col gap-0.5">
-          {schedules.map((schedule) => (
-            <MachineScheduleGanttRow
-              key={schedule.machine_id}
-              schedule={schedule}
-              startHour={startHour}
-              endHour={endHour}
-              currentHour={currentHour}
-              mode={mode}
-              highlightUnitIds={highlightUnitIds}
-            />
-          ))}
+        <div className="relative mt-1">
+          {/* 시간 격자선 — 차트 영역(라벨 칸 제외)에만 시각별 세로선 */}
+          <div
+            className="pointer-events-none absolute inset-y-0 z-0"
+            style={{ left: `calc(${labelColumnWidth} + ${columnGap})`, right: 0 }}
+            aria-hidden
+          >
+            {hourTicks.map((hour, index) =>
+              index === 0 ? null : (
+                <span
+                  key={hour}
+                  className="absolute bottom-0 top-0 w-px bg-gray-100"
+                  style={{ left: `${(index / totalHours) * 100}%` }}
+                />
+              )
+            )}
+          </div>
+
+          {/* 장비 행 — 줄무늬(zebra)로 가독성 향상 */}
+          <div className="relative z-10 flex flex-col">
+            {schedules.map((schedule, index) => (
+              <div
+                key={schedule.machine_id}
+                className={index % 2 === 1 ? 'rounded-md bg-gray-50/60' : undefined}
+              >
+                <MachineScheduleGanttRow
+                  schedule={schedule}
+                  startHour={startHour}
+                  endHour={endHour}
+                  currentHour={currentHour}
+                  mode={mode}
+                  highlightUnitIds={highlightUnitIds}
+                />
+              </div>
+            ))}
+          </div>
         </div>
         </div>
       </div>

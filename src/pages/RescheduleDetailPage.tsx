@@ -33,7 +33,7 @@ import {
 } from '@components/common';
 import { RescheduleFaqChat } from '@/components/reschedule';
 import { useGenerateReschedule, useRescheduleDetail, useSelectStrategy } from '@/hooks';
-import { districtLabels, useAuthStore, useToastStore, type DistrictId } from '@/stores';
+import { districtLabels, useAuthStore, useDistrictStore, useToastStore, type DistrictId } from '@/stores';
 import {
   buildStrategies,
   formatDelayHours,
@@ -526,6 +526,7 @@ export default function RescheduleDetailPage() {
   const navigate = useNavigate();
   const { groupId } = useParams();
   const addToast = useToastStore((state) => state.addToast);
+  const setDistrict = useDistrictStore((state) => state.setDistrict);
   // 재조정 승인은 운영자(OPERATOR)·관리자(ADMIN)만 가능 (작업자는 조회만)
   const role = useAuthStore((state) => state.user?.role);
   const canApprove = ['ADMIN', 'OPERATOR'].includes((role ?? '').toUpperCase());
@@ -792,6 +793,8 @@ export default function RescheduleDetailPage() {
       onSuccess: () => {
         setApproveModalOpen(false);
         addToast({ tone: 'info', title: '재조정안 승인이 완료되었습니다' });
+        // 승인한 재조정안의 구역 대시보드로 이동 (반영 결과를 바로 확인)
+        setDistrict(detail.districtId as DistrictId);
         navigate('/dashboard');
       },
       onError: (e) => {

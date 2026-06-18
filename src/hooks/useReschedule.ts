@@ -43,8 +43,14 @@ export function useApprovedRescheduleUnitIds(districtId?: string): Set<string> {
     const selected =
       detail.options.find((option) => option.selected) ??
       detail.options.find((option) => option.afterSchedule != null);
-    selected?.afterSchedule?.units.forEach((unit) => ids.add(unit.unit_id));
-    selected?.queueReorder?.forEach((item) => ids.add(item.unit_id));
+    // '바뀐' unit만 강조: 큐 순서가 바뀐 unit(queueReorder) + 위험 unit(delayRisks).
+    // queueReorder가 없을 때만 afterSchedule 전체로 폴백.
+    const reorder = selected?.queueReorder ?? [];
+    if (reorder.length > 0) {
+      reorder.forEach((item) => ids.add(item.unit_id));
+    } else {
+      selected?.afterSchedule?.units.forEach((unit) => ids.add(unit.unit_id));
+    }
     detail.delayRisks.forEach((risk) => ids.add(risk.unitId));
   }
   return ids;

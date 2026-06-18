@@ -141,21 +141,23 @@ export const districtOverviews: DistrictOverview[] = [
       [23]
     ),
     reschedule_group_count: 1,
+    // 데모 시나리오와 정렬: STEP-PHOTO-A1 큐 적체(Queue_Bottleneck), 위험 유닛 UNIT-08·09.
+    // group_id 는 어댑터가 어떤 값이든 데모 상세를 돌려주므로 표기만 시나리오에 맞춘다.
     latest_reschedule: {
-      group_id: 'GR-2025-0517-0098', process_step: 'STEP_B', max_risk_score: 0.58, occurred_at: '13:50', cause: 'Machine_Fault',
-      affected_units: ['UNIT-0912', 'UNIT-0913'], affected_steps: ['STEP_B', 'STEP_C'],
+      group_id: 'GRP-DEMO-IDEAL-0001', process_step: 'STEP-PHOTO-A1', max_risk_score: 0.91, occurred_at: '11:30', cause: 'Queue_Bottleneck',
+      affected_units: ['UNIT-08', 'UNIT-09'], affected_steps: ['STEP-PHOTO-A1', 'STEP-PHOTO-A2'],
       delay_risks: risks('RISK', [
-        ['Medium', '13:50', 1.4, 0.52, 'Machine_Fault'],
-        ['Low', '13:40', 0.7, 0.34, 'Queue_Bottleneck'],
+        ['Critical', '11:30', 4.5, 0.88, 'Queue_Bottleneck'],
+        ['High', '11:30', 3.5, 0.78, 'Queue_Bottleneck'],
       ]),
       propagation: [
-        { machine_id: 'MACHINE-12', role: 'cause' },
+        { machine_id: 'MACHINE-10', role: 'cause' },
         { machine_id: 'MACHINE-22', role: 'impact' },
       ],
     },
-    top_queue: { step: 'STEP_A', waiting_unit_count: 9 },
+    top_queue: { step: 'STEP-PHOTO-A1', waiting_unit_count: 9 },
     queue_by_step: [
-      { step: 'STEP_A', waiting: 9 }, { step: 'STEP_C', waiting: 5 }, { step: 'STEP_B', waiting: 3 }, { step: 'STEP_D', waiting: 1 },
+      { step: 'STEP-PHOTO-A1', waiting: 9 }, { step: 'STEP-PHOTO-A2', waiting: 5 }, { step: 'STEP-ETCH-B1', waiting: 3 }, { step: 'STEP-PKG-C1', waiting: 1 },
     ],
   },
   {

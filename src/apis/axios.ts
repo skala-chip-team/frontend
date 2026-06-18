@@ -2,6 +2,7 @@ import axios from 'axios';
 
 import { useToastStore } from '@/stores/toastStore';
 import { useDistrictStore } from '@/stores/districtStore';
+import { USE_MOCKS, mockAdapter } from '@/mocks/mockAdapter';
 
 // 백엔드 주소. 기본값은 배포 백엔드(prod).
 // 로컬에서 Vite 프록시(/api → localhost:8080)로 CORS를 회피하려면
@@ -14,6 +15,14 @@ export const apiClient = axios.create({
   timeout: 10000,
   headers: { 'Content-Type': 'application/json' },
 });
+
+// ── 데모 모드: 모든 네트워크 호출을 끊고 더미 데이터로 응답 ──
+// apiClient(=/api/*) 와 전역 axios(sim.ts 의 /sim/*) 양쪽에 mock 어댑터를 꽂는다.
+// 실제 백엔드로 되돌리려면 src/mocks/mockAdapter.ts 의 USE_MOCKS 를 false 로.
+if (USE_MOCKS) {
+  apiClient.defaults.adapter = mockAdapter;
+  axios.defaults.adapter = mockAdapter;
+}
 
 // 저장된 accessToken을 모든 요청에 Bearer로 첨부 (키는 authStore의 AUTH_TOKEN_KEY와 동일)
 apiClient.interceptors.request.use((config) => {
