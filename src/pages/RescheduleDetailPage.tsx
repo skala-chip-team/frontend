@@ -10,7 +10,9 @@ import {
   Minus,
   Package,
   RefreshCw,
+  Scale,
   ShieldAlert,
+  Sparkles,
   Star,
   Timer,
   TrendingUp,
@@ -45,6 +47,7 @@ import {
   toRescheduleGroupFromDetail,
 } from '@/utils';
 import type { RescheduleStrategy, StrategyBest, StrategyKey, UnitRiskChange } from '@/types';
+import type { DetailedReport } from '@apis/index';
 
 // 전략별 강조색 — 레이더 폴리곤·진행 바·선택 칩에 공통 사용
 const STRATEGY_ACCENTS: Record<StrategyKey, { hex: string; bar: string }> = {
@@ -429,6 +432,51 @@ function RadarUnavailable({ axes }: { axes: string[] }) {
       </svg>
       <p className="text-label-2 font-semibold text-gray-400">비교 지표를 구할 수 없습니다</p>
       <p className="text-label-3 text-gray-400">fallback로 생성돼 전·후 비교 점수가 산출되지 않았습니다.</p>
+    </div>
+  );
+}
+
+/** AI 상세 리포트 본문 — 핵심 요약은 강조 카드, 나머지는 아이콘 섹션으로 정리 */
+const REPORT_SECTIONS: { key: keyof DetailedReport; label: string; icon: LucideIcon }[] = [
+  { key: 'riskBackground', label: '위험 배경', icon: ShieldAlert },
+  { key: 'metricAnalysis', label: '지표 분석', icon: Gauge },
+  { key: 'tradeoffs', label: '트레이드오프', icon: Scale },
+  { key: 'decisionBasis', label: '결정 근거', icon: CircleCheck },
+];
+
+function AiReportBody({ report }: { report: DetailedReport }) {
+  return (
+    <div className="flex flex-col gap-4">
+      {report.executiveSummary ? (
+        <div className="flex gap-3 rounded-xl border border-primary-100 bg-primary-50/60 px-4 py-3.5">
+          <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-primary-500" aria-hidden />
+          <div>
+            <h4 className="mb-1 text-label-1 font-bold text-primary-700">핵심 요약</h4>
+            <p className="whitespace-pre-line text-body-2 leading-relaxed text-secondary-navy">
+              {report.executiveSummary}
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="flex flex-col">
+        {REPORT_SECTIONS.filter((section) => report[section.key]).map((section, index) => (
+          <section
+            key={section.key}
+            className={`flex gap-3 py-4 ${index > 0 ? 'border-t border-gray-100' : ''}`}
+          >
+            <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface-100 text-gray-500">
+              <section.icon className="h-4 w-4" aria-hidden />
+            </span>
+            <div className="flex-1">
+              <h4 className="mb-1 text-label-1 font-bold text-secondary-navy">{section.label}</h4>
+              <p className="whitespace-pre-line text-body-2 leading-relaxed text-gray-600">
+                {report[section.key]}
+              </p>
+            </div>
+          </section>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1294,33 +1342,29 @@ export default function RescheduleDetailPage() {
               onClose={() => setReportModalOpen(false)}
               title="AI 리포트"
             >
-              <div className="flex flex-col gap-3 text-body-2 leading-relaxed text-gray-600">
-                <p className="rounded-xl bg-surface-100 px-4 py-3 font-semibold text-secondary-navy">
-                  재조정안{strategyLabel(activeIndex)} ({activeStrategy.name}) 적용 시{' '}
-                  {group.risk_factor || '지연 위험'} 재조정 효과 분석
-                </p>
+              <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto pr-1">
+                {/* 분석 대상 */}
+                <div className="rounded-xl bg-surface-100 px-4 py-3">
+                  <p className="text-label-3 font-semibold text-gray-400">분석 대상</p>
+                  <p className="mt-0.5 text-body-2 font-bold text-secondary-navy">
+                    재조정안{strategyLabel(activeIndex)} · {activeStrategy.name}
+                  </p>
+                  <p className="mt-0.5 text-label-3 text-gray-500">
+                    {group.risk_factor || '지연 위험'} 재조정 효과 분석
+                  </p>
+                </div>
+
                 {activeStrategy.detailedReport ? (
-                  (
-                    [
-                      ['핵심 요약', activeStrategy.detailedReport.executiveSummary],
-                      ['위험 배경', activeStrategy.detailedReport.riskBackground],
-                      ['지표 분석', activeStrategy.detailedReport.metricAnalysis],
-                      ['트레이드오프', activeStrategy.detailedReport.tradeoffs],
-                      ['결정 근거', activeStrategy.detailedReport.decisionBasis],
-                    ] as const
-                  )
-                    .filter(([, body]) => Boolean(body))
-                    .map(([heading, body]) => (
-                      <div key={heading}>
-                        <h4 className="mb-1 text-label-1 font-bold text-secondary-navy">{heading}</h4>
-                        <p>{body}</p>
-                      </div>
-                    ))
+                  <AiReportBody report={activeStrategy.detailedReport} />
                 ) : (
-                  <>
-                    <p>{activeStrategy.detail.summary}</p>
-                    <p className="text-gray-400">상세 리포트가 아직 생성되지 않았습니다.</p>
-                  </>
+                  <div className="rounded-xl border border-dashed border-gray-200 px-4 py-6 text-center">
+                    <p className="text-body-2 leading-relaxed text-gray-600">
+                      {activeStrategy.detail.summary}
+                    </p>
+                    <p className="mt-1 text-label-3 text-gray-400">
+                      상세 리포트가 아직 생성되지 않았습니다.
+                    </p>
+                  </div>
                 )}
               </div>
             </Modal>
