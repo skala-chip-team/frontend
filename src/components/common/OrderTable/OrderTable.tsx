@@ -69,8 +69,8 @@ function SortableTh({
 /** 주문 테이블 — 주문ID / 구역 / 진행 상태 / 우선순위 / 수량 / 계획일 / 납기. 행은 스태거 등장. */
 export function OrderTable({ orders, selectedId, today, sort, onSort, onSelect }: OrderTableProps) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
-      <table className="w-full text-left text-label-2">
+    <div className="overflow-x-auto rounded-2xl border border-gray-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+      <table className="w-full min-w-[640px] text-left text-label-2">
         <thead className="border-b border-gray-200 bg-surface-100/70 text-label-3 text-gray-500">
           <tr>
             <th className="px-5 py-3 font-semibold">주문 ID</th>

@@ -35,8 +35,8 @@ interface MachineTableProps {
 /** 장비 설정 테이블 — ID / 타입 / 구역 / STEP / 상태 + 삭제 액션 */
 export function MachineTable({ machines, onDelete }: MachineTableProps) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
-      <table className="w-full text-left text-label-2">
+    <div className="overflow-x-auto rounded-2xl border border-gray-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+      <table className="w-full min-w-[640px] text-left text-label-2">
         <thead className="border-b border-gray-200 bg-surface-100/70 text-label-3 text-gray-500">
           <tr>
             <th className="px-5 py-3 font-semibold">장비 ID</th>

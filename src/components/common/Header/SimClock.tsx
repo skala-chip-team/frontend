@@ -50,7 +50,7 @@ function SimButton({
       ) : (
         <Icon className="h-3.5 w-3.5" aria-hidden />
       )}
-      {label}
+      <span className="hidden sm:inline">{label}</span>
     </button>
   );
 }
@@ -71,7 +71,7 @@ export function SimClock() {
   return (
     <div className="flex items-center gap-2 rounded-full border border-gray-200 bg-white py-1.5 pl-3 pr-1.5">
       <Clock className="h-4 w-4 text-gray-400" aria-hidden />
-      <span className="text-label-3 font-medium text-gray-400">시뮬레이션</span>
+      <span className="hidden text-label-3 font-medium text-gray-400 sm:inline">시뮬레이션</span>
 
       {formatted ? (
         <span className="text-body-2 font-semibold tabular-nums text-secondary-navy">

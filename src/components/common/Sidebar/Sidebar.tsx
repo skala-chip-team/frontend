@@ -29,8 +29,18 @@ function matchTitleByPath(pathname: string): string | null {
   return match?.title ?? null;
 }
 
-export function Sidebar() {
+export function Sidebar({
+  mobileOpen = false,
+  onClose,
+}: {
+  /** 모바일 드로어 열림 여부 */
+  mobileOpen?: boolean;
+  /** 모바일 드로어 닫기 */
+  onClose?: () => void;
+}) {
   const [open, setOpen] = useState(true);
+  // 데스크톱은 open(접기)으로, 모바일 드로어는 열리면 항상 확장 표시
+  const expanded = open || mobileOpen;
   const navigate = useNavigate();
   const { pathname } = useLocation();
   // 선택 상태의 단일 소스. 라우트가 있는 메뉴는 URL과 동기화되고,
@@ -62,50 +72,65 @@ export function Sidebar() {
     // 라우트 이동은 transition으로 표시해 비긴급 처리. 무거운 페이지(대시보드 3D 등)
     // 렌더가 사이드바의 즉시 반응을 막지 않도록 — 메뉴가 먼저 움직이고 페이지가 뒤따라 로딩된다.
     if (item.path) startTransition(() => navigate(item.path!));
+    onClose?.(); // 모바일 드로어면 닫기
   };
 
   return (
-    <nav
-      className={`sticky top-0 h-screen shrink-0 overflow-hidden border-r border-gray-200 bg-white p-2 shadow-sm transition-all duration-300 ease-in-out ${
-        open ? 'w-64' : 'w-16'
-      }`}
-    >
-      <TitleSection open={open} />
+    <>
+      {/* 모바일 드로어 백드롭 */}
+      {mobileOpen ? (
+        <div
+          className="fixed inset-0 z-40 bg-secondary-navy/40 backdrop-blur-[1px] lg:hidden"
+          onClick={onClose}
+          aria-hidden
+        />
+      ) : null}
 
-      <div className="mb-8 space-y-1">
-        {mainMenu.map((item) => (
-          <Option
-            key={item.title}
-            icon={item.icon}
-            title={item.title}
-            notifs={item.notifs}
-            isSelected={isItemSelected(item)}
-            onClick={() => handleSelect(item)}
-            open={open}
-          />
-        ))}
-      </div>
+      <nav
+        className={`fixed inset-y-0 left-0 z-50 h-screen w-64 shrink-0 overflow-hidden border-r border-gray-200 bg-white p-2 shadow-lg transition-transform duration-300 ease-in-out lg:sticky lg:top-0 lg:translate-x-0 lg:shadow-sm lg:transition-all ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        } ${open ? 'lg:w-64' : 'lg:w-16'}`}
+      >
+        <TitleSection open={expanded} />
 
-      {open && operatorMenu.length > 0 && (
-        <div className="space-y-1 border-t border-gray-200 pt-4">
-          <div className="px-3 py-2 text-label-3 uppercase tracking-wide text-gray-500">
-            운영자
-          </div>
-          {operatorMenu.map((item) => (
+        <div className="mb-8 space-y-1">
+          {mainMenu.map((item) => (
             <Option
               key={item.title}
               icon={item.icon}
               title={item.title}
+              notifs={item.notifs}
               isSelected={isItemSelected(item)}
               onClick={() => handleSelect(item)}
-              open={open}
+              open={expanded}
             />
           ))}
         </div>
-      )}
 
-      <ToggleClose open={open} setOpen={setOpen} />
-    </nav>
+        {expanded && operatorMenu.length > 0 && (
+          <div className="space-y-1 border-t border-gray-200 pt-4">
+            <div className="px-3 py-2 text-label-3 uppercase tracking-wide text-gray-500">
+              운영자
+            </div>
+            {operatorMenu.map((item) => (
+              <Option
+                key={item.title}
+                icon={item.icon}
+                title={item.title}
+                isSelected={isItemSelected(item)}
+                onClick={() => handleSelect(item)}
+                open={expanded}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* 접기 토글 — 데스크톱 전용 */}
+        <div className="hidden lg:block">
+          <ToggleClose open={open} setOpen={setOpen} />
+        </div>
+      </nav>
+    </>
   );
 }
 

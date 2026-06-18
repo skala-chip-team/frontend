@@ -185,8 +185,8 @@ export default function RescheduleHistoryPage() {
           <Message>해당 기간의 재조정 이력이 없습니다.</Message>
         ) : (
           <>
-            <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
-              <table className="w-full text-left text-label-2">
+            <div className="overflow-x-auto rounded-2xl border border-gray-200/80 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
+              <table className="w-full min-w-[640px] text-left text-label-2">
                 <thead className="border-b border-gray-200 bg-surface-100/70 text-label-3 text-gray-500">
                   <tr>
                     <th className="px-5 py-3 font-semibold">생성일시</th>
