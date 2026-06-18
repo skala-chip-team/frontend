@@ -700,6 +700,25 @@ export default function RescheduleDetailPage() {
           </div>
         ) : null}
 
+        {/* fallback/검토 대상 — 운영자 수동 검토 필요 (크게 강조) */}
+        {!isExpired && (activeStrategy.manualReviewRequired || !activeStrategy.selectable) ? (
+          <div className="flex items-start gap-3.5 rounded-2xl border-2 border-amber-400 bg-amber-50 px-5 py-4 shadow-[0_10px_30px_rgba(217,119,6,0.20)]">
+            <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-400 text-white">
+              <TriangleAlert className="h-6 w-6" aria-hidden />
+            </span>
+            <div className="flex flex-col gap-1">
+              <h3 className="text-subtitle-1 font-extrabold text-amber-800">
+                운영자 수동 검토가 필요합니다
+              </h3>
+              <p className="text-label-1 leading-relaxed text-amber-700">
+                AI가 완전한 재조정안을 생성하지 못했습니다(fallback). 자동 적용·승인이 불가하니,
+                운영자가 직접 현재 상황을 검토하고 판단해 주세요.
+                {activeStrategy.fallbackReason ? ` (사유: ${activeStrategy.fallbackReason})` : ''}
+              </p>
+            </div>
+          </div>
+        ) : null}
+
         {(
           <>
             {/* 현재 위험 상황 */}
