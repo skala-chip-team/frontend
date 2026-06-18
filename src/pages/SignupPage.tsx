@@ -105,7 +105,7 @@ export default function SignupPage() {
             src={butterflyBg}
             alt=""
             aria-hidden
-            className="pointer-events-none absolute left-1/2 top-1/2 w-[150%] max-w-none -translate-x-1/2 -translate-y-1/2 select-none opacity-[0.18] mix-blend-lighten contrast-125 saturate-150 animate-[butterflyFly_12s_ease-in-out_infinite]"
+            className="pointer-events-none absolute left-1/2 top-1/2 w-[175%] max-w-none -translate-x-1/2 -translate-y-1/2 select-none opacity-[0.32] mix-blend-lighten contrast-125 saturate-150 animate-[butterflyFly_12s_ease-in-out_infinite]"
           />
         </div>
         {/* 데스크톱: 밝은 글로우 */}
@@ -114,9 +114,20 @@ export default function SignupPage() {
         </div>
 
         <div className="relative z-10 w-full max-w-[27.5rem] animate-[fadeUp_0.6s_ease-out] lg:-translate-x-[4%]">
+          {/* 모바일 전용 히어로 문구 (데스크톱은 좌측 패널에 표시) */}
           <div className="mb-8 text-center lg:hidden">
-            <h1 className="text-xl font-bold text-white">chipScheduler</h1>
-            <p className="text-sm text-white/60">Operations Dashboard</p>
+            <p className="mb-3 text-[0.8rem] font-bold tracking-tight text-white/80">SKALA</p>
+            <p className="mb-2 text-[0.7rem] font-semibold tracking-[0.28em] text-primary-400">
+              ACCOUNT REGISTRATION
+            </p>
+            <h1 className="mb-3 text-[1.8rem] font-bold leading-[1.2] tracking-[-0.03em] text-white">
+              운영 계정을 등록하고,
+              <br />
+              대시보드 접근을 시작합니다.
+            </h1>
+            <p className="mx-auto max-w-[22rem] text-sm leading-6 text-white/55">
+              공정 운영 현황과 장비 상태를 확인할 수 있도록 관리자 계정을 생성합니다.
+            </p>
           </div>
 
           <div className="rounded-[2rem] border border-gray-200/80 bg-white p-6 shadow-[0_20px_50px_rgba(0,0,0,0.3)] backdrop-blur sm:p-10 lg:shadow-[0_10px_40px_rgba(15,23,42,0.06)]">
