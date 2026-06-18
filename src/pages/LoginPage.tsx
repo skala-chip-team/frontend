@@ -85,7 +85,7 @@ export default function LoginPage() {
             src={butterflyBg}
             alt=""
             aria-hidden
-            className="pointer-events-none absolute left-[64%] top-[42%] w-[150%] max-w-none -translate-x-1/2 -translate-y-1/2 select-none opacity-[0.42] mix-blend-lighten contrast-125 saturate-150 animate-[butterflyFly_12s_ease-in-out_infinite]"
+            className="pointer-events-none absolute left-[64%] top-[82%] w-[150%] max-w-none -translate-x-1/2 -translate-y-1/2 select-none opacity-[0.42] mix-blend-lighten contrast-125 saturate-150 animate-[butterflyFly_12s_ease-in-out_infinite]"
           />
         </div>
         {/* 데스크톱: 밝은 글로우 */}
