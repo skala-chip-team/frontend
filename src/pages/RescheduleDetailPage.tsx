@@ -436,6 +436,49 @@ function RadarUnavailable({ axes }: { axes: string[] }) {
   );
 }
 
+// 본문에서 강조할 토큰: 설비/유닛/스텝 ID(하이픈 포함), 단위 붙은 수치, 소수
+const HIGHLIGHT_RE = /([A-Z]{2,}[A-Z0-9]*(?:-[A-Z0-9]+)+|\d+(?:\.\d+)?\s?(?:시간|분|%|개|대|건)|\d+\.\d+)/g;
+
+/** 텍스트에서 ID·수치를 굵게 강조해 시선이 핵심에 가도록 */
+function highlightTokens(text: string): ReactNode[] {
+  // 단일 캡처 그룹으로 split → 매치는 홀수 인덱스에 위치
+  return text.split(HIGHLIGHT_RE).map((part, i) =>
+    i % 2 === 1 ? (
+      <span key={i} className="font-semibold text-secondary-navy">
+        {part}
+      </span>
+    ) : (
+      <span key={i}>{part}</span>
+    )
+  );
+}
+
+/** 긴 설명을 문장 단위로 끊어 불릿으로(여러 문장일 때), 한 문장이면 문단으로 */
+function ReportText({ text }: { text: string }) {
+  const sentences = text
+    .split(/(?<=\.)\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  if (sentences.length <= 1) {
+    return (
+      <p className="whitespace-pre-line text-body-2 leading-relaxed text-gray-600">
+        {highlightTokens(text)}
+      </p>
+    );
+  }
+  return (
+    <ul className="flex flex-col gap-2">
+      {sentences.map((sentence, i) => (
+        <li key={i} className="flex gap-2.5 text-body-2 leading-relaxed text-gray-600">
+          <span className="mt-[8px] h-1.5 w-1.5 shrink-0 rounded-full bg-gray-300" aria-hidden />
+          <span className="flex-1">{highlightTokens(sentence)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /** AI 상세 리포트 본문 — 핵심 요약은 강조 카드, 나머지는 아이콘 섹션으로 정리 */
 const REPORT_SECTIONS: { key: keyof DetailedReport; label: string; icon: LucideIcon }[] = [
   { key: 'riskBackground', label: '위험 배경', icon: ShieldAlert },
@@ -452,8 +495,8 @@ function AiReportBody({ report }: { report: DetailedReport }) {
           <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-primary-500" aria-hidden />
           <div>
             <h4 className="mb-1 text-label-1 font-bold text-primary-700">핵심 요약</h4>
-            <p className="whitespace-pre-line text-body-2 leading-relaxed text-secondary-navy">
-              {report.executiveSummary}
+            <p className="whitespace-pre-line text-body-2 font-medium leading-relaxed text-secondary-navy">
+              {highlightTokens(report.executiveSummary)}
             </p>
           </div>
         </div>
@@ -469,10 +512,8 @@ function AiReportBody({ report }: { report: DetailedReport }) {
               <section.icon className="h-4 w-4" aria-hidden />
             </span>
             <div className="flex-1">
-              <h4 className="mb-1 text-label-1 font-bold text-secondary-navy">{section.label}</h4>
-              <p className="whitespace-pre-line text-body-2 leading-relaxed text-gray-600">
-                {report[section.key]}
-              </p>
+              <h4 className="mb-1.5 text-label-1 font-bold text-secondary-navy">{section.label}</h4>
+              <ReportText text={report[section.key]} />
             </div>
           </section>
         ))}
