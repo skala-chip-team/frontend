@@ -25,6 +25,7 @@ export function NotificationBell() {
   const items = useNotificationStore((state) => state.items);
   const markRead = useNotificationStore((state) => state.markRead);
   const markAllRead = useNotificationStore((state) => state.markAllRead);
+  const clear = useNotificationStore((state) => state.clear);
 
   const unreadCount = items.filter((n) => !n.read).length;
 
@@ -75,6 +76,15 @@ export function NotificationBell() {
                 className="rounded-md px-2 py-1 text-caption-1 text-gray-500 hover:bg-gray-50"
               >
                 모두 읽음
+              </button>
+            ) : null}
+            {items.length > 0 ? (
+              <button
+                type="button"
+                onClick={clear}
+                className="rounded-md px-2 py-1 text-caption-1 text-gray-500 hover:bg-gray-50 hover:text-rose-600"
+              >
+                지우기
               </button>
             ) : null}
             <button
