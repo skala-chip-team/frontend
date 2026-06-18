@@ -444,17 +444,8 @@ export default function RescheduleDetailPage() {
       },
     });
 
-  // 옵션이 비어 있으면(아직 생성 전) 자동으로 1회 생성 트리거 → 운영자는 "생성 중"만 본다.
-  // 그룹당 1회(autoGenRef). 만료/이미 생성/생성 중인 경우는 제외.
-  const autoGenRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!detail || detail.options.length > 0) return;
-    if (detail.groupStatus === 'expired') return;
-    if (generate.isPending || autoGenRef.current === groupId) return;
-    autoGenRef.current = groupId ?? null;
-    runGenerate();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detail, groupId]);
+  // 생성은 백엔드가 위험 감지 시 자동으로 돌린다. 프론트는 트리거하지 않고,
+  // 옵션이 빌 동안 useRescheduleDetail이 폴링하며 "생성 중"만 보여준다(아래 상태 화면).
 
   // ── 상태 화면 ──
   if (isLoading) {
@@ -529,33 +520,30 @@ export default function RescheduleDetailPage() {
                 {group.risk_factor || '지연 위험'}
               </span>
             </div>
+            {/* 생성은 백엔드가 위험 감지 시 자동 진행 → 폴링하며 '생성 중' 표시.
+                생성이 지연/실패할 때를 위한 보조 '다시 시도'만 작게 노출. */}
+            <Loader2 className="h-6 w-6 animate-spin text-primary-500" aria-hidden />
+            <p className="text-body-2 text-gray-500">
+              위험을 감지해 AI가 재조정안을 생성하고 있습니다… (최대 2분)
+            </p>
             {genFailed ? (
-              <>
-                <p className="text-body-2 text-gray-500">
-                  재조정안을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요.
-                </p>
-                <button
-                  type="button"
-                  onClick={runGenerate}
-                  disabled={generate.isPending}
-                  className="inline-flex items-center gap-2 rounded-lg bg-primary-500 px-5 py-2.5 text-label-1 font-semibold text-white shadow-[0_8px_20px_rgba(234,0,44,0.18)] transition hover:bg-primary-600 disabled:opacity-60"
-                >
-                  {generate.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                  ) : (
-                    <RefreshCw className="h-4 w-4" aria-hidden />
-                  )}
-                  다시 시도
-                </button>
-              </>
-            ) : (
-              <>
-                <Loader2 className="h-6 w-6 animate-spin text-primary-500" aria-hidden />
-                <p className="text-body-2 text-gray-500">
-                  AI가 재조정안을 생성하고 있습니다… (최대 2분)
-                </p>
-              </>
-            )}
+              <p className="text-label-3 text-rose-500">
+                생성 중 오류가 발생했습니다. 아래에서 다시 시도해 주세요.
+              </p>
+            ) : null}
+            <button
+              type="button"
+              onClick={runGenerate}
+              disabled={generate.isPending}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-4 py-2 text-label-2 font-semibold text-gray-500 transition hover:bg-surface-100 hover:text-secondary-navy disabled:opacity-60"
+            >
+              {generate.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+              )}
+              {generate.isPending ? '다시 시도 중…' : '생성이 지연되면 다시 시도'}
+            </button>
           </div>
         </div>
       </section>

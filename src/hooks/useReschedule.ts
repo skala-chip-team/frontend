@@ -73,12 +73,20 @@ export function useRescheduleHistory(query: RescheduleHistoryQuery, enabled = tr
   });
 }
 
-/** 재조정 그룹 상세 (delayRisks·riskAnalysis·beforeSchedule·options) */
+/** 재조정 그룹 상세 (delayRisks·riskAnalysis·beforeSchedule·options).
+ *  생성은 백엔드가 위험 감지 시 자동으로 돌리므로, 아직 옵션이 비어 있고 만료가 아니면
+ *  4초마다 폴링해 생성 완료(옵션 등장)를 감지한다. */
 export function useRescheduleDetail(groupId?: string) {
   return useQuery<RescheduleGroupDetail>({
     queryKey: KEYS.detail(groupId),
     queryFn: () => getRescheduleGroupDetail(groupId as string),
     enabled: Boolean(groupId),
+    refetchInterval: (query) => {
+      const detail = query.state.data;
+      if (!detail) return false;
+      const generating = detail.options.length === 0 && detail.groupStatus !== 'expired';
+      return generating ? 4000 : false;
+    },
   });
 }
 
