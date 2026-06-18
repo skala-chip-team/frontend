@@ -53,7 +53,8 @@ export function useRiskAlerts() {
   const addToast = useToastStore((state) => state.addToast);
   const logNotification = useNotificationStore((state) => state.add);
   const seen = useRef<Set<string>>(loadIds(SEEN_KEY)); // '위험 발생' 알림 띄운 그룹
-  const generated = useRef<Set<string>>(loadIds(GEN_KEY)); // '생성 완료' 알림 띄운 그룹
+  const generated = useRef<Set<string>>(loadIds(GEN_KEY)); // '생성 완료' 알림 띄운(또는 baseline) 그룹
+  const awaitingGen = useRef<Set<string>>(new Set()); // 옵션이 비어 '생성 중'으로 관찰한 그룹
   const inflight = useRef<Set<string>>(new Set()); // 상세 조회 중복 방지
   // 해소 알림용: 직전 폴링에서 pending(=활성 위험)이던 그룹 (id → 위치 라벨).
   const active = useRef<Map<string, string>>(new Map());
@@ -113,20 +114,24 @@ export function useRiskAlerts() {
         }
       }
 
-      // 2) 생성 완료 알림 — 백엔드가 자동 생성하므로 상세를 폴링하며 옵션이 생기면 1회 알린다.
-      //    (최근 그룹만, 아직 완료 알림 안 했고, 동시 조회 중이 아닐 때)
-      if (
-        isRecent &&
-        !generated.current.has(group.groupId) &&
-        !inflight.current.has(group.groupId)
-      ) {
+      // 2) 생성 완료 감지 — 백엔드가 자동 생성. 옵션이 비어 있다가 채워지는 '순간'만 알린다.
+      //    생성은 최대 2분 걸리므로 시간 게이트(isRecent)를 쓰지 않는다.
+      //    처음부터 옵션이 있던 그룹은 baseline 으로 조용히 등록(중복 알림 방지).
+      if (!generated.current.has(group.groupId) && !inflight.current.has(group.groupId)) {
         inflight.current.add(group.groupId);
         void (async () => {
           try {
             const detail = await getRescheduleGroupDetail(group.groupId);
-            if (detail.options.length === 0) return; // 아직 생성 중 → 다음 폴링에서 재시도
+            if (detail.options.length === 0) {
+              awaitingGen.current.add(group.groupId); // 생성 중 → 다음 폴링에서 완료 감지
+              return;
+            }
             generated.current.add(group.groupId);
             saveIds(GEN_KEY, generated.current);
+            // 알림 대상: ① empty→채워짐을 지켜봤거나(witnessed) ② 방금 생성된(2분 내) 그룹이
+            // (생성이 폴링보다 빨라 empty를 못 본 경우). 그 외(오래된 기존 안)는 baseline 무알림.
+            const witnessed = awaitingGen.current.delete(group.groupId);
+            if (!witnessed && !isRecent) return;
             const ok = detail.options.some((option) => option.analysisStatus === 'success');
             const title = ok ? '재조정안이 생성되었습니다' : '재조정안 생성 완료 — 운영자 검토 필요';
             addToast({ tone: 'info', title, description: where, groupId: group.groupId });
