@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { getPendingRescheduleGroups, getRescheduleGroupDetail } from '@apis/index';
 import { districtLabels, useNotificationStore, useToastStore, type DistrictId } from '@/stores';
@@ -54,6 +54,8 @@ export function useRiskAlerts() {
   const addToast = useToastStore((state) => state.addToast);
   const logNotification = useNotificationStore((state) => state.add);
   const clearNotifications = useNotificationStore((state) => state.clear);
+  const queryClient = useQueryClient();
+  const prevIdsKey = useRef<string | null>(null); // 직전 폴링의 pending 그룹 집합(목록 자동 갱신 판단)
   const seen = useRef<Set<string>>(loadIds(SEEN_KEY)); // '위험 발생' 알림 띄운 그룹
   const generated = useRef<Set<string>>(loadIds(GEN_KEY)); // '생성 완료' 알림 띄운(또는 baseline) 그룹
   const awaitingGen = useRef<Set<string>>(new Set()); // 옵션이 비어 '생성 중'으로 관찰한 그룹
@@ -100,6 +102,14 @@ export function useRiskAlerts() {
     const now = Date.now();
     let seenChanged = false;
     const currentIds = new Set(data.map((g) => g.groupId));
+
+    // pending 그룹 집합이 바뀌면(새 제안 발생/승인·만료로 빠짐) 재조정 목록을 자동 갱신.
+    // → 재조정 제안 관리 페이지가 새로고침 없이 즉시 최신화된다.
+    const idsKey = [...currentIds].sort().join(',');
+    if (prevIdsKey.current !== null && prevIdsKey.current !== idsKey) {
+      queryClient.invalidateQueries({ queryKey: ['rescheduleGroups'] });
+    }
+    prevIdsKey.current = idsKey;
 
     data.forEach((group) => {
       const where = `${districtLabels[group.districtId as DistrictId] ?? group.districtId} · ${processStepLabel(group.processStep)}`;
@@ -171,6 +181,8 @@ export function useRiskAlerts() {
               ts: Date.now(),
               iso: new Date().toISOString(),
             });
+            // 생성 완료 → 관리 목록 카드도 최신화
+            queryClient.invalidateQueries({ queryKey: ['rescheduleGroups'] });
           } catch {
             // 일시 오류는 조용히 무시(다음 폴링에서 재시도)
           } finally {
@@ -202,5 +214,5 @@ export function useRiskAlerts() {
     } else {
       resolutionReady.current = true;
     }
-  }, [data, addToast, logNotification]);
+  }, [data, addToast, logNotification, queryClient]);
 }
