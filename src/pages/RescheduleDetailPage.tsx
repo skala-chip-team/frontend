@@ -782,8 +782,9 @@ export default function RescheduleDetailPage() {
   // 이미 승인(approved)·만료(expired)된 그룹은 재승인 불가
   const isApproved = detail.groupStatus === 'approved';
   const isExpired = detail.groupStatus === 'expired';
-  // fallback/검토 대상 = 운영자 수동 검토 필요 → 배너 + 레이더 '?' 동일 기준
-  const needsManualReview = activeStrategy.manualReviewRequired || !activeStrategy.selectable;
+  // 운영자 수동 검토 = 지표를 못 구한 fallback(선택 불가)일 때만. (manualReviewRequired는
+  // 정상 안에도 붙을 수 있어 fallback 판정에서 제외 → 정상 전략엔 '수동 검토' 안 띄움)
+  const needsManualReview = !activeStrategy.selectable;
   const canSelect =
     activeStrategy.selectable && !select.isPending && !isApproved && !isExpired && canApprove;
   const approveStrategy = () =>
@@ -1007,7 +1008,7 @@ export default function RescheduleDetailPage() {
                         추천
                       </Chip>
                     ) : null}
-                    {activeStrategy.manualReviewRequired ? (
+                    {needsManualReview ? (
                       <Chip variant="subtle" color="amber" size="sm" className="font-bold">
                         <TriangleAlert className="h-3.5 w-3.5" aria-hidden />
                         운영자 수동 검토 대상
