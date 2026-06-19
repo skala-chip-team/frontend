@@ -211,7 +211,7 @@ function utilDevLabel(devPp: number): string {
 interface OptionMetrics {
   rescued: number;
   delayImprove: number; // 누적지연 개선(시간, before-after)
-  waitImprove: number; // 대기 개선(분, before-after)
+  waitImprove: number; // 라인 흐름 손실 개선(분, before-after) — 완성품 배출 흐름 손실 감소량. 내부 축 id는 'wait' 유지
   utilDevPp: number; // 장비 부하 편차(%p)
   moves: number; // 큐 순서 변경 수
 }
@@ -223,7 +223,7 @@ function rawMetrics(opt: RescheduleOption, afterLoads: Map<string, number>): Opt
   return {
     rescued: opt.deadlineImpact?.rescuedCount ?? 0,
     delayImprove: mc?.cumulativeDelayHr ? mc.cumulativeDelayHr.before - mc.cumulativeDelayHr.after : 0,
-    waitImprove: mc?.avgQueueWaitMin ? mc.avgQueueWaitMin.before - mc.avgQueueWaitMin.after : 0,
+    waitImprove: mc?.flowLoss ? mc.flowLoss.before - mc.flowLoss.after : 0,
     utilDevPp,
     moves: opt.queueReorder.length,
   };
@@ -400,7 +400,7 @@ export function buildStrategies(detail: RescheduleGroupDetail): AdaptedStrategy[
     if (i === bestWait) bests.push('wait');
     if (i === bestBalance) bests.push('balance');
 
-    // 헤드라인 효과 — 전략별 대표 지표 (납기 우선=누적지연 / 부하 균형=부하율 편차 / 대기 최소화=평균 대기)
+    // 헤드라인 효과 — 전략별 대표 지표 (납기 우선=누적지연 / 부하 균형=부하율 편차 / 라인 회복=라인 흐름 손실)
     const effect = (() => {
       // 장비 부하율 균형 → 부하율 편차(전/후). AI의 loadByMachine(부하율, 정지 장비 제외)
       // 표준편차로 산출 — 프론트 12시간 창 재계산이 아니라 AI가 최적화한 값과 일치시킨다.
@@ -418,15 +418,17 @@ export function buildStrategies(detail: RescheduleGroupDetail): AdaptedStrategy[
           delta: d > 0 ? `${d}%p 감소` : d < 0 ? `${-d}%p 증가` : '변화 없음',
         };
       }
-      // 대기시간 최소화(라인 회복) → 평균 대기 시간(전/후). 지표 null이면 계산 실패
+      // 라인 회복 → 완성품 배출 흐름 손실(분, 전/후). 평균 대기는 라인 회복 목적함수의
+      // 가중치가 0이라(흐름 0.4 + 하류압력 0.2가 주 신호) 대표 지표로 부적합 → AI가 최적화하는
+      // flowLoss(완료 간격의 idle + 박자 불규칙)로 교체. 지표 null이면 계산 실패.
       if (opt.strategy === 'line_recovery_first') {
-        const w = mc?.avgQueueWaitMin;
-        if (!w) return failEffect('평균 대기 시간');
-        const b = Math.round(w.before);
-        const a = Math.round(w.after);
+        const f = mc?.flowLoss;
+        if (!f) return failEffect('완성품 흐름 손실');
+        const b = Math.round(f.before);
+        const a = Math.round(f.after);
         const d = b - a;
         return {
-          metric: '평균 대기 시간',
+          metric: '완성품 흐름 손실',
           before: `${b}분`,
           after: `${a}분`,
           delta: d > 0 ? `${d}분 감소` : d < 0 ? `${-d}분 증가` : '변화 없음',
@@ -480,8 +482,9 @@ export function buildStrategies(detail: RescheduleGroupDetail): AdaptedStrategy[
         units: buildUnits(detail, opt, riskUnitIds),
         makespan_before_min: mc?.cumulativeDelayHr ? Math.round(mc.cumulativeDelayHr.before * 60) : 0,
         makespan_after_min: mc?.cumulativeDelayHr ? Math.round(mc.cumulativeDelayHr.after * 60) : 0,
-        wait_before_min: mc?.avgQueueWaitMin ? Math.round(mc.avgQueueWaitMin.before) : 0,
-        wait_after_min: mc?.avgQueueWaitMin ? Math.round(mc.avgQueueWaitMin.after) : 0,
+        // 라인 흐름 손실(분) 전/후 — 필드명 wait_*는 '라인 흐름' 축의 내부 id로 유지(데이터 출처만 flowLoss로 교체)
+        wait_before_min: mc?.flowLoss ? Math.round(mc.flowLoss.before) : 0,
+        wait_after_min: mc?.flowLoss ? Math.round(mc.flowLoss.after) : 0,
         utils,
         util_dev_pp: m.utilDevPp,
         util_dev_label: utilDevLabel(m.utilDevPp),

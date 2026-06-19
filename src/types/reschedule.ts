@@ -47,8 +47,8 @@ export interface StrategyCompare {
   units: UnitRiskChange[]; // 위험 unit 변화(구제/잔존/신규)
   makespan_before_min: number; // 전체 완료 소요 이전(분)
   makespan_after_min: number; // 전체 완료 소요 이후(분)
-  wait_before_min: number; // 평균 대기 이전(분)
-  wait_after_min: number; // 평균 대기 이후(분)
+  wait_before_min: number; // 라인 흐름 손실 이전(분) — 내부 축 id는 'wait' 유지, 값은 완성품 배출 흐름 손실
+  wait_after_min: number; // 라인 흐름 손실 이후(분)
   utils: MachineUtilChange[]; // 장비별 부하율 전/후
   util_dev_pp: number; // 부하율 편차(±%p, 최대-최소 기준)
   util_dev_label: string; // ex. '편차 큼', '매우 균등'

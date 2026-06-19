@@ -157,6 +157,7 @@ export interface MetricsComparison {
   deadlineViolationCount: MetricDelta | null;
   overallLoad: MetricDelta | null;
   loadByMachine: Record<string, MetricDelta>; // ★ 장비별 부하율 차이 (정지 장비 제외). 편차 KPI 산출용
+  flowLoss: MetricDelta | null; // ★ 완성품 배출 흐름 손실(분) 차이 — 라인 회복 카드 대표 지표. 낮을수록 좋음
 }
 
 /** options[].keyImprovements[] — 추천 근거(개선점) */

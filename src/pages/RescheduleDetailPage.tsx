@@ -60,7 +60,7 @@ const STRATEGY_ACCENTS: Record<StrategyKey, { hex: string; bar: string }> = {
 const RADAR_AXES = [
   { label: '지연 위험 완화', desc: '지연 위험 유닛을 안전권으로 되돌린 정도' },
   { label: '작업 완료 속도', desc: '전체 작업이 끝나는 시점이 빨라진 정도' },
-  { label: '대기 시간 개선', desc: '큐에서 대기하는 평균 시간이 줄어든 정도' },
+  { label: '라인 흐름 개선', desc: '완성품이 끊김 없이 고른 박자로 배출되는 정도' },
   { label: '장비 부하 균등', desc: '장비 간 부하가 고르게 분산된 정도' },
   { label: '순서 변동 최소', desc: '기존 작업 순서를 적게 바꾼 정도' },
 ];
@@ -1101,11 +1101,11 @@ export default function RescheduleDetailPage() {
                       </div>
                     </StatCard>
 
-                    {/* ② 라인 흐름이 빨라지는가 */}
+                    {/* ② 라인 흐름이 매끄러워지는가 (완성품 배출 흐름 손실) */}
                     <StatCard
                       icon={Timer}
-                      title="평균 대기"
-                      hint="라인 흐름이 빨라지는가"
+                      title="라인 흐름 손실"
+                      hint="완성품이 고른 박자로 나오는가"
                       best={isBest('wait')}
                     >
                       <div className="flex items-center gap-5">
@@ -1132,7 +1132,7 @@ export default function RescheduleDetailPage() {
                           before={compare.wait_before_min}
                           after={compare.wait_after_min}
                           phase={phase}
-                          max={80}
+                          max={Math.max(80, compare.wait_before_min, compare.wait_after_min)}
                           unit="분"
                           barClassName={accent.bar}
                           className="flex-1"
