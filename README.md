@@ -3,6 +3,8 @@
 반도체 공정 실시간 모니터링 + AI 재조정 관제 시스템의 프론트엔드.
 React + TypeScript + Vite 기반.
 
+🔗 **배포 주소**: https://skala-ebon.vercel.app
+
 ## 주요 기능
 
 - **실시간 공정 모니터링** — 구역별/전체 대시보드, 3D 장비 보드, 장비·대기열·생산 현황
@@ -37,22 +39,22 @@ React + TypeScript + Vite 기반.
 
 ### 1. 저장소 클론
 
-\```bash
+```bash
 git clone https://github.com/skala-chip-team/frontend.git
 cd frontend
-\```
+```
 
 ### 2. 의존성 설치
 
-\```bash
+```bash
 npm install
-\```
+```
 
 ### 3. 개발 서버 실행
 
-\```bash
+```bash
 npm run dev
-\```
+```
 
 브라우저에서 [http://localhost:5173](http://localhost:5173) 접속
 
@@ -82,25 +84,27 @@ API 베이스 주소는 `VITE_API_BASE_URL`로 주입합니다. (Vite는 빌드 
 
 ## 배포 (Vercel)
 
+배포 주소: **https://skala-ebon.vercel.app**
+
 - Framework: **Vite** / Build Command: `npm run build` / Output: `dist`
-- SPA 라우팅을 위해 `vercel.json`이 모든 경로를 `index.html`로 rewrite합니다.
+- SPA 라우팅을 위해 [`vercel.json`](./vercel.json)이 모든 경로를 `index.html`로 rewrite합니다.
 - 배포 전 `VITE_API_BASE_URL` 환경 변수 등록 후 빌드해야 합니다.
 
-\```bash
+```bash
 # Vercel CLI 예시
 npx vercel env add VITE_API_BASE_URL production
 npx vercel --prod
-\```
+```
 
 ## 절대 경로 alias
 
 `@` prefix로 `src/` 하위 경로를 절대 경로로 사용할 수 있습니다.
 
-\```ts
+```ts
 import { useUIStore } from '@stores/useUIStore';
 import { queryClient } from '@/reactQuery';
 import { Modal } from '@components/common';
-\```
+```
 
 | Alias | 경로 |
 |-------|------|
@@ -118,7 +122,7 @@ import { Modal } from '@components/common';
 
 ## 프로젝트 구조
 
-\```
+```
 src/
 ├── apis/          # API 호출 함수 (axios 인스턴스, 도메인별 호출)
 ├── assets/        # 이미지(webp), 아이콘(svg)
@@ -133,7 +137,7 @@ src/
 ├── types/         # TypeScript 타입 정의
 ├── utils/         # 유틸리티 함수 (어댑터·포맷터 등)
 └── reactQuery.ts  # QueryClient 설정
-\```
+```
 
 ## 상태 관리 기준
 
