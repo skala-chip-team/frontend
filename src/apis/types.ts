@@ -156,6 +156,7 @@ export interface MetricsComparison {
   avgQueueWaitMin: MetricDelta | null;
   deadlineViolationCount: MetricDelta | null;
   overallLoad: MetricDelta | null;
+  loadByMachine: Record<string, MetricDelta>; // ★ 장비별 부하율 차이 (정지 장비 제외). 편차 KPI 산출용
 }
 
 /** options[].keyImprovements[] — 추천 근거(개선점) */

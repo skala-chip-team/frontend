@@ -176,10 +176,17 @@ function machineLoads(sched: AfterSchedule | null | undefined): Map<string, numb
   return loads;
 }
 
-/** 장비 부하율 편차(%p) = 최대-최소 */
-function loadDeviation(loads: Map<string, number>): number {
-  const vals = [...loads.values()];
-  return vals.length ? Math.max(...vals) - Math.min(...vals) : 0;
+/**
+ * 장비 부하율 편차(%p) = 부하율 표준편차(모집단) × 100.
+ * AI가 최적화하는 load_balance_cost(머신별 부하율 pstdev)와 동일한 정의 —
+ * 모든 장비를 반영하므로 양 극단 2대만 보는 최대-최소보다 분포 고름을 정확히 잰다.
+ * values 는 metricsComparison.loadByMachine 의 before/after 부하율(0~1, 정지 장비 제외).
+ */
+function loadDeviationPct(values: number[]): number {
+  if (values.length === 0) return 0;
+  const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
+  const variance = values.reduce((sum, v) => sum + (v - mean) ** 2, 0) / values.length;
+  return Math.sqrt(variance) * 100;
 }
 
 /** 시간 포맷 (정수면 'N시간', 아니면 'N.N시간') */
@@ -395,11 +402,14 @@ export function buildStrategies(detail: RescheduleGroupDetail): AdaptedStrategy[
 
     // 헤드라인 효과 — 전략별 대표 지표 (납기 우선=누적지연 / 부하 균형=부하율 편차 / 대기 최소화=평균 대기)
     const effect = (() => {
-      // 장비 부하율 균형 → 부하율 편차(전/후). 적용 후 스케줄 없으면 계산 실패
+      // 장비 부하율 균형 → 부하율 편차(전/후). AI의 loadByMachine(부하율, 정지 장비 제외)
+      // 표준편차로 산출 — 프론트 12시간 창 재계산이 아니라 AI가 최적화한 값과 일치시킨다.
       if (opt.strategy === 'utilization_balance') {
-        if (!opt.afterSchedule) return failEffect('장비 부하율 편차');
-        const b = Math.round(loadDeviation(beforeLoads));
-        const a = Math.round(loadDeviation(afterLoads));
+        const lbm = mc?.loadByMachine;
+        const machines = lbm ? Object.values(lbm) : [];
+        if (machines.length === 0) return failEffect('장비 부하율 편차');
+        const b = Math.round(loadDeviationPct(machines.map((x) => x.before)));
+        const a = Math.round(loadDeviationPct(machines.map((x) => x.after)));
         const d = b - a;
         return {
           metric: '장비 부하율 편차',
